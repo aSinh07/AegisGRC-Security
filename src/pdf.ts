@@ -1,0 +1,6 @@
+import PDFDocument from 'pdfkit'; import type { Assessment,Finding } from './models.js';
+export function renderPdf(a:Assessment,fs:Finding[]){return new Promise<Buffer>((resolve,reject)=>{const d=new PDFDocument({margin:48});const chunks:Buffer[]=[];d.on('data',x=>chunks.push(x));d.on('end',()=>resolve(Buffer.concat(chunks)));d.on('error',reject);
+ d.fontSize(22).text('AegisGRC Security Assessment Report');d.moveDown().fontSize(10).text('Assessment: '+a.id).text('Target: '+a.target).text('Authorized: '+a.authorizedAt).text('Status: '+a.status);
+ d.moveDown().fontSize(16).text('Findings'); if(!fs.length)d.fontSize(11).text('No normalized findings recorded.');
+ for(const f of fs){d.moveDown().fontSize(13).text(f.severity+' · '+f.title);d.fontSize(9).text('Source: '+f.source+' | Evidence: '+f.evidenceHash).text(f.description).text('OWASP: '+(f.mappings.owasp||[]).join(', ')).text('ISO 27001: '+(f.mappings.iso27001||[]).join(', ')).text('ISO 42001: '+(f.mappings.iso42001||[]).join(', ')).text('NIST: '+(f.mappings.nist||[]).join(', '));}
+ d.end();})}

@@ -9,6 +9,7 @@ import { scanSource } from './semgrep.js';
 import { semgrepFindings, wapitiFindings } from './parsers.js';
 import { assessmentReport } from './reports.js';
 import type { Assessment,Evidence } from './models.js';
+import { explainFindings } from './ai.js';
 
 const app=express();
 app.use(express.json({limit:'1mb'}));
@@ -101,5 +102,29 @@ app.get('/api/assessments',async(_req,res)=>res.json(await db.assessments()));
 app.get('/api/assessments/:id',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});res.json(a)});
 app.get('/api/assessments/:id/evidence',async(req,res)=>res.json((await db.evidence()).filter(x=>x.assessmentId===req.params.id)));
 app.get('/api/assessments/:id/report',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(assessmentReport(a,fs))});
+
+app.get('/api/integrations',async(_req,res)=>{
+ const health:any={nmap:false,wapiti:false,semgrep:false,gemini:Boolean(process.env.GEMINI_API_KEY)};
+ const check=async(cmd:string,args:string[])=>{try{return (await run(cmd,args)).exitCode===0}catch{return false}};
+ health.nmap=await check('nmap',['--version']); health.wapiti=await check('wapiti',['--version']); health.semgrep=await check('semgrep',['--version']);
+ res.json({integrations:[
+  {id:'nmap',kind:'scanner',status:health.nmap?'REAL':'UNAVAILABLE'},
+  {id:'wapiti',kind:'scanner',status:health.wapiti?'REAL':'UNAVAILABLE'},
+  {id:'semgrep',kind:'source-scanner',status:health.semgrep?'REAL':'UNAVAILABLE'},
+  {id:'gemini',kind:'ai-analysis',status:health.gemini?'CONNECTED':'UNAVAILABLE'},
+  {id:'burp',kind:'external-provider',status:'UNAVAILABLE'},
+  {id:'wireshark',kind:'capture-provider',status:'UNAVAILABLE'},
+  {id:'metasploit',kind:'exploit-framework',status:'DISABLED'}
+ ]});
+});
+app.post('/api/assessments/:id/ai-remediation',async(req,res)=>{
+ try{const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(await explainFindings(fs))}
+ catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}
+});
+app.get('/api/assessments/:id/report/download',async(req,res)=>{
+ const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
+ const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const report=assessmentReport(a,fs);
+ res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.json"`);res.type('application/json').send(JSON.stringify(report,null,2));
+});
 
 app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));

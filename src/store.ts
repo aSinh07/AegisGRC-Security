@@ -1,15 +1,18 @@
 import { promises as fs } from 'node:fs';import path from 'node:path';import pg from 'pg';
 import type { Assessment,Evidence,Finding,AuditEvent } from './models.js';
 const dir=process.env.DATA_DIR||'/tmp/aegis-data'; const url=process.env.DATABASE_URL;
+const production=process.env.NODE_ENV==='production';
+if(production&&!url) throw new Error('DATABASE_URL is required in production');
 const pool=url?new pg.Pool({connectionString:url,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false}}):null;
 async function rw<T>(name:string,f:(x:T[])=>T[]){await fs.mkdir(dir,{recursive:true});const p=path.join(dir,name);let a:T[]=[];try{a=JSON.parse(await fs.readFile(p,'utf8'))}catch{};a=f(a);await fs.writeFile(p,JSON.stringify(a,null,2));return a}
 async function read<T>(name:string){try{return JSON.parse(await fs.readFile(path.join(dir,name),'utf8')) as T[]}catch{return []}}
-async function qPayload<T>(table:string){if(!pool)return null;const r=await pool.query(`SELECT payload FROM ${table} ORDER BY created_at ASC`);return r.rows.map(x=>x.payload as T)}
+const allowedTables={assessments:'authorized_at',evidence:'created_at',findings:'created_at',audit_events:'created_at'} as const;
+async function qPayload<T>(table:keyof typeof allowedTables){if(!pool)return null;const order=allowedTables[table];const r=await pool.query(`SELECT payload FROM ${table} ORDER BY ${order} ASC`);return r.rows.map(x=>x.payload as T)}
 async function upsertAssessment(x:Assessment){if(!pool)return rw<Assessment>('assessments.json',a=>[...a.filter(v=>v.id!==x.id),x]);await pool.query(`INSERT INTO assessments(id,target,authorized_at,status,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO UPDATE SET target=EXCLUDED.target,status=EXCLUDED.status,payload=EXCLUDED.payload`,[x.id,x.target,x.authorizedAt,x.status,x]);return []}
 async function insert(table:string,x:any,cols:string[],vals:any[]){if(!pool)return null;await pool.query(`INSERT INTO ${table}(${cols.join(',')}) VALUES(${cols.map((_,i)=>'$'+(i+1)).join(',')}) ON CONFLICT(id) DO NOTHING`,vals)}
 export const db={
  mode:()=>pool?'postgres':'file',
- ready:async()=>{if(!pool)return {ok:true,mode:'file'};await pool.query('SELECT 1');return {ok:true,mode:'postgres'}},
+ ready:async()=>{if(!pool){if(production)throw new Error('PostgreSQL is required in production');return {ok:true,mode:'file'}};await pool.query('SELECT 1');return {ok:true,mode:'postgres'}},
  assessments:async()=>pool?(await qPayload<Assessment>('assessments'))!:read<Assessment>('assessments.json'),
  evidence:async()=>pool?(await qPayload<Evidence>('evidence'))!:read<Evidence>('evidence.json'),
  findings:async()=>pool?(await qPayload<Finding>('findings'))!:read<Finding>('findings.json'),

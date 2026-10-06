@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 
 const app=express();
 app.use(express.json({limit:'1mb'}));
+app.use(express.static('public'));
 const PORT=Number(process.env.PORT||8080);
 const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
 const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);

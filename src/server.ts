@@ -1,0 +1,73 @@
+import 'dotenv/config';
+import express from 'express';
+import dns from 'node:dns/promises';
+import net from 'node:net';
+import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
+
+const app=express();
+app.use(express.json({limit:'1mb'}));
+const PORT=Number(process.env.PORT||8080);
+const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
+const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);
+
+type Tool='nmap'|'wapiti';
+const blocked=(ip:string)=>{
+  if(net.isIP(ip)===4){
+    const p=ip.split('.').map(Number);
+    return p[0]===10||p[0]===127||p[0]===0||(p[0]===169&&p[1]===254)||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===168)||(p[0]>=224);
+  }
+  const x=ip.toLowerCase();
+  return x==='::1'||x==='::'||x.startsWith('fc')||x.startsWith('fd')||x.startsWith('fe8')||x.startsWith('fe9')||x.startsWith('fea')||x.startsWith('feb')||x.startsWith('ff');
+};
+async function validateTarget(raw:string){
+  const u=new URL(raw);
+  if(!['http:','https:'].includes(u.protocol)) throw new Error('Only HTTP(S) targets are supported');
+  if(u.username||u.password) throw new Error('Credentials in target URLs are not allowed');
+  const records=await dns.lookup(u.hostname,{all:true,verbatim:true});
+  if(!records.length) throw new Error('Target did not resolve');
+  if(records.some(r=>blocked(r.address))) throw new Error('Private, local, reserved or link-local targets are blocked');
+  return {url:u,addresses:records.map(r=>r.address)};
+}
+function run(cmd:string,args:string[]){
+  return new Promise<{stdout:string;stderr:string;exitCode:number|null;durationMs:number}>((resolve,reject)=>{
+    const started=Date.now(); let out='',err='',done=false;
+    const child=spawn(cmd,args,{shell:false,stdio:['ignore','pipe','pipe']});
+    const timer=setTimeout(()=>child.kill('SIGKILL'),TIMEOUT);
+    const append=(base:string,chunk:Buffer)=> (base+chunk.toString()).slice(0,MAX);
+    child.stdout.on('data',(d:Buffer)=>out=append(out,d));
+    child.stderr.on('data',(d:Buffer)=>err=append(err,d));
+    child.on('error',e=>{if(!done){done=true;clearTimeout(timer);reject(e)}});
+    child.on('close',code=>{if(!done){done=true;clearTimeout(timer);resolve({stdout:out,stderr:err,exitCode:code,durationMs:Date.now()-started})}});
+  });
+}
+app.get('/api/health',async(_req,res)=>{
+  const check=async(cmd:string,args:string[])=>{try{const r=await run(cmd,args);return {available:r.exitCode===0,version:(r.stdout||r.stderr).split('\n')[0]}}catch{return {available:false}}};
+  res.json({ok:true,service:'AegisGRC Security',tools:{nmap:await check('nmap',['--version']),wapiti:await check('wapiti',['--version'])}});
+});
+app.post('/api/assessment/authorize',async(req,res)=>{
+  try{
+    if(req.body?.authorized!==true) return res.status(403).json({error:'Explicit authorization confirmation is required'});
+    const t=await validateTarget(String(req.body.targetUrl||''));
+    const token=crypto.createHmac('sha256',process.env.EVIDENCE_HMAC_KEY||'dev-only').update(t.url.origin+'|'+Date.now()).digest('hex');
+    res.json({authorized:true,targetOrigin:t.url.origin,resolvedAddresses:t.addresses,scopeToken:token});
+  }catch(e:any){res.status(400).json({error:e.message})}
+});
+app.post('/api/scans/run',async(req,res)=>{
+  try{
+    if(req.body?.authorized!==true) return res.status(403).json({error:'Assessment authorization is required'});
+    const tool=String(req.body.tool||'') as Tool;
+    if(!['nmap','wapiti'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
+    const t=await validateTarget(String(req.body.targetUrl||''));
+    const args=tool==='nmap'
+      ? ['-sT','-sV','--version-light','-Pn','-p','80,443,8080,8443','-oX','-',t.url.hostname]
+      : ['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-attacks','--format','json','-o','-'];
+    const startedAt=new Date().toISOString();
+    const result=await run(tool,args);
+    const completedAt=new Date().toISOString();
+    const evidence=JSON.stringify({tool,target:t.url.origin,startedAt,completedAt,...result});
+    const sha256=crypto.createHash('sha256').update(evidence).digest('hex');
+    res.status(result.exitCode===0?200:502).json({execution:'REAL_TOOL_EXECUTION',tool,target:t.url.origin,resolvedAddresses:t.addresses,startedAt,completedAt,...result,evidence:{sha256}});
+  }catch(e:any){res.status(400).json({error:e.message})}
+});
+app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));

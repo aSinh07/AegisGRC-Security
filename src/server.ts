@@ -12,10 +12,15 @@ import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
 import { issueSession, verifySession } from './session.js';
 import { renderPdf } from './pdf.js';
+import { authConfigured, login, logout, valid } from './auth.js';
 
 const app=express();
 app.use(express.json({limit:'1mb'}));
 app.use(express.static('public'));
+app.post('/api/auth/login',(req,res)=>{const token=login(String(req.body?.password||''),String(req.body?.code||''));if(!token)return res.status(401).json({error:authConfigured()?'Invalid password or authenticator code':'Server login is not configured'});res.cookie('aegis_auth',token,{httpOnly:true,sameSite:'strict',secure:process.env.COOKIE_SECURE==='true',maxAge:28800000});res.json({ok:true})});
+app.post('/api/auth/logout',(req,res)=>{const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';logout(token);res.setHeader('Set-Cookie','aegis_auth=; HttpOnly; SameSite=Strict; Max-Age=0; Path=/');res.json({ok:true})});
+app.get('/api/auth/status',(req,res)=>{const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';res.json({authenticated:valid(token),configured:authConfigured()})});
+app.use('/api',(req,res,next)=>{if(['/ready','/health','/integrations','/auth/login','/auth/status'].includes(req.path))return next();const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';if(!valid(token))return res.status(401).json({error:'Login required'});next()});
 const PORT=Number(process.env.PORT||8080);
 const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
 const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);

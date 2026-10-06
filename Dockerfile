@@ -8,4 +8,4 @@ RUN npm run build
 ENV NODE_ENV=production
 USER node
 EXPOSE 8080
-CMD ["npm","start"]
+CMD ["sh","-c","if [ -n \"$DATABASE_URL\" ]; then npm run db:init; fi && npm start"]

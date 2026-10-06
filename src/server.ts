@@ -50,6 +50,7 @@ function run(cmd:string,args:string[]){
     child.on('close',code=>{if(!done){done=true;clearTimeout(timer);resolve({stdout:out,stderr:err,exitCode:code,durationMs:Date.now()-started})}});
   });
 }
+app.get('/api/ready',async(_req,res)=>{try{res.json(await db.ready())}catch(e:any){res.status(503).json({ok:false,error:e.message})}});
 app.get('/api/health',async(_req,res)=>{
   const check=async(cmd:string,args:string[])=>{try{const r=await run(cmd,args);return {available:r.exitCode===0,version:(r.stdout||r.stderr).split('\n')[0]}}catch{return {available:false}}};
   res.json({ok:true,service:'AegisGRC Security',tools:{nmap:await check('nmap',['--version']),wapiti:await check('wapiti',['--version'])}});

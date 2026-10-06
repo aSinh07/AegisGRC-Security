@@ -1,11 +1,31 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: aegis-local
+      POSTGRES_DB: aegis
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U aegis"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes: ["aegis-db:/var/lib/postgresql/data"]
   aegis:
     build: .
     ports: ["8080:8080"]
-    env_file: .env
+    environment:
+      DATABASE_URL: postgres://aegis:aegis-local@postgres:5432/aegis
+      PGSSL: disable
+      ASSESSMENT_SESSION_SECRET: local-development-secret-change-me
+      EVIDENCE_HMAC_KEY: local-development-evidence-key-change-me
+    depends_on:
+      postgres: {condition: service_healthy}
     read_only: true
     tmpfs: ["/tmp"]
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
     pids_limit: 128
     mem_limit: 768m
+volumes:
+  aegis-db:

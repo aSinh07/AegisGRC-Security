@@ -6,10 +6,11 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { db } from './store.js';
 import { scanSource } from './semgrep.js';
-import { semgrepFindings, wapitiFindings } from './parsers.js';
+import { semgrepFindings, wapitiFindings, nmapFindings } from './parsers.js';
 import { assessmentReport } from './reports.js';
 import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
+import { issueSession, verifySession } from './session.js';
 
 const app=express();
 app.use(express.json({limit:'1mb'}));
@@ -59,18 +60,21 @@ app.post('/api/assessment/authorize',async(req,res)=>{
     const token=crypto.createHmac('sha256',process.env.EVIDENCE_HMAC_KEY||'dev-only').update(t.url.origin+'|'+Date.now()).digest('hex');
     const assessment:Assessment={id:crypto.randomUUID(),target:t.url.origin,authorizedAt:new Date().toISOString(),status:'AUTHORIZED',findings:[],evidenceIds:[]};
     await db.saveAssessment(assessment);
-    res.json({authorized:true,assessmentId:assessment.id,targetOrigin:t.url.origin,resolvedAddresses:t.addresses,scopeToken:token});
+    const sessionToken=issueSession(assessment.id,t.url.origin);
+    await db.saveAudit({id:crypto.randomUUID(),assessmentId:assessment.id,action:'ASSESSMENT_AUTHORIZED',actor:'operator',createdAt:new Date().toISOString(),metadata:{target:t.url.origin,resolvedAddresses:t.addresses}});
+    res.json({authorized:true,assessmentId:assessment.id,targetOrigin:t.url.origin,resolvedAddresses:t.addresses,sessionToken});
   }catch(e:any){res.status(400).json({error:e.message})}
 });
 app.post('/api/scans/run',async(req,res)=>{
   try{
-    if(req.body?.authorized!==true) return res.status(403).json({error:'Assessment authorization is required'});
-    const assessmentId=String(req.body.assessmentId||'');
+    const session=verifySession(String(req.headers['x-assessment-session']||''));
+    const assessmentId=session.assessmentId;
     const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
     if(!assessment) return res.status(404).json({error:'Assessment not found; enter through the authorization gate first'});
     const tool=String(req.body.tool||'') as Tool;
     if(!['nmap','wapiti'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
     const t=await validateTarget(String(req.body.targetUrl||''));
+    if(t.url.origin!==session.targetOrigin || assessment.target!==session.targetOrigin) return res.status(403).json({error:'Target is outside the authorized assessment scope'});
     const args=tool==='nmap'
       ? ['-sT','-sV','--version-light','-Pn','-p','80,443,8080,8443','-oX','-',t.url.hostname]
       : ['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-attacks','--format','json','-o','-'];
@@ -81,7 +85,8 @@ app.post('/api/scans/run',async(req,res)=>{
     const sha256=crypto.createHash('sha256').update(evidence).digest('hex');
     const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs}};
     await db.saveEvidence(ev);
-    const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):[];
+    const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):nmapFindings(assessmentId,t.url.origin,sha256,result.stdout);
+    await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'REAL_SCAN_COMPLETED',actor:'operator',createdAt:completedAt,metadata:{tool,exitCode:result.exitCode,evidenceHash:sha256,durationMs:result.durationMs}});
     if(findings.length) await db.saveFindings(findings);
     await db.saveAssessment({...assessment,status:result.exitCode===0?'COMPLETED':'FAILED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
     res.status(result.exitCode===0?200:502).json({execution:'REAL_TOOL_EXECUTION',tool,target:t.url.origin,resolvedAddresses:t.addresses,startedAt,completedAt,...result,evidence:{sha256}});
@@ -89,7 +94,7 @@ app.post('/api/scans/run',async(req,res)=>{
 });
 app.post('/api/source/semgrep',async(req,res)=>{
  try{
-  const assessmentId=String(req.body.assessmentId||''); const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
+  const session=verifySession(String(req.headers['x-assessment-session']||'')); const assessmentId=session.assessmentId; const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
   if(!assessment) return res.status(404).json({error:'Assessment not found'});
   const result=await scanSource(String(req.body.sourcePath||'/workspace/source'));
   const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'semgrep',sha256:result.evidence.sha256,createdAt:new Date().toISOString(),exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{sourcePath:req.body.sourcePath||'/workspace/source'}};
@@ -100,6 +105,7 @@ app.post('/api/source/semgrep',async(req,res)=>{
 });
 app.get('/api/assessments',async(_req,res)=>res.json(await db.assessments()));
 app.get('/api/assessments/:id',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});res.json(a)});
+app.get('/api/assessments/:id/audit',async(req,res)=>res.json((await db.audits()).filter(x=>x.assessmentId===req.params.id)));
 app.get('/api/assessments/:id/evidence',async(req,res)=>res.json((await db.evidence()).filter(x=>x.assessmentId===req.params.id)));
 app.get('/api/assessments/:id/report',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(assessmentReport(a,fs))});
 

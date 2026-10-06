@@ -79,7 +79,7 @@ app.post('/api/scans/run',async(req,res)=>{
     if(t.url.origin!==session.targetOrigin || assessment.target!==session.targetOrigin) return res.status(403).json({error:'Target is outside the authorized assessment scope'});
     const args=tool==='nmap'
       ? ['-sT','-sV','--version-light','-Pn','-p','80,443,8080,8443','-oX','-',t.url.hostname]
-      : ['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-attacks','--format','json','-o','-'];
+      : ['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session'];
     const startedAt=new Date().toISOString();
     const result=await run(tool,args);
     const completedAt=new Date().toISOString();

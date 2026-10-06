@@ -33,3 +33,13 @@ Open http://localhost:8080 and submit an authorized target through the assessmen
 Browser -> API -> authorization/scope validation -> scanner service -> real tool process -> evidence hash -> normalized findings -> GRC mapping -> optional AI explanation.
 
 Metasploit exploitation, credential attacks, persistence, evasion and arbitrary command execution are intentionally not exposed.
+
+
+## Production persistence
+Set `DATABASE_URL` to enable PostgreSQL. The container runs the idempotent schema initializer before starting the API. Without `DATABASE_URL`, local development falls back to the file store.
+
+## Deployment
+A `render.yaml` Docker blueprint is included. Configure `DATABASE_URL` and optional `GEMINI_API_KEY`; session and evidence secrets must remain server-side. The readiness endpoint is `/api/ready`.
+
+## Data trust model
+Scanner stdout/stderr is evidence. Parsed findings reference its SHA-256. Deterministic framework mappings and optional AI remediation are downstream interpretations and never replace raw evidence.

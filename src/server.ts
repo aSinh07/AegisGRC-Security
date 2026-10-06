@@ -11,6 +11,7 @@ import { assessmentReport } from './reports.js';
 import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
 import { issueSession, verifySession } from './session.js';
+import { renderPdf } from './pdf.js';
 
 const app=express();
 app.use(express.json({limit:'1mb'}));
@@ -126,6 +127,11 @@ app.get('/api/integrations',async(_req,res)=>{
 app.post('/api/assessments/:id/ai-remediation',async(req,res)=>{
  try{const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(await explainFindings(fs))}
  catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}
+});
+app.get('/api/assessments/:id/report.pdf',async(req,res)=>{
+ const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
+ const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const pdf=await renderPdf(a,fs);
+ res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.pdf"`);res.type('application/pdf').send(pdf);
 });
 app.get('/api/assessments/:id/report/download',async(req,res)=>{
  const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});

@@ -11,4 +11,5 @@ jobs:
         with: {node-version: 22, cache: npm}
       - run: npm install
       - run: npm run build
+      - run: npm test
       - run: docker build -t aegisgrc-security:test .

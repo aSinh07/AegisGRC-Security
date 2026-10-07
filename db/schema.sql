@@ -13,3 +13,15 @@ CREATE TABLE IF NOT EXISTS audit_events (
  id uuid PRIMARY KEY, assessment_id uuid, action text NOT NULL, created_at timestamptz NOT NULL, payload jsonb NOT NULL
 );
 CREATE INDEX IF NOT EXISTS audit_assessment_idx ON audit_events(assessment_id);
+
+CREATE TABLE IF NOT EXISTS documents (
+ id uuid PRIMARY KEY,
+ assessment_id uuid NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+ filename text NOT NULL,
+ mime_type text NOT NULL,
+ size_bytes integer NOT NULL,
+ sha256 text NOT NULL,
+ created_at timestamptz NOT NULL,
+ content bytea NOT NULL
+);
+CREATE INDEX IF NOT EXISTS documents_assessment_idx ON documents(assessment_id);

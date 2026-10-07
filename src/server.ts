@@ -13,6 +13,7 @@ import { explainFindings } from './ai.js';
 import { issueSession, verifySession } from './session.js';
 import { renderPdf } from './pdf.js';
 import { authConfigured, login, logout, valid } from './auth.js';
+import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,type ReportKind } from './exporters.js';
 
 const app=express();
 app.use(express.json({limit:'1mb'}));
@@ -143,6 +144,25 @@ app.get('/api/assessments/:id/report/download',async(req,res)=>{
  const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
  const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const report=assessmentReport(a,fs);
  res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.json"`);res.type('application/json').send(JSON.stringify(report,null,2));
+});
+
+app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
+ try{
+  const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
+  const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);
+  const kinds=['grc','remediation','architecture','technical','executive']; const formats=['pdf','docx','pptx','xlsx','csv','json','txt'];
+  const kind=(kinds.includes(req.params.kind)?req.params.kind:'grc') as ReportKind, format=req.params.format.toLowerCase();
+  if(!formats.includes(format))return res.status(400).json({error:'Unsupported report format'});
+  let body:Buffer; let mime='application/octet-stream';
+  if(format==='pdf'){body=await renderPdf(a,fs);mime='application/pdf'}
+  else if(format==='docx'){body=await docxReport(a,fs,kind);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
+  else if(format==='pptx'){body=await pptxReport(a,fs,kind);mime='application/vnd.openxmlformats-officedocument.presentationml.presentation'}
+  else if(format==='xlsx'){body=xlsxReport(a,fs,kind);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+  else if(format==='csv'){body=csvReport(fs);mime='text/csv'}
+  else if(format==='txt'){body=txtReport(a,fs,kind);mime='text/plain'}
+  else {body=Buffer.from(JSON.stringify(reportModel(a,fs,kind),null,2));mime='application/json'}
+  res.setHeader('Content-Disposition',`attachment; filename="aegis-${kind}-${a.id}.${format}"`);res.type(mime).send(body);
+ }catch(e:any){res.status(500).json({error:e.message})}
 });
 
 app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));

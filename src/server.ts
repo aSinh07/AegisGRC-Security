@@ -17,6 +17,7 @@ import multer from 'multer';
 import { frameworkCatalog } from './grc.js';
 import { analyzeDocumentText } from './document-ai.js';
 import { zapReady,zapScan,zapFindings } from './zap.js';
+import { askCopilot } from './copilot.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 
 const app=express();
@@ -147,6 +148,14 @@ app.get('/api/integrations',async(_req,res)=>{
   {id:'metasploit',kind:'exploit-framework',status:'DISABLED'}
  ]});
 });
+app.post('/api/assessments/:id/copilot',async(req,res)=>{try{
+ const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
+ const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
+ const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);
+ const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs);
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_EXPLANATION_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
+ res.json(answer);
+}catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});
 app.post('/api/assessments/:id/ai-remediation',async(req,res)=>{
  try{const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(await explainFindings(fs))}
  catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}

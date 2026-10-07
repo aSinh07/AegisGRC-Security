@@ -213,6 +213,14 @@ app.get('/api/integrations',async(_req,res)=>{
   {id:'metasploit',kind:'exploit-framework',status:'DISABLED'}
  ]});
 });
+app.post('/api/copilot',async(req,res)=>{try{
+ const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
+ const requestedId=String(req.body?.assessmentId||'');const a=requestedId?(await db.assessments()).find(x=>x.id===requestedId):null;
+ const fs=a?(await db.findings()).filter(x=>x.assessmentId===a.id):[];
+ const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs);
+ if(a)await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_CHAT_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
+ res.json(answer);
+}catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});
 app.post('/api/assessments/:id/copilot',async(req,res)=>{try{
  const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
  const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});

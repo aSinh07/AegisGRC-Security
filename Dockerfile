@@ -1,5 +1,5 @@
 FROM node:22-bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends nmap python3 python3-pip ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends nmap tshark sqlmap python3 python3-pip ca-certificates \
     && pip3 install --break-system-packages --no-cache-dir wapiti3 \
     && pip3 install --break-system-packages --no-cache-dir "httpx==0.27.2" \
     && pip3 install --break-system-packages --no-cache-dir semgrep==1.179.0 \

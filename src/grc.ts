@@ -6,11 +6,11 @@ export const frameworkCatalog=[
  {id:'NIST_CSF',name:'NIST Cybersecurity Framework 2.0',scope:'Cybersecurity risk outcomes'},
  {id:'NIST_AI_RMF',name:'NIST AI RMF 1.0',scope:'AI risk management'},
  {id:'CIS',name:'CIS Critical Security Controls v8.1',scope:'Cybersecurity safeguards'},
- {id:'OWASP',name:'OWASP Top 10 / ASVS',scope:'Application security'},
+ {id:'OWASP',name:'OWASP Top 10:2025 / ASVS',scope:'Application security'},
  {id:'SOC2',name:'AICPA SOC 2 Trust Services Criteria',scope:'Security/availability/confidentiality'},
  {id:'PCI',name:'PCI DSS 4.0.1',scope:'Payment-card environments'},
  {id:'GDPR',name:'EU GDPR',scope:'Personal-data protection'},
- {id:'DPDP',name:'India Digital Personal Data Protection Act 2023',scope:'Digital personal-data governance'},
+ {id:'DPDP',name:'India DPDP Act 2023 + DPDP Rules 2025',scope:'Digital personal-data governance'},
  {id:'HIPAA',name:'HIPAA Security Rule',scope:'US ePHI safeguards'}
 ] as const;
 export function mapFinding(f:Finding):Finding {
@@ -22,3 +22,7 @@ export function mapFinding(f:Finding):Finding {
  if(/ai|llm|model|prompt/.test(text)){m.iso42001.push('A.5 Assessing impacts of AI systems','A.6 AI system life cycle','A.8 Information for interested parties');m.nistAiRmf.push('MAP','MEASURE','MANAGE','GOVERN')}
  for(const k of Object.keys(m))m[k]=uniq(m[k]); return {...f,mappings:{...f.mappings,...m}};
 }
+
+export type FrameworkId=typeof frameworkCatalog[number]['id'];
+export function frameworkById(id:string){return frameworkCatalog.find(x=>x.id===id)}
+export function frameworkRefs(f:Finding,id:string){const m:any=f.mappings||{};const key:Record<string,string>={ISO27001:'iso27001',ISO42001:'iso42001',NIST_CSF:'nistCsf',NIST_AI_RMF:'nistAiRmf',CIS:'cis',OWASP:'owasp',SOC2:'soc2',PCI:'pci',GDPR:'gdpr',DPDP:'dpdp',HIPAA:'hipaa'};return (m[key[id]]||[]) as string[]}

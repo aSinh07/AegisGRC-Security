@@ -1,5 +1,18 @@
 export type IntelItem={title:string;link:string;publishedAt:string;source:string;summary:string;category:string;cve?:string;knownExploited?:boolean;dueDate?:string};
-const feeds=[{source:'CISA Advisories',url:'https://www.cisa.gov/cybersecurity-advisories/all.xml',category:'Advisory'},{source:'NIST News',url:'https://www.nist.gov/news-events/news/rss.xml',category:'Research'}];
+const feeds=[
+ {source:'CISA Advisories',url:'https://www.cisa.gov/cybersecurity-advisories/all.xml',category:'Advisory'},
+ {source:'NIST News',url:'https://www.nist.gov/news-events/news/rss.xml',category:'Research'}
+];
+const trustedLinks=[
+ {title:'OWASP Top 10',source:'OWASP',category:'Authoritative Learning',link:'https://owasp.org/www-project-top-ten/',summary:'OWASP guidance on the most critical web application security risk categories.'},
+ {title:'OWASP ASVS',source:'OWASP',category:'Authoritative Learning',link:'https://owasp.org/www-project-application-security-verification-standard/',summary:'Application Security Verification Standard for defining and verifying technical security controls.'},
+ {title:'NIST Cybersecurity Framework 2.0',source:'NIST',category:'Authoritative Learning',link:'https://www.nist.gov/cyberframework',summary:'NIST guidance for managing and reducing cybersecurity risk.'},
+ {title:'NIST National Vulnerability Database',source:'NIST NVD',category:'Authoritative Learning',link:'https://nvd.nist.gov/',summary:'U.S. government vulnerability database with CVE enrichment and CVSS information.'},
+ {title:'CISA Known Exploited Vulnerabilities Catalog',source:'CISA',category:'Authoritative Learning',link:'https://www.cisa.gov/known-exploited-vulnerabilities-catalog',summary:'Authoritative catalog of vulnerabilities known to be exploited in the wild.'},
+ {title:'MITRE ATT&CK',source:'MITRE',category:'Authoritative Learning',link:'https://attack.mitre.org/',summary:'Knowledge base of adversary tactics and techniques based on real-world observations.'},
+ {title:'CWE',source:'MITRE',category:'Authoritative Learning',link:'https://cwe.mitre.org/',summary:'Community-developed list of software and hardware weakness types.'},
+ {title:'CVSS',source:'FIRST',category:'Authoritative Learning',link:'https://www.first.org/cvss/',summary:'Official Common Vulnerability Scoring System specifications and guidance.'}
+];
 function clean(s:string){return s.replace(/<[^>]+>/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim()}
 function value(block:string,name:string){const a=block.toLowerCase().indexOf('<'+name.toLowerCase());if(a<0)return '';const start=block.indexOf('>',a)+1,end=block.toLowerCase().indexOf('</'+name.toLowerCase()+'>',start);return end<0?'':clean(block.slice(start,end).replace('<![CDATA[','').replace(']]>',''))}
 async function feed(source:string,url:string,category:string){const r=await fetch(url,{headers:{'User-Agent':'AegisGRC-Security'}});if(!r.ok)throw Error(source+' unavailable');const xml=await r.text(),out:IntelItem[]=[];for(const block of xml.split('<item').slice(1,16)){const title=value(block,'title'),link=value(block,'link'),summary=value(block,'description').slice(0,600);if(title&&link)out.push({title,link,publishedAt:value(block,'pubDate'),source,summary,category,cve:(title+' '+summary).match(/CVE-\d{4}-\d{4,}/i)?.[0].toUpperCase()})}return out}
@@ -7,3 +20,5 @@ async function kev(){const url='https://www.cisa.gov/sites/default/files/feeds/k
 let cache:{at:number,items:IntelItem[],errors:string[]}|null=null;
 export async function cyberIntel(force=false){if(!force&&cache&&Date.now()-cache.at<900000)return {...cache,cache:'HIT'};const jobs=[...feeds.map(x=>feed(x.source,x.url,x.category)),kev()],results=await Promise.allSettled(jobs),items:IntelItem[]=[],errors:string[]=[];results.forEach((x,i)=>x.status==='fulfilled'?items.push(...x.value):errors.push(i<feeds.length?feeds[i].source:'CISA KEV'));items.sort((a,b)=>Date.parse(b.publishedAt||'0')-Date.parse(a.publishedAt||'0'));cache={at:Date.now(),items:items.slice(0,50),errors};return {...cache,cache:'REFRESHED'}}
 export async function nvdCve(cve:string){if(!/^CVE-\d{4}-\d{4,}$/i.test(cve))throw Error('Invalid CVE');const r=await fetch('https://services.nvd.nist.gov/rest/json/cves/2.0?cveId='+encodeURIComponent(cve.toUpperCase()),{headers:{'User-Agent':'AegisGRC-Security'}});if(!r.ok)throw Error('NVD lookup unavailable');const d:any=await r.json(),v=d.vulnerabilities?.[0]?.cve;if(!v)return {cve:cve.toUpperCase(),found:false};const metric=v.metrics?.cvssMetricV31?.[0]||v.metrics?.cvssMetricV40?.[0]||v.metrics?.cvssMetricV30?.[0]||v.metrics?.cvssMetricV2?.[0],data=metric?.cvssData||{};return {cve:v.id,found:true,published:v.published,lastModified:v.lastModified,description:v.descriptions?.find((x:any)=>x.lang==='en')?.value||'',cvss:{score:data.baseScore??null,severity:data.baseSeverity||metric?.baseSeverity||null,vector:data.vectorString||null,source:metric?.source||'NVD'},references:(v.references||[]).slice(0,8).map((x:any)=>({url:x.url,tags:x.tags||[]}))}}
+
+export function authoritativeResources(){return trustedLinks.map(x=>({...x,verifiedDomain:new URL(x.link).hostname}))}

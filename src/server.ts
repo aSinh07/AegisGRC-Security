@@ -12,7 +12,9 @@ import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
 import { issueSession, verifySession } from './session.js';
 import { renderPdf } from './pdf.js';
-import { authConfigured, login, logout, valid } from './auth.js';
+import { authConfigured, login, logout, valid, verifyCredentials } from './auth.js';
+import multer from 'multer';
+import { frameworkCatalog } from './grc.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,type ReportKind } from './exporters.js';
 
 const app=express();
@@ -25,6 +27,7 @@ app.use('/api',(req,res,next)=>{if(['/ready','/health','/integrations','/auth/lo
 const PORT=Number(process.env.PORT||8080);
 const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
 const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024,files:10}});
 
 type Tool='nmap'|'wapiti'|'sqlmap';
 const blocked=(ip:string)=>{
@@ -119,6 +122,14 @@ app.get('/api/assessments/:id/audit',async(req,res)=>res.json((await db.audits()
 app.get('/api/assessments/:id/evidence',async(req,res)=>res.json((await db.evidence()).filter(x=>x.assessmentId===req.params.id)));
 app.get('/api/assessments/:id/report',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(assessmentReport(a,fs))});
 
+app.get('/api/frameworks',(_req,res)=>res.json({frameworks:frameworkCatalog,note:'Mappings are evidence-driven cross-references, not certification or reproduced standards text.'}));
+app.post('/api/assessments/:id/documents',upload.array('files',10),async(req,res)=>{
+ try{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const files=(req.files||[]) as Express.Multer.File[];if(!files.length)return res.status(400).json({error:'No files supplied'});const denied=/\.(exe|dll|so|dylib|msi|apk|bat|cmd|ps1|sh|scr|com|jar)$/i;const saved=[];for(const file of files){if(denied.test(file.originalname))return res.status(400).json({error:'Executable/script uploads are not accepted'});const id=crypto.randomUUID(),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();await db.saveDocument({id,assessmentId:a.id,filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype||'application/octet-stream',size:file.size,sha256,createdAt,content:file.buffer});await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:'operator',createdAt,metadata:{documentId:id,filename:file.originalname,size:file.size,sha256}});saved.push({id,filename:file.originalname,size:file.size,sha256,createdAt})}res.json({stored:true,documents:saved})}catch(e:any){res.status(400).json({error:e.message})}
+});
+app.get('/api/assessments/:id/documents',async(req,res)=>res.json(await db.documents(req.params.id)));
+app.get('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});res.setHeader('Content-Disposition',`attachment; filename="${String(d.filename).replace(/"/g,'')}"`);res.type(d.mimeType).send(d.content)});
+app.delete('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});await db.deleteDocument(req.params.docId);await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_DELETED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:req.params.docId,sha256:d.sha256}});res.json({deleted:true})});
+
 app.get('/api/integrations',async(_req,res)=>{
  const health:any={nmap:false,wapiti:false,semgrep:false,sqlmap:false,tshark:false,gemini:Boolean(process.env.GEMINI_API_KEY)};
  const check=async(cmd:string,args:string[])=>{try{return (await run(cmd,args)).exitCode===0}catch{return false}};
@@ -152,6 +163,7 @@ app.get('/api/assessments/:id/report/download',async(req,res)=>{
 
 app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
  try{
+  if(!verifyCredentials(String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||'')))return res.status(401).json({error:'Fresh password and authenticator code required for report export'});
   const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
   const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);
   const kinds=['grc','remediation','architecture','technical','executive']; const formats=['pdf','docx','pptx','xlsx','csv','json','txt'];

@@ -19,6 +19,7 @@ import { analyzeDocumentText } from './document-ai.js';
 import { zapReady,zapScan,zapFindings } from './zap.js';
 import { askCopilot } from './copilot.js';
 import { knowledgeCatalog } from './knowledge.js';
+import { extractDocument } from './document-extract.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 
 const app=express();
@@ -129,7 +130,14 @@ app.post('/api/assessments/:id/documents',upload.array('files',10),async(req,res
  try{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const files=(req.files||[]) as Express.Multer.File[];if(!files.length)return res.status(400).json({error:'No files supplied'});const denied=/\.(exe|dll|so|dylib|msi|apk|bat|cmd|ps1|sh|scr|com|jar)$/i;const saved=[];for(const file of files){if(denied.test(file.originalname))return res.status(400).json({error:'Executable/script uploads are not accepted'});const id=crypto.randomUUID(),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();await db.saveDocument({id,assessmentId:a.id,filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype||'application/octet-stream',size:file.size,sha256,createdAt,content:file.buffer});await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:'operator',createdAt,metadata:{documentId:id,filename:file.originalname,size:file.size,sha256}});saved.push({id,filename:file.originalname,size:file.size,sha256,createdAt})}res.json({stored:true,documents:saved})}catch(e:any){res.status(400).json({error:e.message})}
 });
 app.get('/api/assessments/:id/documents',async(req,res)=>res.json(await db.documents(req.params.id)));
-app.post('/api/assessments/:id/documents/:docId/analyze',async(req,res)=>{try{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});const textual=/^(text\/|application\/(json|xml|javascript|x-www-form-urlencoded))/.test(d.mimeType)||/\.(txt|md|csv|json|xml|yaml|yml|log)$/i.test(d.filename);if(!textual)return res.status(415).json({error:'Deep analysis currently supports text, Markdown, CSV, JSON, XML, YAML and log evidence. PDF/DOCX binary extraction is not yet enabled; the original file remains securely stored.'});const text=d.content.toString('utf8');const analysis=await analyzeDocumentText(d.filename,text);await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_ANALYZED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:d.id,sha256:d.sha256,analysisMode:(analysis as any).mode}});res.json({document:{id:d.id,filename:d.filename,sha256:d.sha256},...analysis})}catch(e:any){res.status(500).json({error:e.message})}});
+app.post('/api/assessments/:id/documents/:docId/analyze',async(req,res)=>{try{
+ const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});
+ const extracted=await extractDocument(d.filename,d.mimeType,d.content);
+ if(!extracted.text.trim())return res.status(422).json({error:'No extractable text found in this document'});
+ const analysis=await analyzeDocumentText(d.filename,extracted.text);
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_ANALYZED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:d.id,sha256:d.sha256,extraction:extracted.kind,pages:(extracted as any).pages||null,analysisMode:(analysis as any).mode}});
+ res.json({document:{id:d.id,filename:d.filename,sha256:d.sha256,extraction:extracted.kind,pages:(extracted as any).pages||null},...analysis})
+}catch(e:any){res.status(400).json({error:e.message})}});
 app.get('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});res.setHeader('Content-Disposition',`attachment; filename="${String(d.filename).replace(/"/g,'')}"`);res.type(d.mimeType).send(d.content)});
 app.delete('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});await db.deleteDocument(req.params.docId);await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_DELETED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:req.params.docId,sha256:d.sha256}});res.json({deleted:true})});
 

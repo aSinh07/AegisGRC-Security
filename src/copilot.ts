@@ -22,7 +22,9 @@ beginner=simple language and define jargon; technical=precise security explanati
 When referring to a finding, include its finding id/source/evidence hash when useful so the answer is traceable.`;
  const context={assessment:{id:assessment.id,target:assessment.target,status:assessment.status,authorizedAt:assessment.authorizedAt},findings:evidence,frameworkCatalog};
  const ai=new GoogleGenAI({apiKey:key});
- const r=await ai.models.generateContent({model:process.env.GEMINI_MODEL||'gemini-3.8-flash',contents:system+'\nMODE: '+view.mode+'\nCONTEXT: '+JSON.stringify(context)+'\nUSER QUESTION: '+question});
- return {mode:'AI_EXPLANATION',audience:view.mode,model:process.env.GEMINI_MODEL||'gemini-3.8-flash',text:r.text||'',evidenceFindingIds:evidence.map(x=>x.id)};
+ const preferred=process.env.GEMINI_MODEL||'gemini-2.5-flash';let model=preferred,r:any;
+ try{r=await ai.models.generateContent({model,contents:system+'\nMODE: '+view.mode+'\nCONTEXT: '+JSON.stringify(context)+'\nUSER QUESTION: '+question})}
+ catch(e){if(preferred==='gemini-2.5-flash')throw e;model='gemini-2.5-flash';r=await ai.models.generateContent({model,contents:system+'\nMODE: '+view.mode+'\nCONTEXT: '+JSON.stringify(context)+'\nUSER QUESTION: '+question})}
+ return {mode:'AI_EXPLANATION',audience:view.mode,model,text:r.text||'',evidenceFindingIds:evidence.map(x=>x.id)};
 }
 type modesView={mode:CopilotMode};

@@ -92,6 +92,203 @@ function documentSecurityScan(file:Express.Multer.File){
  if(/\.(docm|xlsm|pptm)$/.test(name))add('MACRO_ENABLED_OFFICE','HIGH','Macro-enabled Microsoft Office format.');
  if(b.length>=8&&b.subarray(0,8).equals(Buffer.from([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1])))add('OLE_COMPOUND_DOCUMENT','MEDIUM','Legacy OLE compound document; macro inspection is recommended.');
  if(/powershell|cmd\.exe|wscript|cscript|javascript:|eval\s*\(|fromcharcode/i.test(ascii))add('SUSPICIOUS_SCRIPT_STRING','MEDIUM','Suspicious script/process-launch text was found in file bytes.');
+ // EICAR is a safe industry-standard anti-malware test signature. Detect the canonical
+ // ASCII sequence without executing it. Split literals keep this source file itself
+ // from being accidentally flagged by endpoint security during build/deploy.
+ const eicarParts=['X5O!P%@AP','[4\\PZX54(P^)7CC)7}
+ const score=Math.min(10,signals.reduce((n,x)=>n+(x.severity==='CRITICAL'?4:x.severity==='HIGH'?3:x.severity==='MEDIUM'?2:1),0));
+ return {execution:'IN_MEMORY_STATIC_DOCUMENT_SECURITY_SCAN',filename:file.originalname,mimeType:file.mimetype,size:file.size,sha256,verdict:signals.some(x=>x.severity==='CRITICAL')?'HIGH_RISK':signals.length?'SUSPICIOUS':'NO_STATIC_INDICATORS_OBSERVED',riskScore:score,signals,note:'Static triage only; no file is executed and this is not a malware-free guarantee. Upload bytes are held in memory for this request and are not stored by this endpoint.'};
+}
+function run(cmd:string,args:string[]){
+  return new Promise<{stdout:string;stderr:string;exitCode:number|null;durationMs:number}>((resolve,reject)=>{
+    const started=Date.now(); let out='',err='',done=false;
+    const child=spawn(cmd,args,{shell:false,stdio:['ignore','pipe','pipe']});
+    const timer=setTimeout(()=>child.kill('SIGKILL'),TIMEOUT);
+    const append=(base:string,chunk:Buffer)=> (base+chunk.toString()).slice(0,MAX);
+    child.stdout.on('data',(d:Buffer)=>out=append(out,d));
+    child.stderr.on('data',(d:Buffer)=>err=append(err,d));
+    child.on('error',e=>{if(!done){done=true;clearTimeout(timer);reject(e)}});
+    child.on('close',code=>{if(!done){done=true;clearTimeout(timer);resolve({stdout:out,stderr:err,exitCode:code,durationMs:Date.now()-started})}});
+  });
+}
+app.get('/api/ready',async(_req,res)=>{try{res.json(await db.ready())}catch(e:any){res.status(503).json({ok:false,error:e.message})}});
+app.get('/api/health',async(_req,res)=>{
+  const check=async(cmd:string,args:string[])=>{try{const r=await run(cmd,args);return {available:r.exitCode===0,version:(r.stdout||r.stderr).split('\n')[0]}}catch{return {available:false}}};
+  res.json({ok:true,service:'AegisGRC Security',tools:{nmap:await check('nmap',['--version']),wapiti:await check('wapiti',['--version'])}});
+});
+app.post('/api/assessment/authorize',async(req,res)=>{
+  try{
+    if(req.body?.authorized!==true) return res.status(403).json({error:'Explicit authorization confirmation is required'});
+    const t=await validateTarget(String(req.body.targetUrl||''));
+    const token=crypto.createHmac('sha256',process.env.EVIDENCE_HMAC_KEY||'dev-only').update(t.url.origin+'|'+Date.now()).digest('hex');
+    const assessment:Assessment={id:crypto.randomUUID(),target:t.url.origin,authorizedAt:new Date().toISOString(),status:'AUTHORIZED',findings:[],evidenceIds:[]};
+    await db.saveAssessment(assessment);
+    const sessionToken=issueSession(assessment.id,t.url.origin);
+    await db.saveAudit({id:crypto.randomUUID(),assessmentId:assessment.id,action:'ASSESSMENT_AUTHORIZED',actor:'operator',createdAt:new Date().toISOString(),metadata:{target:t.url.origin,resolvedAddresses:t.addresses}});
+    res.json({authorized:true,assessmentId:assessment.id,targetOrigin:t.url.origin,resolvedAddresses:t.addresses,sessionToken});
+  }catch(e:any){res.status(400).json({error:e.message})}
+});
+app.post('/api/scans/quick',async(req,res)=>{try{
+ const session=verifySession(String(req.headers['x-assessment-session']||''));const assessmentId=session.assessmentId;
+ const assessments=await db.assessments();const assessment=assessments.find(a=>a.id===assessmentId);if(!assessment)return res.status(404).json({error:'Assessment not found'});
+ const t=await validateTarget(String(req.body.targetUrl||''));if(t.url.origin!==session.targetOrigin||assessment.target!==session.targetOrigin)return res.status(403).json({error:'Target is outside the authorized assessment scope'});
+ const q=await quickPosture(assessmentId,t);const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};
+ await db.saveEvidence(ev);if(q.findings.length)await db.saveFindings(q.findings);await db.saveAssessment({...assessment,status:q.error?'FAILED':'COMPLETED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...q.findings]});
+ res.json({execution:'REAL_LIVE_HTTP_POSTURE',target:t.url.origin,...q,evidence:{sha256:q.sha256}});
+}catch(e:any){res.status(400).json({error:e.message})}});
+app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
+app.post('/api/scans/run',async(req,res)=>{
+  try{
+    const session=verifySession(String(req.headers['x-assessment-session']||''));
+    const assessmentId=session.assessmentId;
+    const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
+    if(!assessment) return res.status(404).json({error:'Assessment not found; enter through the authorization gate first'});
+    const tool=String(req.body.tool||'') as Tool;
+    if(!['nmap','wapiti','sqlmap','zap'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
+    const t=await validateTarget(String(req.body.targetUrl||''));
+    if(t.url.origin!==session.targetOrigin || assessment.target!==session.targetOrigin) return res.status(403).json({error:'Target is outside the authorized assessment scope'});
+    const startedAt=new Date().toISOString();
+    let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number}; let zapAlerts:any[]=[];
+    if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}
+    else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p-','--open','-oX','-',t.url.hostname]:tool==='wapiti'?['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
+    const completedAt=new Date().toISOString();
+    const evidence=JSON.stringify({tool,target:t.url.origin,startedAt,completedAt,...result});
+    const sha256=crypto.createHash('sha256').update(evidence).digest('hex');
+    const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs}};
+    await db.saveEvidence(ev);
+    const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='nmap'?nmapFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='zap'?zapFindings(assessmentId,t.url.origin,sha256,zapAlerts):[];
+    await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'REAL_SCAN_COMPLETED',actor:'operator',createdAt:completedAt,metadata:{tool,exitCode:result.exitCode,evidenceHash:sha256,durationMs:result.durationMs}});
+    if(findings.length) await db.saveFindings(findings);
+    await db.saveAssessment({...assessment,status:result.exitCode===0?'COMPLETED':'FAILED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
+    res.status(result.exitCode===0?200:502).json({execution:'REAL_TOOL_EXECUTION',tool,target:t.url.origin,resolvedAddresses:t.addresses,startedAt,completedAt,...result,evidence:{sha256}});
+  }catch(e:any){res.status(400).json({error:e.message})}
+});
+app.post('/api/source/semgrep',async(req,res)=>{
+ try{
+  const session=verifySession(String(req.headers['x-assessment-session']||'')); const assessmentId=session.assessmentId; const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
+  if(!assessment) return res.status(404).json({error:'Assessment not found'});
+  const result=await scanSource(String(req.body.sourcePath||'/workspace/source'));
+  const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'semgrep',sha256:result.evidence.sha256,createdAt:new Date().toISOString(),exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{sourcePath:req.body.sourcePath||'/workspace/source'}};
+  await db.saveEvidence(ev); const findings=semgrepFindings(assessmentId,String(req.body.sourcePath||'/workspace/source'),ev.sha256,result.results); await db.saveFindings(findings);
+  await db.saveAssessment({...assessment,status:'COMPLETED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
+  res.json({...result,assessmentId,findings});
+ }catch(e:any){res.status(400).json({error:e.message})}
+});
+app.get('/api/assessments',async(_req,res)=>res.json(await db.assessments()));
+app.get('/api/assessments/:id',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});res.json(a)});
+app.get('/api/assessments/:id/audit',async(req,res)=>res.json((await db.audits()).filter(x=>x.assessmentId===req.params.id)));
+app.get('/api/assessments/:id/evidence',async(req,res)=>res.json((await db.evidence()).filter(x=>x.assessmentId===req.params.id)));
+app.get('/api/assessments/:id/report',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(assessmentReport(a,fs))});
+
+app.get('/api/knowledge',(_req,res)=>res.json({modules:knowledgeCatalog(),authoritativeResources:authoritativeResources(),provenance:'Aegis learning modules plus direct authoritative resources. Live intelligence is retrieved from CISA/NIST endpoints.'}));
+app.get('/api/cyber-intel',async(req,res)=>{try{res.json(await cyberIntel(req.query.refresh==='1'))}catch(e:any){res.status(502).json({error:e.message})}});
+app.get('/api/cve/:cve',async(req,res)=>{try{res.json(await nvdCve(req.params.cve))}catch(e:any){res.status(502).json({error:e.message})}});
+app.post('/api/cyber-intel/analyze',async(req,res)=>{try{const item=req.body?.item;if(!item?.title||!item?.source)return res.status(400).json({error:'Intelligence item required'});res.json(await analyzeIntel(item,String(req.body?.context||'')))}catch(e:any){res.status(502).json({error:e.message})}});
+app.get('/api/frameworks',(_req,res)=>res.json({frameworks:frameworkCatalog,note:'Mappings are evidence-driven cross-references, not certification or reproduced standards text.'}));
+app.post('/api/assessments/:id/documents',upload.array('files',10),async(req,res)=>{
+ try{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const files=(req.files||[]) as Express.Multer.File[];if(!files.length)return res.status(400).json({error:'No files supplied'});const denied=/\.(exe|dll|so|dylib|msi|apk|bat|cmd|ps1|sh|scr|com|jar)$/i;const saved=[];for(const file of files){if(denied.test(file.originalname))return res.status(400).json({error:'Executable/script uploads are not accepted'});const id=crypto.randomUUID(),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();await db.saveDocument({id,assessmentId:a.id,filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype||'application/octet-stream',size:file.size,sha256,createdAt,content:file.buffer});await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:'operator',createdAt,metadata:{documentId:id,filename:file.originalname,size:file.size,sha256}});saved.push({id,filename:file.originalname,size:file.size,sha256,createdAt})}res.json({stored:true,documents:saved})}catch(e:any){res.status(400).json({error:e.message})}
+});
+app.get('/api/assessments/:id/documents',async(req,res)=>res.json(await db.documents(req.params.id)));
+app.post('/api/assessments/:id/documents/:docId/security-assess',async(req,res)=>{try{
+ const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
+ const d=await db.document(req.params.docId);if(!d||d.assessmentId!==a.id)return res.status(404).json({error:'Document not found'});
+ const staticScan=documentSecurityScan({buffer:d.content,originalname:d.filename,mimetype:d.mimeType,size:d.size} as Express.Multer.File);
+ const extracted=await extractDocument(d.filename,d.mimeType,d.content);
+ const analysis=extracted.text.trim()?await analyzeDocumentText(d.filename,extracted.text):{mode:'NO_TEXT',message:'No extractable text; static file triage still completed.'};
+ const createdAt=new Date().toISOString(),findings:any[]=staticScan.signals.map((x:any)=>mapFinding({id:crypto.randomUUID(),assessmentId:a.id,source:'document',title:x.signal.replaceAll('_',' '),description:x.detail,severity:x.severity,cvss:x.severity==='CRITICAL'?9.1:x.severity==='HIGH'?7.5:x.severity==='MEDIUM'?5.3:3.1,asset:d.filename,evidenceHash:d.sha256,createdAt,mappings:{},remediation:'Review the flagged document feature, validate business necessity, remove active content where unnecessary, and rescan before distribution.',status:'OPEN'} as any));
+ if(findings.length)await db.saveFindings(findings);
+ await db.saveAssessment({...a,status:'COMPLETED',findings:[...a.findings,...findings]});
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_SECURITY_ASSESSED',actor:'operator',createdAt,metadata:{documentId:d.id,sha256:d.sha256,staticSignals:staticScan.signals.length,extraction:extracted.kind,findings:findings.length}});
+ res.json({execution:'REAL_DOCUMENT_ASSESSMENT',document:{id:d.id,filename:d.filename,sha256:d.sha256},offensive:{scope:'Static file attack-surface triage; the document is never executed.',...staticScan},defensive:{analysis},grc:{mappedFindings:findings},remediation:findings.map(x=>({finding:x.title,action:x.remediation})),limitations:['Nmap, ZAP, Wapiti and SQLmap test network/web targets and are not valid document scanners. They are intentionally not run against file bytes.']});
+}catch(e:any){res.status(400).json({error:e.message})}});
+app.post('/api/assessments/:id/documents/:docId/analyze',async(req,res)=>{try{
+ const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});
+ const extracted=await extractDocument(d.filename,d.mimeType,d.content);
+ if(!extracted.text.trim())return res.status(422).json({error:'No extractable text found in this document'});
+ const analysis=await analyzeDocumentText(d.filename,extracted.text);
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_ANALYZED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:d.id,sha256:d.sha256,extraction:extracted.kind,pages:(extracted as any).pages||null,analysisMode:(analysis as any).mode}});
+ res.json({document:{id:d.id,filename:d.filename,sha256:d.sha256,extraction:extracted.kind,pages:(extracted as any).pages||null},...analysis})
+}catch(e:any){res.status(400).json({error:e.message})}});
+app.get('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});res.setHeader('Content-Disposition',`attachment; filename="${String(d.filename).replace(/"/g,'')}"`);res.type(d.mimeType).send(d.content)});
+app.delete('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});await db.deleteDocument(req.params.docId);await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_DELETED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:req.params.docId,sha256:d.sha256}});res.json({deleted:true})});
+
+app.get('/api/integrations',async(_req,res)=>{
+ const health:any={nmap:false,wapiti:false,semgrep:false,sqlmap:false,tshark:false,zap:false,gemini:Boolean(process.env.GEMINI_API_KEY)};
+ const check=async(cmd:string,args:string[])=>{try{return (await run(cmd,args)).exitCode===0}catch{return false}};
+ health.nmap=await check('nmap',['--version']); health.wapiti=await check('wapiti',['--version']); health.semgrep=await check('semgrep',['--version']); health.sqlmap=await check('sqlmap',['--version']); health.tshark=await check('tshark',['--version']); health.zap=await zapReady();
+ res.json({integrations:[
+  {id:'nmap',kind:'scanner',status:health.nmap?'REAL':'UNAVAILABLE'},
+  {id:'zap',kind:'web-dast',status:health.zap?'REAL':'UNAVAILABLE'},
+  {id:'wapiti',kind:'scanner',status:health.wapiti?'REAL':'UNAVAILABLE'},
+  {id:'semgrep',kind:'source-scanner',status:health.semgrep?'REAL':'UNAVAILABLE'},
+  {id:'sqlmap',kind:'authorized-sqli-validation',status:health.sqlmap?'REAL':'UNAVAILABLE'},
+  {id:'tshark',kind:'packet-analysis',status:health.tshark?'REAL':'UNAVAILABLE'},
+  {id:'gemini',kind:'ai-analysis',status:health.gemini?'CONNECTED':'UNAVAILABLE'},
+  {id:'burp',kind:'external-provider',status:'UNAVAILABLE'},
+  {id:'wireshark',kind:'capture-provider',status:'UNAVAILABLE'},
+  {id:'metasploit',kind:'exploit-framework',status:'DISABLED'}
+ ]});
+});
+app.post('/api/copilot',async(req,res)=>{try{
+ const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
+ const requestedId=String(req.body?.assessmentId||'');const a=requestedId?(await db.assessments()).find(x=>x.id===requestedId):null;
+ const fs=a?(await db.findings()).filter(x=>x.assessmentId===a.id):[];
+ const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs);
+ if(a)await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_CHAT_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
+ res.json(answer);
+}catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});
+app.post('/api/assessments/:id/copilot',async(req,res)=>{try{
+ const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
+ const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
+ const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);
+ const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs);
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_EXPLANATION_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
+ res.json(answer);
+}catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});
+app.post('/api/assessments/:id/ai-remediation',async(req,res)=>{
+ try{const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(await explainFindings(fs))}
+ catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}
+});
+app.get('/api/assessments/:id/report.pdf',async(req,res)=>{
+ const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
+ const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const ev=(await db.evidence()).filter(x=>x.assessmentId===req.params.id);const pdf=await renderPdf(a,fs,ev);
+ res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.pdf"`);res.type('application/pdf').send(pdf);
+});
+app.get('/api/assessments/:id/report/download',async(req,res)=>{
+ const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
+ const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const report=assessmentReport(a,fs);
+ res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.json"`);res.type('application/json').send(JSON.stringify(report,null,2));
+});
+
+app.get('/api/assessments/:id/framework-report/:framework/:format',async(req,res)=>{try{if(!verifyCredentials(String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||'')))return res.status(401).json({error:'Fresh password and authenticator code required for report export'});const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id),framework=req.params.framework.toUpperCase(),format=req.params.format.toLowerCase();let body:Buffer,mime='application/octet-stream';if(format==='docx'){body=await frameworkDocx(a,fs,framework);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}else if(format==='xlsx'){body=frameworkXlsx(a,fs,framework);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}else if(format==='csv'){body=frameworkCsv(fs,framework);mime='text/csv'}else if(format==='txt'){body=frameworkTxt(a,fs,framework);mime='text/plain'}else if(format==='json'){body=Buffer.from(JSON.stringify(frameworkReportModel(a,fs,framework),null,2));mime='application/json'}else return res.status(400).json({error:'Framework export currently supports DOCX, XLSX, CSV, JSON and TXT'});res.setHeader('Content-Disposition',`attachment; filename="aegis-${framework.toLowerCase()}-${a.id}.${format}"`);res.type(mime).send(body)}catch(e:any){res.status(400).json({error:e.message})}});
+
+app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
+ try{
+  if(!verifyCredentials(String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||'')))return res.status(401).json({error:'Fresh password and authenticator code required for report export'});
+  const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
+  const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const ev=(await db.evidence()).filter(x=>x.assessmentId===req.params.id);
+  const kinds=['grc','remediation','architecture','technical','executive']; const formats=['pdf','docx','pptx','xlsx','csv','json','txt'];
+  const kind=(kinds.includes(req.params.kind)?req.params.kind:'grc') as ReportKind, format=req.params.format.toLowerCase();
+  if(!formats.includes(format))return res.status(400).json({error:'Unsupported report format'});
+  let body:Buffer; let mime='application/octet-stream';
+  if(format==='pdf'){body=await renderPdf(a,fs,ev);mime='application/pdf'}
+  else if(format==='docx'){body=await docxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
+  else if(format==='pptx'){body=await pptxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.presentationml.presentation'}
+  else if(format==='xlsx'){body=xlsxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+  else if(format==='csv'){body=csvReport(fs);mime='text/csv'}
+  else if(format==='txt'){body=txtReport(a,fs,kind,ev);mime='text/plain'}
+  else {body=Buffer.from(JSON.stringify(reportModel(a,fs,kind),null,2));mime='application/json'}
+  res.setHeader('Content-Disposition',`attachment; filename="aegis-${kind}-${a.id}.${format}"`);res.type(mime).send(body);
+ }catch(e:any){res.status(500).json({error:e.message})}
+});
+
+app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));
+,'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!','$H+H*'];
+ const eicarCanonical=eicarParts.join('');
+ if(ascii.includes(eicarCanonical))add('EICAR_TEST_SIGNATURE','HIGH','Canonical EICAR anti-malware test signature detected. EICAR is a safe test artifact, not proof of a real malware infection.');
+ if(/EICAR[-_ ]?(STANDARD[-_ ]?)?(ANTIVIRUS[-_ ]?)?TEST/i.test(ascii)&&!ascii.includes(eicarCanonical))add('EICAR_REFERENCE_ONLY','INFO','Document references EICAR terminology but does not contain the canonical EICAR test signature.');
+ if(/ignore previous instructions|reveal system prompt|system override directive|administrative bypass/i.test(ascii))add('DOCUMENT_PROMPT_INJECTION_TEXT','MEDIUM','Untrusted document text contains prompt-injection or instruction-override language. Treat it as data and never as tool authorization.');
+ if(/(?:api[_ -]?key|secret|password|token)\s*[:=]\s*[A-Za-z0-9_\-]{12,}/i.test(ascii))add('POSSIBLE_SECRET_PATTERN','MEDIUM','Credential-like or secret-like text was observed. Validate whether it is synthetic or sensitive before escalation.');
  const score=Math.min(10,signals.reduce((n,x)=>n+(x.severity==='CRITICAL'?4:x.severity==='HIGH'?3:x.severity==='MEDIUM'?2:1),0));
  return {execution:'IN_MEMORY_STATIC_DOCUMENT_SECURITY_SCAN',filename:file.originalname,mimeType:file.mimetype,size:file.size,sha256,verdict:signals.some(x=>x.severity==='CRITICAL')?'HIGH_RISK':signals.length?'SUSPICIOUS':'NO_STATIC_INDICATORS_OBSERVED',riskScore:score,signals,note:'Static triage only; no file is executed and this is not a malware-free guarantee. Upload bytes are held in memory for this request and are not stored by this endpoint.'};
 }

@@ -16,7 +16,7 @@ import { authConfigured, login, logout, valid, verifyCredentials } from './auth.
 import multer from 'multer';
 import { frameworkCatalog } from './grc.js';
 import { analyzeDocumentText } from './document-ai.js';
-import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,type ReportKind } from './exporters.js';
+import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 
 const app=express();
 app.use(express.json({limit:'1mb'}));
@@ -162,6 +162,8 @@ app.get('/api/assessments/:id/report/download',async(req,res)=>{
  const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const report=assessmentReport(a,fs);
  res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.json"`);res.type('application/json').send(JSON.stringify(report,null,2));
 });
+
+app.get('/api/assessments/:id/framework-report/:framework/:format',async(req,res)=>{try{if(!verifyCredentials(String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||'')))return res.status(401).json({error:'Fresh password and authenticator code required for report export'});const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id),framework=req.params.framework.toUpperCase(),format=req.params.format.toLowerCase();let body:Buffer,mime='application/octet-stream';if(format==='docx'){body=await frameworkDocx(a,fs,framework);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}else if(format==='xlsx'){body=frameworkXlsx(a,fs,framework);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}else if(format==='csv'){body=frameworkCsv(fs,framework);mime='text/csv'}else if(format==='txt'){body=frameworkTxt(a,fs,framework);mime='text/plain'}else if(format==='json'){body=Buffer.from(JSON.stringify(frameworkReportModel(a,fs,framework),null,2));mime='application/json'}else return res.status(400).json({error:'Framework export currently supports DOCX, XLSX, CSV, JSON and TXT'});res.setHeader('Content-Disposition',`attachment; filename="aegis-${framework.toLowerCase()}-${a.id}.${format}"`);res.type(mime).send(body)}catch(e:any){res.status(400).json({error:e.message})}});
 
 app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
  try{

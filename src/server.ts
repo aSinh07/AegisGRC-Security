@@ -15,7 +15,7 @@ import { renderPdf } from './pdf.js';
 import { authConfigured, login, logout, valid, verifyCredentials } from './auth.js';
 import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,userLogout } from './user-auth.js';
 import multer from 'multer';
-import { frameworkCatalog } from './grc.js';
+import { frameworkCatalog,mapFinding } from './grc.js';
 import { analyzeDocumentText } from './document-ai.js';
 import { zapReady,zapScan,zapFindings } from './zap.js';
 import { askCopilot } from './copilot.js';
@@ -185,6 +185,18 @@ app.post('/api/assessments/:id/documents',upload.array('files',10),async(req,res
  try{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const files=(req.files||[]) as Express.Multer.File[];if(!files.length)return res.status(400).json({error:'No files supplied'});const denied=/\.(exe|dll|so|dylib|msi|apk|bat|cmd|ps1|sh|scr|com|jar)$/i;const saved=[];for(const file of files){if(denied.test(file.originalname))return res.status(400).json({error:'Executable/script uploads are not accepted'});const id=crypto.randomUUID(),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();await db.saveDocument({id,assessmentId:a.id,filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype||'application/octet-stream',size:file.size,sha256,createdAt,content:file.buffer});await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:'operator',createdAt,metadata:{documentId:id,filename:file.originalname,size:file.size,sha256}});saved.push({id,filename:file.originalname,size:file.size,sha256,createdAt})}res.json({stored:true,documents:saved})}catch(e:any){res.status(400).json({error:e.message})}
 });
 app.get('/api/assessments/:id/documents',async(req,res)=>res.json(await db.documents(req.params.id)));
+app.post('/api/assessments/:id/documents/:docId/security-assess',async(req,res)=>{try{
+ const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
+ const d=await db.document(req.params.docId);if(!d||d.assessmentId!==a.id)return res.status(404).json({error:'Document not found'});
+ const staticScan=documentSecurityScan({buffer:d.content,originalname:d.filename,mimetype:d.mimeType,size:d.size} as Express.Multer.File);
+ const extracted=await extractDocument(d.filename,d.mimeType,d.content);
+ const analysis=extracted.text.trim()?await analyzeDocumentText(d.filename,extracted.text):{mode:'NO_TEXT',message:'No extractable text; static file triage still completed.'};
+ const createdAt=new Date().toISOString(),findings:any[]=staticScan.signals.map((x:any)=>mapFinding({id:crypto.randomUUID(),assessmentId:a.id,source:'document',title:x.signal.replaceAll('_',' '),description:x.detail,severity:x.severity,cvss:x.severity==='CRITICAL'?9.1:x.severity==='HIGH'?7.5:x.severity==='MEDIUM'?5.3:3.1,asset:d.filename,evidenceHash:d.sha256,createdAt,mappings:{},remediation:'Review the flagged document feature, validate business necessity, remove active content where unnecessary, and rescan before distribution.',status:'OPEN'} as any));
+ if(findings.length)await db.saveFindings(findings);
+ await db.saveAssessment({...a,status:'COMPLETED',findings:[...a.findings,...findings]});
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_SECURITY_ASSESSED',actor:'operator',createdAt,metadata:{documentId:d.id,sha256:d.sha256,staticSignals:staticScan.signals.length,extraction:extracted.kind,findings:findings.length}});
+ res.json({execution:'REAL_DOCUMENT_ASSESSMENT',document:{id:d.id,filename:d.filename,sha256:d.sha256},offensive:{scope:'Static file attack-surface triage; the document is never executed.',...staticScan},defensive:{analysis},grc:{mappedFindings:findings},remediation:findings.map(x=>({finding:x.title,action:x.remediation})),limitations:['Nmap, ZAP, Wapiti and SQLmap test network/web targets and are not valid document scanners. They are intentionally not run against file bytes.']});
+}catch(e:any){res.status(400).json({error:e.message})}});
 app.post('/api/assessments/:id/documents/:docId/analyze',async(req,res)=>{try{
  const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});
  const extracted=await extractDocument(d.filename,d.mimeType,d.content);

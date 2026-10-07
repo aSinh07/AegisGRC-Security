@@ -247,7 +247,7 @@ app.post('/api/assessments/:id/ai-remediation',async(req,res)=>{
 });
 app.get('/api/assessments/:id/report.pdf',async(req,res)=>{
  const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
- const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const pdf=await renderPdf(a,fs);
+ const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const ev=(await db.evidence()).filter(x=>x.assessmentId===req.params.id);const pdf=await renderPdf(a,fs,ev);
  res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.pdf"`);res.type('application/pdf').send(pdf);
 });
 app.get('/api/assessments/:id/report/download',async(req,res)=>{
@@ -267,7 +267,7 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
   const kind=(kinds.includes(req.params.kind)?req.params.kind:'grc') as ReportKind, format=req.params.format.toLowerCase();
   if(!formats.includes(format))return res.status(400).json({error:'Unsupported report format'});
   let body:Buffer; let mime='application/octet-stream';
-  if(format==='pdf'){body=await renderPdf(a,fs);mime='application/pdf'}
+  if(format==='pdf'){body=await renderPdf(a,fs,ev);mime='application/pdf'}
   else if(format==='docx'){body=await docxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
   else if(format==='pptx'){body=await pptxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.presentationml.presentation'}
   else if(format==='xlsx'){body=xlsxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}

@@ -1,6 +1,6 @@
 export type Severity='INFO'|'LOW'|'MEDIUM'|'HIGH'|'CRITICAL';
 export interface Finding {
- id:string; assessmentId:string; source:'nmap'|'wapiti'|'semgrep'|'http'|'zap'|'sqlmap';
+ id:string; assessmentId:string; source:'nmap'|'wapiti'|'semgrep'|'http'|'zap'|'sqlmap'|'document';
  title:string; description:string; severity:Severity; cwe?:string; cvss?:number;
  asset:string; evidenceHash:string; createdAt:string;
  mappings:{owasp?:string[];iso27001?:string[];iso42001?:string[];nist?:string[];nistCsf?:string[];nistAiRmf?:string[];cis?:string[];soc2?:string[];pci?:string[];gdpr?:string[];dpdp?:string[];hipaa?:string[]};

@@ -262,17 +262,17 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
  try{
   if(!verifyCredentials(String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||'')))return res.status(401).json({error:'Fresh password and authenticator code required for report export'});
   const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
-  const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);
+  const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const ev=(await db.evidence()).filter(x=>x.assessmentId===req.params.id);
   const kinds=['grc','remediation','architecture','technical','executive']; const formats=['pdf','docx','pptx','xlsx','csv','json','txt'];
   const kind=(kinds.includes(req.params.kind)?req.params.kind:'grc') as ReportKind, format=req.params.format.toLowerCase();
   if(!formats.includes(format))return res.status(400).json({error:'Unsupported report format'});
   let body:Buffer; let mime='application/octet-stream';
   if(format==='pdf'){body=await renderPdf(a,fs);mime='application/pdf'}
-  else if(format==='docx'){body=await docxReport(a,fs,kind);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
-  else if(format==='pptx'){body=await pptxReport(a,fs,kind);mime='application/vnd.openxmlformats-officedocument.presentationml.presentation'}
-  else if(format==='xlsx'){body=xlsxReport(a,fs,kind);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+  else if(format==='docx'){body=await docxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
+  else if(format==='pptx'){body=await pptxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.presentationml.presentation'}
+  else if(format==='xlsx'){body=xlsxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
   else if(format==='csv'){body=csvReport(fs);mime='text/csv'}
-  else if(format==='txt'){body=txtReport(a,fs,kind);mime='text/plain'}
+  else if(format==='txt'){body=txtReport(a,fs,kind,ev);mime='text/plain'}
   else {body=Buffer.from(JSON.stringify(reportModel(a,fs,kind),null,2));mime='application/json'}
   res.setHeader('Content-Disposition',`attachment; filename="aegis-${kind}-${a.id}.${format}"`);res.type(mime).send(body);
  }catch(e:any){res.status(500).json({error:e.message})}

@@ -16,6 +16,7 @@ import { authConfigured, login, logout, valid, verifyCredentials } from './auth.
 import multer from 'multer';
 import { frameworkCatalog } from './grc.js';
 import { analyzeDocumentText } from './document-ai.js';
+import { zapReady,zapScan,zapFindings } from './zap.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 
 const app=express();
@@ -30,7 +31,7 @@ const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
 const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024,files:10}});
 
-type Tool='nmap'|'wapiti'|'sqlmap';
+type Tool='nmap'|'wapiti'|'sqlmap'|'zap';
 const blocked=(ip:string)=>{
   if(net.isIP(ip)===4){
     const p=ip.split('.').map(Number);
@@ -84,22 +85,19 @@ app.post('/api/scans/run',async(req,res)=>{
     const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
     if(!assessment) return res.status(404).json({error:'Assessment not found; enter through the authorization gate first'});
     const tool=String(req.body.tool||'') as Tool;
-    if(!['nmap','wapiti','sqlmap'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
+    if(!['nmap','wapiti','sqlmap','zap'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
     const t=await validateTarget(String(req.body.targetUrl||''));
     if(t.url.origin!==session.targetOrigin || assessment.target!==session.targetOrigin) return res.status(403).json({error:'Target is outside the authorized assessment scope'});
-    const args=tool==='nmap'
-      ? ['-sT','-sV','--version-light','-Pn','-p','80,443,8080,8443','-oX','-',t.url.hostname]
-      : tool==='wapiti'
-      ? ['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']
-      : ['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];
     const startedAt=new Date().toISOString();
-    const result=await run(tool,args);
+    let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number}; let zapAlerts:any[]=[];
+    if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}
+    else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p','80,443,8080,8443','-oX','-',t.url.hostname]:tool==='wapiti'?['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
     const completedAt=new Date().toISOString();
     const evidence=JSON.stringify({tool,target:t.url.origin,startedAt,completedAt,...result});
     const sha256=crypto.createHash('sha256').update(evidence).digest('hex');
     const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs}};
     await db.saveEvidence(ev);
-    const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='nmap'?nmapFindings(assessmentId,t.url.origin,sha256,result.stdout):[];
+    const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='nmap'?nmapFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='zap'?zapFindings(assessmentId,t.url.origin,sha256,zapAlerts):[];
     await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'REAL_SCAN_COMPLETED',actor:'operator',createdAt:completedAt,metadata:{tool,exitCode:result.exitCode,evidenceHash:sha256,durationMs:result.durationMs}});
     if(findings.length) await db.saveFindings(findings);
     await db.saveAssessment({...assessment,status:result.exitCode===0?'COMPLETED':'FAILED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
@@ -133,11 +131,12 @@ app.get('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await d
 app.delete('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});await db.deleteDocument(req.params.docId);await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_DELETED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:req.params.docId,sha256:d.sha256}});res.json({deleted:true})});
 
 app.get('/api/integrations',async(_req,res)=>{
- const health:any={nmap:false,wapiti:false,semgrep:false,sqlmap:false,tshark:false,gemini:Boolean(process.env.GEMINI_API_KEY)};
+ const health:any={nmap:false,wapiti:false,semgrep:false,sqlmap:false,tshark:false,zap:false,gemini:Boolean(process.env.GEMINI_API_KEY)};
  const check=async(cmd:string,args:string[])=>{try{return (await run(cmd,args)).exitCode===0}catch{return false}};
- health.nmap=await check('nmap',['--version']); health.wapiti=await check('wapiti',['--version']); health.semgrep=await check('semgrep',['--version']); health.sqlmap=await check('sqlmap',['--version']); health.tshark=await check('tshark',['--version']);
+ health.nmap=await check('nmap',['--version']); health.wapiti=await check('wapiti',['--version']); health.semgrep=await check('semgrep',['--version']); health.sqlmap=await check('sqlmap',['--version']); health.tshark=await check('tshark',['--version']); health.zap=await zapReady();
  res.json({integrations:[
   {id:'nmap',kind:'scanner',status:health.nmap?'REAL':'UNAVAILABLE'},
+  {id:'zap',kind:'web-dast',status:health.zap?'REAL':'UNAVAILABLE'},
   {id:'wapiti',kind:'scanner',status:health.wapiti?'REAL':'UNAVAILABLE'},
   {id:'semgrep',kind:'source-scanner',status:health.semgrep?'REAL':'UNAVAILABLE'},
   {id:'sqlmap',kind:'authorized-sqli-validation',status:health.sqlmap?'REAL':'UNAVAILABLE'},

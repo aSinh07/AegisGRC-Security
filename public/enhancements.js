@@ -14,3 +14,12 @@ function renderKnowledge(){
 document.addEventListener('input',e=>{if(e.target?.id==='knowledgeSearch')renderKnowledge()});
 document.addEventListener('change',e=>{if(e.target?.id==='knowledgeLevel')renderKnowledge()});
 window.addEventListener('load',()=>{const old=window.loadDocs;window.loadDocs=async function(){await old();document.querySelectorAll('#doclist .docrow').forEach(row=>{const btns=row.lastElementChild;if(!btns||btns.querySelector('.analyze-btn'))return;const download=btns.querySelector('button');if(!download)return;const m=download.getAttribute('onclick')?.match(/getDoc\('([^']+)'\)/);if(!m)return;const b=document.createElement('button');b.className='btn analyze-btn';b.textContent='Review';b.onclick=()=>analyzeDoc(m[1]);btns.insertBefore(b,download)})}});
+
+function installCvssGuide(){
+ const risk=document.getElementById('risk');if(!risk||document.getElementById('cvssGuide'))return;
+ const card=document.createElement('div');card.id='cvssGuide';card.className='card span12';
+ card.innerHTML='<h3>CVSS Severity Guide</h3><p class="muted"><b>CVSS measures vulnerability severity; it is not a company grade.</b> 0.0 None · 0.1–3.9 Low · 4.0–6.9 Medium · 7.0–8.9 High · 9.0–10.0 Critical. There is no universal score a company must achieve. Remediation priority should also consider exploitability, asset criticality and business impact.</p><span id="cvssEvidence" class="pill">Waiting for evidence-backed CVSS data</span>';
+ risk.closest('.grid')?.appendChild(card);
+ const original=window.renderFindings;window.renderFindings=function(fs){original(fs);const scores=fs.map(x=>Number(x.cvss)).filter(Number.isFinite),el=document.getElementById('cvssEvidence');if(el)el.textContent=scores.length?'Evidence-backed CVSS: highest '+Math.max(...scores).toFixed(1)+' · '+scores.length+'/'+fs.length+' findings scored':'No evidence-backed CVSS score returned by current findings';};
+}
+window.addEventListener('load',installCvssGuide);

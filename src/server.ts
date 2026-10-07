@@ -61,6 +61,40 @@ async function validateTarget(raw:string){
   if(records.some(r=>blocked(r.address))) throw new Error('Private, local, reserved or link-local targets are blocked');
   return {url:u,addresses:records.map(r=>r.address)};
 }
+async function quickPosture(assessmentId:string,t:{url:URL,addresses:string[]}){
+ const started=Date.now(),createdAt=new Date().toISOString();
+ const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),1200);
+ let status=0,headers:any={},error='';
+ try{const r=await fetch(t.url.origin,{method:'GET',redirect:'manual',signal:ctl.signal,headers:{'User-Agent':'AegisGRC-Posture/1.0'}});status=r.status;headers=Object.fromEntries(r.headers.entries());try{await r.body?.cancel()}catch{}}
+ catch(e:any){error=e?.name==='AbortError'?'HTTP posture probe exceeded 1.2s':String(e?.message||e)}
+ finally{clearTimeout(timer)}
+ const checks=[
+  {bad:t.url.protocol!=='https:',title:'Transport is not HTTPS',severity:'HIGH',cvss:7.4,desc:'The authorized target uses plaintext HTTP.',rem:'Enforce HTTPS and redirect HTTP to HTTPS.'},
+  {bad:!headers['strict-transport-security']&&t.url.protocol==='https:',title:'HSTS header not observed',severity:'MEDIUM',cvss:5.3,desc:'Strict-Transport-Security was not observed in the live HTTP response.',rem:'Enable HSTS after validating HTTPS coverage.'},
+  {bad:!headers['content-security-policy'],title:'Content Security Policy not observed',severity:'MEDIUM',cvss:5.3,desc:'Content-Security-Policy was not observed in the live HTTP response.',rem:'Deploy a restrictive CSP appropriate to the application.'},
+  {bad:!headers['x-content-type-options'],title:'MIME sniffing protection not observed',severity:'LOW',cvss:3.1,desc:'X-Content-Type-Options was not observed.',rem:'Set X-Content-Type-Options: nosniff.'},
+  {bad:!headers['x-frame-options']&&!String(headers['content-security-policy']||'').includes('frame-ancestors'),title:'Framing protection not observed',severity:'MEDIUM',cvss:4.3,desc:'Neither X-Frame-Options nor CSP frame-ancestors was observed.',rem:'Set CSP frame-ancestors or X-Frame-Options.'},
+  {bad:Boolean(headers['server']),title:'Server technology disclosed',severity:'LOW',cvss:2.6,desc:'The live response exposes a Server header: '+String(headers['server']||''),rem:'Minimize unnecessary server banner disclosure.'}
+ ] as const;
+ const evidence=JSON.stringify({kind:'LIVE_HTTP_POSTURE',target:t.url.origin,status,headers,error,addresses:t.addresses});
+ const sha256=crypto.createHash('sha256').update(evidence).digest('hex');
+ const findings:any[]=checks.filter(x=>x.bad).map(x=>({id:crypto.randomUUID(),assessmentId,source:'http',title:x.title,description:x.desc,severity:x.severity,cvss:x.cvss,asset:t.url.origin,evidenceHash:sha256,createdAt,mappings:{owasp:['A05:2025 Security Misconfiguration'],nistCsf:['PR.PS']},remediation:x.rem,status:'OPEN'}));
+ return {startedAt:createdAt,completedAt:new Date().toISOString(),durationMs:Date.now()-started,status,headers,error,sha256,findings};
+}
+function documentSecurityScan(file:Express.Multer.File){
+ const b=file.buffer,ascii=b.toString('latin1'),name=file.originalname.toLowerCase(),sha256=crypto.createHash('sha256').update(b).digest('hex');
+ const signals:{signal:string,severity:string,detail:string}[]=[];
+ const add=(signal:string,severity:string,detail:string)=>signals.push({signal,severity,detail});
+ if(ascii.includes('/JavaScript')||ascii.includes('/JS'))add('PDF_JAVASCRIPT','HIGH','PDF contains a JavaScript action marker.');
+ if(ascii.includes('/OpenAction')||ascii.includes('/AA'))add('PDF_AUTO_ACTION','HIGH','PDF contains an automatic action marker.');
+ if(ascii.includes('/Launch'))add('PDF_LAUNCH_ACTION','CRITICAL','PDF contains a Launch action marker.');
+ if(ascii.includes('/EmbeddedFile'))add('PDF_EMBEDDED_FILE','MEDIUM','PDF contains an embedded-file marker.');
+ if(/\.(docm|xlsm|pptm)$/.test(name))add('MACRO_ENABLED_OFFICE','HIGH','Macro-enabled Microsoft Office format.');
+ if(b.length>=8&&b.subarray(0,8).equals(Buffer.from([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1])))add('OLE_COMPOUND_DOCUMENT','MEDIUM','Legacy OLE compound document; macro inspection is recommended.');
+ if(/powershell|cmd\.exe|wscript|cscript|javascript:|eval\s*\(|fromcharcode/i.test(ascii))add('SUSPICIOUS_SCRIPT_STRING','MEDIUM','Suspicious script/process-launch text was found in file bytes.');
+ const score=Math.min(10,signals.reduce((n,x)=>n+(x.severity==='CRITICAL'?4:x.severity==='HIGH'?3:x.severity==='MEDIUM'?2:1),0));
+ return {execution:'IN_MEMORY_STATIC_DOCUMENT_SECURITY_SCAN',filename:file.originalname,mimeType:file.mimetype,size:file.size,sha256,verdict:signals.some(x=>x.severity==='CRITICAL')?'HIGH_RISK':signals.length?'SUSPICIOUS':'NO_STATIC_INDICATORS_OBSERVED',riskScore:score,signals,note:'Static triage only; no file is executed and this is not a malware-free guarantee. Upload bytes are held in memory for this request and are not stored by this endpoint.'};
+}
 function run(cmd:string,args:string[]){
   return new Promise<{stdout:string;stderr:string;exitCode:number|null;durationMs:number}>((resolve,reject)=>{
     const started=Date.now(); let out='',err='',done=false;
@@ -90,6 +124,15 @@ app.post('/api/assessment/authorize',async(req,res)=>{
     res.json({authorized:true,assessmentId:assessment.id,targetOrigin:t.url.origin,resolvedAddresses:t.addresses,sessionToken});
   }catch(e:any){res.status(400).json({error:e.message})}
 });
+app.post('/api/scans/quick',async(req,res)=>{try{
+ const session=verifySession(String(req.headers['x-assessment-session']||''));const assessmentId=session.assessmentId;
+ const assessments=await db.assessments();const assessment=assessments.find(a=>a.id===assessmentId);if(!assessment)return res.status(404).json({error:'Assessment not found'});
+ const t=await validateTarget(String(req.body.targetUrl||''));if(t.url.origin!==session.targetOrigin||assessment.target!==session.targetOrigin)return res.status(403).json({error:'Target is outside the authorized assessment scope'});
+ const q=await quickPosture(assessmentId,t);const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};
+ await db.saveEvidence(ev);if(q.findings.length)await db.saveFindings(q.findings);await db.saveAssessment({...assessment,status:q.error?'FAILED':'COMPLETED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...q.findings]});
+ res.json({execution:'REAL_LIVE_HTTP_POSTURE',target:t.url.origin,...q,evidence:{sha256:q.sha256}});
+}catch(e:any){res.status(400).json({error:e.message})}});
+app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
 app.post('/api/scans/run',async(req,res)=>{
   try{
     const session=verifySession(String(req.headers['x-assessment-session']||''));

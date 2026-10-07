@@ -26,7 +26,7 @@ const PORT=Number(process.env.PORT||8080);
 const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
 const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);
 
-type Tool='nmap'|'wapiti';
+type Tool='nmap'|'wapiti'|'sqlmap';
 const blocked=(ip:string)=>{
   if(net.isIP(ip)===4){
     const p=ip.split('.').map(Number);
@@ -80,12 +80,14 @@ app.post('/api/scans/run',async(req,res)=>{
     const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
     if(!assessment) return res.status(404).json({error:'Assessment not found; enter through the authorization gate first'});
     const tool=String(req.body.tool||'') as Tool;
-    if(!['nmap','wapiti'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
+    if(!['nmap','wapiti','sqlmap'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
     const t=await validateTarget(String(req.body.targetUrl||''));
     if(t.url.origin!==session.targetOrigin || assessment.target!==session.targetOrigin) return res.status(403).json({error:'Target is outside the authorized assessment scope'});
     const args=tool==='nmap'
       ? ['-sT','-sV','--version-light','-Pn','-p','80,443,8080,8443','-oX','-',t.url.hostname]
-      : ['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session'];
+      : tool==='wapiti'
+      ? ['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']
+      : ['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];
     const startedAt=new Date().toISOString();
     const result=await run(tool,args);
     const completedAt=new Date().toISOString();
@@ -93,7 +95,7 @@ app.post('/api/scans/run',async(req,res)=>{
     const sha256=crypto.createHash('sha256').update(evidence).digest('hex');
     const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs}};
     await db.saveEvidence(ev);
-    const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):nmapFindings(assessmentId,t.url.origin,sha256,result.stdout);
+    const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='nmap'?nmapFindings(assessmentId,t.url.origin,sha256,result.stdout):[];
     await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'REAL_SCAN_COMPLETED',actor:'operator',createdAt:completedAt,metadata:{tool,exitCode:result.exitCode,evidenceHash:sha256,durationMs:result.durationMs}});
     if(findings.length) await db.saveFindings(findings);
     await db.saveAssessment({...assessment,status:result.exitCode===0?'COMPLETED':'FAILED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
@@ -118,13 +120,15 @@ app.get('/api/assessments/:id/evidence',async(req,res)=>res.json((await db.evide
 app.get('/api/assessments/:id/report',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(assessmentReport(a,fs))});
 
 app.get('/api/integrations',async(_req,res)=>{
- const health:any={nmap:false,wapiti:false,semgrep:false,gemini:Boolean(process.env.GEMINI_API_KEY)};
+ const health:any={nmap:false,wapiti:false,semgrep:false,sqlmap:false,tshark:false,gemini:Boolean(process.env.GEMINI_API_KEY)};
  const check=async(cmd:string,args:string[])=>{try{return (await run(cmd,args)).exitCode===0}catch{return false}};
- health.nmap=await check('nmap',['--version']); health.wapiti=await check('wapiti',['--version']); health.semgrep=await check('semgrep',['--version']);
+ health.nmap=await check('nmap',['--version']); health.wapiti=await check('wapiti',['--version']); health.semgrep=await check('semgrep',['--version']); health.sqlmap=await check('sqlmap',['--version']); health.tshark=await check('tshark',['--version']);
  res.json({integrations:[
   {id:'nmap',kind:'scanner',status:health.nmap?'REAL':'UNAVAILABLE'},
   {id:'wapiti',kind:'scanner',status:health.wapiti?'REAL':'UNAVAILABLE'},
   {id:'semgrep',kind:'source-scanner',status:health.semgrep?'REAL':'UNAVAILABLE'},
+  {id:'sqlmap',kind:'authorized-sqli-validation',status:health.sqlmap?'REAL':'UNAVAILABLE'},
+  {id:'tshark',kind:'packet-analysis',status:health.tshark?'REAL':'UNAVAILABLE'},
   {id:'gemini',kind:'ai-analysis',status:health.gemini?'CONNECTED':'UNAVAILABLE'},
   {id:'burp',kind:'external-provider',status:'UNAVAILABLE'},
   {id:'wireshark',kind:'capture-provider',status:'UNAVAILABLE'},

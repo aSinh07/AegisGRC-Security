@@ -49,7 +49,7 @@ async function currentUser(req:any){const ut=(req.headers.cookie||'').split(';')
 async function reportAuthorized(req:any){if(verifyCredentials(String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||'')))return {ok:true,mode:'admin'};const u=await currentUser(req);if(!u)return {ok:false,reason:'USER_SESSION_MISSING'};const v=await verifyUserStepUp(u.userId,String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||''));return v.ok?{ok:true,mode:'user'}:{ok:false,reason:v.reason}}
 
 
-type Tool='nmap'|'wapiti'|'sqlmap'|'zap';
+type Tool='nmap'|'wapiti'|'sqlmap'|'zap'|'all';
 const blocked=(ip:string)=>{
   if(net.isIP(ip)===4){
     const p=ip.split('.').map(Number);
@@ -148,6 +148,22 @@ app.post('/api/scans/quick',async(req,res)=>{try{
  res.json({execution:'REAL_LIVE_HTTP_POSTURE',target:t.url.origin,...q,evidence:{sha256:q.sha256}});
 }catch(e:any){res.status(400).json({error:e.message})}});
 app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
+async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap',assessmentId:string,t:{url:URL,addresses:string[]}){
+ const startedAt=new Date().toISOString();let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number};let zapAlerts:any[]=[];
+ if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}
+ else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p-','--open','-oX','-',t.url.hostname]:tool==='wapiti'?['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
+ const completedAt=new Date().toISOString(),evidence=JSON.stringify({tool,target:t.url.origin,startedAt,completedAt,...result}),sha256=crypto.createHash('sha256').update(evidence).digest('hex');
+ const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs}};
+ await db.saveEvidence(ev);
+ const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='nmap'?nmapFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='zap'?zapFindings(assessmentId,t.url.origin,sha256,zapAlerts):[];
+ if(findings.length)await db.saveFindings(findings);
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'REAL_SCAN_COMPLETED',actor:'operator',createdAt:completedAt,metadata:{tool,exitCode:result.exitCode,evidenceHash:sha256,durationMs:result.durationMs,findingCount:findings.length}});
+ console.log('\n[AEGIS REAL SCAN] '+tool.toUpperCase()+' | '+t.url.origin+' | exit='+result.exitCode+' | '+result.durationMs+'ms | findings='+findings.length);
+ console.log('[AEGIS EVIDENCE] SHA-256 '+sha256);
+ for(const x of findings)console.log('[AEGIS FINDING] ['+x.severity+'] '+x.title+' | '+x.description+' | evidence='+x.evidenceHash);
+ if(result.stderr)console.log('[AEGIS STDERR] '+result.stderr.slice(0,4000));
+ return {tool,startedAt,completedAt,...result,evidence:{sha256},findings};
+}
 app.post('/api/scans/run',async(req,res)=>{
   try{
     const session=verifySession(String(req.headers['x-assessment-session']||''));
@@ -155,9 +171,15 @@ app.post('/api/scans/run',async(req,res)=>{
     const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
     if(!assessment) return res.status(404).json({error:'Assessment not found; enter through the authorization gate first'});
     const tool=String(req.body.tool||'') as Tool;
-    if(!['nmap','wapiti','sqlmap','zap'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
+    if(!['nmap','wapiti','sqlmap','zap','all'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
     const t=await validateTarget(String(req.body.targetUrl||''));
     if(t.url.origin!==session.targetOrigin || assessment.target!==session.targetOrigin) return res.status(403).json({error:'Target is outside the authorized assessment scope'});
+    if(tool==='all'){
+      console.log('\n[AEGIS FULL ASSESSMENT] START '+t.url.origin+' assessment='+assessmentId);
+      const q=await quickPosture(assessmentId,t);const qev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};await db.saveEvidence(qev);if(q.findings.length)await db.saveFindings(q.findings);console.log('[AEGIS REAL SCAN] HTTP POSTURE | findings='+q.findings.length+' | evidence='+q.sha256);
+      const runs=[];for(const name of ['nmap','zap','wapiti','sqlmap'] as const){try{runs.push(await executeRealTool(name,assessmentId,t))}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);runs.push({tool:name,error:e.message,findings:[]})}}
+      const fresh=(await db.assessments()).find(x=>x.id===assessmentId)||assessment;const allFindings=(await db.findings()).filter(x=>x.assessmentId===assessmentId);const allEvidence=(await db.evidence()).filter(x=>x.assessmentId===assessmentId);await db.saveAssessment({...fresh,status:'COMPLETED',findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});console.log('[AEGIS FULL ASSESSMENT] COMPLETE | findings='+allFindings.length+' | evidence='+allEvidence.length);return res.json({execution:'REAL_FULL_ASSESSMENT',target:t.url.origin,assessmentId,tools:['http-posture','nmap','zap','wapiti','sqlmap'],runs,summary:{findings:allFindings.length,evidenceRecords:allEvidence.length},findings:allFindings});
+    }
     const startedAt=new Date().toISOString();
     let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number}; let zapAlerts:any[]=[];
     if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}

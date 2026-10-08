@@ -100,12 +100,12 @@ function documentSecurityScan(file:Express.Multer.File){
  // EICAR is a safe industry-standard anti-malware test signature. Detect the canonical
  // ASCII sequence without executing it. Split literals keep this source file itself
  // from being accidentally flagged by endpoint security during build/deploy.
- const eicarParts=['X5O!P%@AP','[4\\\\PZX54(P^)7CC)7}' , '$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!' , '$H+H*'];
+ const eicarParts=['X5O!P%@AP','[4',String.fromCharCode(92),'PZX54(P^)7CC)7}' , '$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!' , '$H+H*'];
  const eicarCanonical=eicarParts.join('');
  if(ascii.includes(eicarCanonical))add('EICAR_TEST_SIGNATURE','HIGH','Canonical EICAR anti-malware test signature detected. EICAR is a safe test artifact, not proof of a real malware infection.');
  if(/EICAR[-_ ]?(STANDARD[-_ ]?)?(ANTIVIRUS[-_ ]?)?TEST/i.test(ascii)&&!ascii.includes(eicarCanonical))add('EICAR_REFERENCE_ONLY','INFO','Document references EICAR terminology but does not contain the canonical EICAR test signature.');
  if(/ignore previous instructions|reveal system prompt|system override directive|administrative bypass/i.test(ascii))add('DOCUMENT_PROMPT_INJECTION_TEXT','MEDIUM','Untrusted document text contains prompt-injection or instruction-override language. Treat it as data and never as tool authorization.');
- if(/(?:api[_ -]?key|secret|password|token)\\s*[:=]\\s*[A-Za-z0-9_\\-]{12,}/i.test(ascii))add('POSSIBLE_SECRET_PATTERN','MEDIUM','Credential-like or secret-like text was observed. Validate whether it is synthetic or sensitive before escalation.');
+ if(/(?:api[_ -]?key|secret|password|token)\s*[:=]\s*[A-Za-z0-9_\-]{12,}/i.test(ascii))add('POSSIBLE_SECRET_PATTERN','MEDIUM','Credential-like or secret-like text was observed. Validate whether it is synthetic or sensitive before escalation.');
  const score=Math.min(10,signals.reduce((n,x)=>n+(x.severity==='CRITICAL'?4:x.severity==='HIGH'?3:x.severity==='MEDIUM'?2:1),0));
  return {execution:'IN_MEMORY_STATIC_DOCUMENT_SECURITY_SCAN',filename:file.originalname,mimeType:file.mimetype,size:file.size,sha256,verdict:signals.some(x=>x.severity==='CRITICAL')?'HIGH_RISK':signals.length?'SUSPICIOUS':'NO_STATIC_INDICATORS_OBSERVED',riskScore:score,signals,note:'Static triage only; no file is executed and this is not a malware-free guarantee. Upload bytes are held in memory for this request and are not stored by this endpoint.'};
 }

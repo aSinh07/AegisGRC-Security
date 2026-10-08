@@ -31,3 +31,5 @@ export async function userSession(token:string){if(!token)return null;const r=aw
 export async function userLogout(token:string){if(token)await pool.query('DELETE FROM app_sessions WHERE token_hash=$1',[tokenHash(token)])}
 
 export async function userRole(userId:string){const r=await pool.query('SELECT role,email FROM app_users WHERE id=$1',[userId]);if(!r.rows[0])return null;const configured=(process.env.GRC_REVIEWER_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);const role=configured.includes(String(r.rows[0].email).toLowerCase())?'grc_reviewer':r.rows[0].role;if(role!==r.rows[0].role)await pool.query('UPDATE app_users SET role=$2,updated_at=now() WHERE id=$1',[userId,role]);return role}
+
+export async function verifyUserStepUp(userId:string,password:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE id=$1',[userId]),u=r.rows[0];return Boolean(u&&u.totp_verified&&pass(password,u.password_salt,u.password_hash)&&verify(u.totp_secret,code))}

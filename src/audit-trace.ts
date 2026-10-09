@@ -24,6 +24,18 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
     'SELECT id,issue_key,finding_id,status,priority,due_at FROM grc_issues WHERE assessment_id=$1 ORDER BY created_at',
     [assessmentId]
   )).rows;
+  const risks = (await pool.query(
+    'SELECT r.id,r.risk_key,r.inherent_score,r.inherent_rating,r.treatment,r.status,ir.issue_id FROM grc_enterprise_risks r JOIN grc_issue_risks ir ON ir.risk_id=r.id JOIN grc_issues i ON i.id=ir.issue_id WHERE i.assessment_id=$1 ORDER BY r.created_at',
+    [assessmentId]
+  )).rows;
+  const capas = (await pool.query(
+    'SELECT c.id,c.capa_key,c.issue_id,c.status,c.priority,c.due_at,c.retest_run_id,c.closed_at FROM grc_capa c JOIN grc_issues i ON i.id=c.issue_id WHERE i.assessment_id=$1 ORDER BY c.created_at',
+    [assessmentId]
+  )).rows;
+  const capaEvidence = (await pool.query(
+    'SELECT ce.capa_id,ce.evidence_version_id,ce.linked_at FROM grc_capa_evidence ce JOIN grc_capa c ON c.id=ce.capa_id JOIN grc_issues i ON i.id=c.issue_id WHERE i.assessment_id=$1 ORDER BY ce.linked_at',
+    [assessmentId]
+  )).rows;
 
   const chains = findings.map((row:any) => {
     const f = row.payload || {};
@@ -37,7 +49,12 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       evidenceHash: f.evidenceHash || null,
       status: f.status || 'UNREVIEWED',
       reviews: history,
-      issue
+      issue,
+      risks: issue ? risks.filter((x:any) => x.issue_id === issue.id) : [],
+      capa: issue ? capas.filter((x:any) => x.issue_id === issue.id).map((x:any) => ({
+        ...x,
+        evidence: capaEvidence.filter((e:any) => e.capa_id === x.id)
+      })) : []
     };
   });
 
@@ -51,7 +68,10 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       findings: findings.length,
       reviewed: chains.filter((x:any) => x.reviews.length > 0).length,
       confirmed: chains.filter((x:any) => x.reviews.length > 0 && x.reviews[x.reviews.length-1].decision === 'CONFIRMED').length,
-      issues: issues.length
+      issues: issues.length,
+      risks: risks.length,
+      capa: capas.length,
+      closedCapa: capas.filter((x:any) => x.status === 'CLOSED').length
     },
     evidence,
     chains

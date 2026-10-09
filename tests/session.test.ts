@@ -26,3 +26,14 @@ test('authentication throttling persists in PostgreSQL',async()=>{
  assert.match(auth,/blocked_until/);
  assert.match(schema,/CREATE TABLE IF NOT EXISTS app_auth_attempts/);
 });
+
+test('legacy admin cookie cannot authorize tenant APIs or report step-up',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const middleware=server.slice(server.indexOf("app.use('/api'"),server.indexOf("app.get('/api/grc/organizations'"));
+ assert.doesNotMatch(middleware,/valid\(token\)/);
+ assert.match(middleware,/User login required/);
+ const step=server.slice(server.indexOf('async function reportAuthorized'),server.indexOf("app.get('/api/assessments'",server.indexOf('async function reportAuthorized')));
+ assert.doesNotMatch(step,/verifyCredentials/);
+ assert.match(step,/verifyUserStepUp/);
+});

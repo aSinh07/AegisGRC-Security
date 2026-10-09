@@ -1,3 +1,30 @@
+-- Bootstrap identity and tenancy parents before assessment foreign keys.
+-- Runtime initializers may add compatible columns/indexes, but a clean database must
+-- be valid before the HTTP server starts.
+CREATE TABLE IF NOT EXISTS app_users (
+ id uuid PRIMARY KEY,
+ email text UNIQUE NOT NULL,
+ password_hash text NOT NULL,
+ password_salt text NOT NULL,
+ totp_secret text NOT NULL,
+ totp_verified boolean NOT NULL DEFAULT false,
+ full_name text,
+ designation text,
+ company_name text,
+ role text NOT NULL DEFAULT 'analyst',
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS grc_organizations (
+ id uuid PRIMARY KEY,
+ name text NOT NULL,
+ industry text,
+ status text NOT NULL DEFAULT 'ACTIVE',
+ created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS assessments (
  id uuid PRIMARY KEY, target text NOT NULL, authorized_at timestamptz NOT NULL, status text NOT NULL, payload jsonb NOT NULL
 );

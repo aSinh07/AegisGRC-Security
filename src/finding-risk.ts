@@ -28,10 +28,15 @@ export async function slaPolicy(user:string,org:string){
  return {...defaultSlaDays,...Object.fromEntries(rows.map((x:any)=>[x.severity,Number(x.days)]))};
 }
 export async function setSlaPolicy(user:string,org:string,input:any){
- await requireOrgPermission(user,org,'manageRisk');const values=input||{};
- for(const s of Object.keys(defaultSlaDays) as Severity[]){if(values[s]===undefined)continue;const d=Number(values[s]);if(!Number.isInteger(d)||d<1||d>3650)throw new Error(s+' SLA must be an integer from 1 to 3650 days');
-  await pool.query(`INSERT INTO grc_sla_policies(organization_id,severity,days,updated_by) VALUES($1,$2,$3,$4)
-   ON CONFLICT(organization_id,severity) DO UPDATE SET days=EXCLUDED.days,updated_by=EXCLUDED.updated_by,updated_at=now()`,[org,s,d,user]);}
+ await requireOrgPermission(user,org,'manageRisk');const values=input||{},updates:Array<[Severity,number]>=[];
+ for(const s of Object.keys(defaultSlaDays) as Severity[]){if(values[s]===undefined)continue;const d=Number(values[s]);if(!Number.isInteger(d)||d<1||d>3650)throw new Error(s+' SLA must be an integer from 1 to 3650 days');updates.push([s,d])}
+ const client=await pool.connect();try{await client.query('BEGIN');
+  for(const [s,d] of updates)await client.query(`INSERT INTO grc_sla_policies(organization_id,severity,days,updated_by) VALUES($1,$2,$3,$4)
+   ON CONFLICT(organization_id,severity) DO UPDATE SET days=EXCLUDED.days,updated_by=EXCLUDED.updated_by,updated_at=now()`,[org,s,d,user]);
+  if(updates.length)await client.query(`INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,snapshot)
+   VALUES($1,$2,'SLA_POLICY',$2,'UPDATED',$3,$4)`,[crypto.randomUUID(),org,user,Object.fromEntries(updates)]);
+  await client.query('COMMIT');
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
  return slaPolicy(user,org);
 }
 export async function promoteFindingToIssue(user:string,org:string,assessmentId:string,findingId:string,input:any={}){

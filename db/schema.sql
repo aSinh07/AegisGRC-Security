@@ -15,6 +15,15 @@ CREATE TABLE IF NOT EXISTS app_users (
  created_at timestamptz NOT NULL DEFAULT now(),
  updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS app_auth_attempts (
+ attempt_key text PRIMARY KEY,
+ failures int NOT NULL DEFAULT 0,
+ window_started_at timestamptz NOT NULL DEFAULT now(),
+ blocked_until timestamptz,
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS app_auth_attempts_blocked_idx ON app_auth_attempts(blocked_until);
+
 CREATE TABLE IF NOT EXISTS grc_organizations (
  id uuid PRIMARY KEY,
  name text NOT NULL,

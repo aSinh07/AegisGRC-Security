@@ -42,6 +42,8 @@ export async function reviewFinding(userId:string,assessmentId:string,findingId:
   const review=(await client.query(`INSERT INTO finding_reviews(id,finding_id,assessment_id,decision,rationale,reviewer_id)
    VALUES($1,$2,$3,$4,$5,$6) RETURNING id,finding_id,assessment_id,decision,rationale,reviewer_id,created_at`,
    [reviewId,findingId,assessmentId,decision,rationale,userId])).rows[0];
+  const audit={id:crypto.randomUUID(),assessmentId,action:'FINDING_REVIEWED',actor:userId,createdAt:new Date().toISOString(),metadata:{findingId,reviewId,decision,rationale}};
+  await client.query('INSERT INTO audit_events(id,assessment_id,action,created_at,payload) VALUES($1,$2,$3,$4,$5)',[audit.id,assessmentId,audit.action,audit.createdAt,audit]);
   await client.query('COMMIT');return {finding:updated,review};
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }

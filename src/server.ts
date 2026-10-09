@@ -343,11 +343,11 @@ app.get('/api/cve/:cve',async(req,res)=>{try{res.json(await nvdCve(req.params.cv
 app.post('/api/cyber-intel/analyze',async(req,res)=>{try{const item=req.body?.item;if(!item?.title||!item?.source)return res.status(400).json({error:'Intelligence item required'});res.json(await analyzeIntel(item,String(req.body?.context||'')))}catch(e:any){res.status(502).json({error:e.message})}});
 app.get('/api/frameworks',(_req,res)=>res.json({frameworks:frameworkCatalog,note:'Mappings are evidence-driven cross-references, not certification or reproduced standards text.'}));
 app.post('/api/assessments/:id/documents',upload.array('files',10),async(req,res)=>{
- try{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const files=(req.files||[]) as Express.Multer.File[];if(!files.length)return res.status(400).json({error:'No files supplied'});const denied=/\.(exe|dll|so|dylib|msi|apk|bat|cmd|ps1|sh|scr|com|jar)$/i;const saved=[];for(const file of files){if(denied.test(file.originalname))return res.status(400).json({error:'Executable/script uploads are not accepted'});const id=crypto.randomUUID(),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();await db.saveDocument({id,assessmentId:a.id,filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype||'application/octet-stream',size:file.size,sha256,createdAt,content:file.buffer});await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:'operator',createdAt,metadata:{documentId:id,filename:file.originalname,size:file.size,sha256}});saved.push({id,filename:file.originalname,size:file.size,sha256,createdAt})}res.json({stored:true,documents:saved})}catch(e:any){res.status(400).json({error:e.message})}
+ try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const files=(req.files||[]) as Express.Multer.File[];if(!files.length)return res.status(400).json({error:'No files supplied'});const denied=/\.(exe|dll|so|dylib|msi|apk|bat|cmd|ps1|sh|scr|com|jar)$/i;const saved=[];for(const file of files){if(denied.test(file.originalname))return res.status(400).json({error:'Executable/script uploads are not accepted'});const id=crypto.randomUUID(),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();await db.saveDocument({id,assessmentId:a.id,filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype||'application/octet-stream',size:file.size,sha256,createdAt,content:file.buffer});await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:'operator',createdAt,metadata:{documentId:id,filename:file.originalname,size:file.size,sha256}});saved.push({id,filename:file.originalname,size:file.size,sha256,createdAt})}res.json({stored:true,documents:saved})}catch(e:any){res.status(400).json({error:e.message})}
 });
 app.get('/api/assessments/:id/documents',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.documents(req.params.id))});
 app.post('/api/assessments/:id/documents/:docId/security-assess',async(req,res)=>{try{
- const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
  const d=await db.document(req.params.docId);if(!d||d.assessmentId!==a.id)return res.status(404).json({error:'Document not found'});
  const staticScan=documentSecurityScan({buffer:d.content,originalname:d.filename,mimetype:d.mimeType,size:d.size} as Express.Multer.File);
  const extracted=await extractDocument(d.filename,d.mimeType,d.content);
@@ -359,6 +359,7 @@ app.post('/api/assessments/:id/documents/:docId/security-assess',async(req,res)=
  res.json({execution:'REAL_DOCUMENT_ASSESSMENT',document:{id:d.id,filename:d.filename,sha256:d.sha256},offensive:{scope:'Static file attack-surface triage; the document is never executed.',...staticScan},defensive:{analysis},grc:{mappedFindings:findings},remediation:findings.map(x=>({finding:x.title,action:x.remediation})),limitations:['Nmap, ZAP, Wapiti and SQLmap test network/web targets and are not valid document scanners. They are intentionally not run against file bytes.']});
 }catch(e:any){res.status(400).json({error:e.message})}});
 app.post('/api/assessments/:id/documents/:docId/analyze',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);
  const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});
  const extracted=await extractDocument(d.filename,d.mimeType,d.content);
  if(!extracted.text.trim())return res.status(422).json({error:'No extractable text found in this document'});
@@ -366,8 +367,8 @@ app.post('/api/assessments/:id/documents/:docId/analyze',async(req,res)=>{try{
  await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_ANALYZED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:d.id,sha256:d.sha256,extraction:extracted.kind,pages:(extracted as any).pages||null,analysisMode:(analysis as any).mode}});
  res.json({document:{id:d.id,filename:d.filename,sha256:d.sha256,extraction:extracted.kind,pages:(extracted as any).pages||null},...analysis})
 }catch(e:any){res.status(400).json({error:e.message})}});
-app.get('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});res.setHeader('Content-Disposition',`attachment; filename="${String(d.filename).replace(/"/g,'')}"`);res.type(d.mimeType).send(d.content)});
-app.delete('/api/assessments/:id/documents/:docId',async(req,res)=>{const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});await db.deleteDocument(req.params.docId);await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_DELETED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:req.params.docId,sha256:d.sha256}});res.json({deleted:true})});
+app.get('/api/assessments/:id/documents/:docId',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});res.setHeader('Content-Disposition',`attachment; filename="${String(d.filename).replace(/"/g,'')}"`);res.type(d.mimeType).send(d.content)});
+app.delete('/api/assessments/:id/documents/:docId',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);const d=await db.document(req.params.docId);if(!d||d.assessmentId!==req.params.id)return res.status(404).json({error:'Not found'});await db.deleteDocument(req.params.docId);await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.id,action:'DOCUMENT_DELETED',actor:'operator',createdAt:new Date().toISOString(),metadata:{documentId:req.params.docId,sha256:d.sha256}});res.json({deleted:true})});
 
 app.post('/api/assessments/:id/grc-reviews/:framework/submit',async(req,res)=>{try{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const fw=req.params.framework.toUpperCase();if(!frameworkCatalog.some((x:any)=>String(x.id).toUpperCase()===fw))return res.status(400).json({error:'Unknown framework'});const review=await submitGrcReview(a.id,fw,u.userId);await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'GRC_REPORT_SUBMITTED_FOR_REVIEW',actor:u.email,createdAt:new Date().toISOString(),metadata:{framework:fw,reviewId:review.id}});res.json({review,meaning:'Submitted for independent GRC consultant review. This is not yet approved or certified.'})}catch(e:any){res.status(400).json({error:e.message})}});
 app.get('/api/assessments/:id/grc-reviews',async(req,res)=>{try{res.json({reviews:await listGrcReviews(req.params.id)})}catch(e:any){res.status(400).json({error:e.message})}});
@@ -400,25 +401,25 @@ app.post('/api/copilot',async(req,res)=>{try{
  res.json(answer);
 }catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});
 app.post('/api/assessments/:id/copilot',async(req,res)=>{try{
- const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
  const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
- const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);
+ const fs=await db.findingsForAssessment(req.params.id);
  const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs);
  await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_EXPLANATION_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
  res.json(answer);
 }catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});
 app.post('/api/assessments/:id/ai-remediation',async(req,res)=>{
- try{const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(await explainFindings(fs))}
+ try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);const fs=await db.findingsForAssessment(req.params.id);res.json(await explainFindings(fs))}
  catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}
 });
 app.get('/api/assessments/:id/report.pdf',async(req,res)=>{
- const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
- const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const ev=(await db.evidence()).filter(x=>x.assessmentId===req.params.id);const pdf=await renderPdf(a,fs,ev);
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});
+ const fs=await db.findingsForAssessment(req.params.id);const ev=await db.evidenceForAssessment(req.params.id);const pdf=await renderPdf(a,fs,ev);
  res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.pdf"`);res.type('application/pdf').send(pdf);
 });
 app.get('/api/assessments/:id/report/download',async(req,res)=>{
- const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});
- const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);const report=assessmentReport(a,fs);
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});
+ const fs=await db.findingsForAssessment(req.params.id);const report=assessmentReport(a,fs);
  res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.json"`);res.type('application/json').send(JSON.stringify(report,null,2));
 });
 

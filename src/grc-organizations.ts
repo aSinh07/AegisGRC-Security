@@ -15,6 +15,7 @@ const permissions={
  manageScope:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST']),
  manageControl:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','CONTROL_OWNER']),
  manageRisk:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','RISK_OWNER']),
+ findingReview:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','REVIEWER']),
  review:new Set<OrgRole>(['GRC_MANAGER','REVIEWER','AUDITOR'])
 };
 export type OrgPermission=keyof typeof permissions;

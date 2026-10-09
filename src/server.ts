@@ -33,7 +33,7 @@ import { parseFindingImport } from './finding-import.js';
 import { initFindingReview,reviewFinding,findingReviewHistory } from './finding-review.js';
 import { initFindingRisk,slaPolicy,setSlaPolicy,promoteFindingToIssue } from './finding-risk.js';
 import { assessmentTrace } from './audit-trace.js';
-import { auditDocx,auditXlsx } from './audit-exporters.js';
+import { auditDocx,auditXlsx,auditPdf } from './audit-exporters.js';
 import { auditPackageModel } from './audit-trace.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import { analyzeIntel } from './intel-ai.js';
@@ -118,7 +118,8 @@ app.get('/api/grc/assessments/:assessmentId/audit-package.:format',async(req,res
  let body:Buffer,contentType:string,ext:string;
  if(format==='docx'){body=await auditDocx(model);contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document';ext='docx'}
  else if(format==='xlsx'){body=auditXlsx(model);contentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';ext='xlsx'}
- else return res.status(400).json({error:'Audit package format must be docx or xlsx'});
+ else if(format==='pdf'){body=await auditPdf(model);contentType='application/pdf';ext='pdf'}
+ else return res.status(400).json({error:'Audit package format must be pdf, docx or xlsx'});
  res.setHeader('Content-Type',contentType);res.setHeader('Content-Disposition','attachment; filename="AegisGRC-Audit-'+req.params.assessmentId+'.'+ext+'"');res.send(body);
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/assessments/:assessmentId/traceability',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await assessmentTrace(u.userId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

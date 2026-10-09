@@ -21,3 +21,16 @@ test('finding promotion is assessment scoped owner validated and atomically audi
  const commitAt=src.indexOf("await client.query('COMMIT')",eventAt);
  assert.ok(eventAt>=0&&commitAt>eventAt);
 });
+
+test('SLA policy updates are atomic and auditable',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const src=await readFile(new URL('../src/finding-risk.ts',import.meta.url),'utf8');
+ const start=src.indexOf('export async function setSlaPolicy');
+ const end=src.indexOf('export async function promoteFindingToIssue',start);
+ const block=src.slice(start,end);
+ assert.match(block,/client\.query\('BEGIN'\)/);
+ assert.match(block,/grc_record_events/);
+ assert.match(block,/'SLA_POLICY'/);
+ assert.match(block,/client\.query\('COMMIT'\)/);
+ assert.match(block,/client\.query\('ROLLBACK'\)/);
+});

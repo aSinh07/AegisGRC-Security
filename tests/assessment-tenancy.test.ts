@@ -57,3 +57,11 @@ test('legacy document AI review and export routes enforce user tenant access',as
  assert.match(server,/assessmentForUser\(u\.userId,req\.params\.id\)/);
  assert.match(server,/requireAssessmentAccess\(u\.userId,req\.params\.id\)/);
 });
+
+test('server has no legacy global assessment finding evidence or audit reads',async()=>{
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ for(const call of ['db.assessments()','db.findings()','db.evidence()','db.audits()'])assert.equal(server.includes(call),false,call);
+ assert.match(server,/db\.assessmentForUser\(u\.userId,assessmentId\)/);
+ assert.match(server,/db\.findingsForAssessment\(assessmentId\)/);
+ assert.match(server,/db\.evidenceForAssessment\(assessmentId\)/);
+});

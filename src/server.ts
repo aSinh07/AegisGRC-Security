@@ -12,7 +12,7 @@ import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
 import { issueSession, verifySession } from './session.js';
 import { renderPdf,renderFrameworkPdf } from './pdf.js';
-import { authConfigured, login, logout, valid, verifyCredentials } from './auth.js';
+import { authConfigured, login, logout } from './auth.js';
 import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,userLogout,userRole,verifyUserStepUp,resetPasswordWithTotp,authAttemptAllowed,recordAuthFailure,clearAuthFailures } from './user-auth.js';
 import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport } from './grc-review.js';
 import { initGrcCore } from './grc-core.js';

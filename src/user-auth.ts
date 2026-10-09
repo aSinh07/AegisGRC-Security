@@ -4,7 +4,7 @@ const TTL=8*60*60*1000;
 function b32buf(s:string){const a='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const c of s.toUpperCase().replace(/[^A-Z2-7]/g,'')){const n=a.indexOf(c);if(n>=0)bits+=n.toString(2).padStart(5,'0')}const out=[];for(let i=0;i+8<=bits.length;i+=8)out.push(parseInt(bits.slice(i,i+8),2));return Buffer.from(out)}
 function b32enc(b:Buffer){const a='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const x of b)bits+=x.toString(2).padStart(8,'0');let out='';for(let i=0;i<bits.length;i+=5)out+=a[parseInt(bits.slice(i,i+5).padEnd(5,'0'),2)];return out}
 function totp(secret:string,step=Math.floor(Date.now()/30000)){const b=Buffer.alloc(8);b.writeBigUInt64BE(BigInt(step));const h=crypto.createHmac('sha1',b32buf(secret)).update(b).digest(),o=h[h.length-1]&15;return String((h.readUInt32BE(o)&0x7fffffff)%1e6).padStart(6,'0')}
-function verify(secret:string,code:string){code=code.trim();return /^\d{6}$/.test(code)&&[-2,-1,0,1,2].some(d=>{const a=Buffer.from(code),b=Buffer.from(totp(secret,Math.floor(Date.now()/30000)+d));return a.length===b.length&&crypto.timingSafeEqual(a,b)})}
+function verify(secret:string,code:string){code=code.trim();return /^\d{6}$/.test(code)&&[-1,0,1].some(d=>{const a=Buffer.from(code),b=Buffer.from(totp(secret,Math.floor(Date.now()/30000)+d));return a.length===b.length&&crypto.timingSafeEqual(a,b)})}
 function hashPassword(p:string,salt=crypto.randomBytes(16)){return {salt:salt.toString('hex'),hash:crypto.scryptSync(p,salt,64).toString('hex')}}
 function pass(p:string,salt:string,hash:string){const h=crypto.scryptSync(p,Buffer.from(salt,'hex'),64),x=Buffer.from(hash,'hex');return h.length===x.length&&crypto.timingSafeEqual(h,x)}
 const tokenHash=(t:string)=>crypto.createHash('sha256').update(t).digest('hex');
@@ -25,11 +25,10 @@ export async function beginRegistration(email:string,password:string,profile:{fu
  if(fullName.length<2||fullName.length>120)throw Error('Full name must be 2-120 characters');
  if(designation.length<2||designation.length>120)throw Error('Designation must be 2-120 characters');
  if(companyName.length<2||companyName.length>160)throw Error('Company name must be 2-160 characters');
- const existing=await pool.query('SELECT id,totp_verified FROM app_users WHERE email=$1',[email]);
- if(existing.rows[0]?.totp_verified)throw Error('Account already exists; sign in instead');
- const secret=b32enc(crypto.randomBytes(20)),h=hashPassword(password),id=existing.rows[0]?.id||crypto.randomUUID();
- if(existing.rows[0])await pool.query('UPDATE app_users SET password_hash=$2,password_salt=$3,totp_secret=$4,totp_verified=false,full_name=$5,designation=$6,company_name=$7,updated_at=now() WHERE id=$1',[id,h.hash,h.salt,secret,fullName,designation,companyName]);
- else await pool.query('INSERT INTO app_users(id,email,password_hash,password_salt,totp_secret,totp_verified,full_name,designation,company_name) VALUES($1,$2,$3,$4,$5,false,$6,$7,$8)',[id,email,h.hash,h.salt,secret,fullName,designation,companyName]);
+ const existing=await pool.query('SELECT id FROM app_users WHERE email=$1',[email]);
+ if(existing.rows[0])throw Error('Account already exists or registration is already pending; sign in or complete recovery instead');
+ const secret=b32enc(crypto.randomBytes(20)),h=hashPassword(password),id=crypto.randomUUID();
+ await pool.query('INSERT INTO app_users(id,email,password_hash,password_salt,totp_secret,totp_verified,full_name,designation,company_name) VALUES($1,$2,$3,$4,$5,false,$6,$7,$8)',[id,email,h.hash,h.salt,secret,fullName,designation,companyName]);
  const otpauth='otpauth://totp/'+encodeURIComponent('AegisGRC:'+email)+'?secret='+secret+'&issuer='+encodeURIComponent('AegisGRC');const qrDataUrl=await QRCode.toDataURL(otpauth,{errorCorrectionLevel:'M',margin:2,width:220});return {userId:id,email,secret,qrDataUrl};
 }
 export async function confirmRegistration(userId:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE id=$1',[userId]),u=r.rows[0];if(!u||!verify(u.totp_secret,code))return null;await pool.query('UPDATE app_users SET totp_verified=true,updated_at=now() WHERE id=$1',[userId]);const token=crypto.randomBytes(32).toString('base64url'),expires=new Date(Date.now()+TTL);await pool.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[tokenHash(token),u.id,expires]);return token}

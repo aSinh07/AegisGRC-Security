@@ -53,7 +53,19 @@ await initFindingReview();
 await initFindingRisk();
 
 app.use(express.json({limit:'1mb'}));
-app.use(express.static('public'));
+// The HTML shell must never be served stale after a UI release. Static assets can be revalidated.
+app.use((req,res,next)=>{
+ if(req.path==='/'||req.path==='/index.html'){
+  res.setHeader('Cache-Control','no-store, max-age=0, must-revalidate');
+  res.setHeader('Pragma','no-cache');
+  res.setHeader('Expires','0');
+ }
+ next();
+});
+app.use(express.static('public',{etag:true,maxAge:0,setHeaders:(res,filePath)=>{
+ if(filePath.endsWith('.html'))res.setHeader('Cache-Control','no-store, max-age=0, must-revalidate');
+ else res.setHeader('Cache-Control','public, max-age=0, must-revalidate');
+}}));
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024,files:10}});
 app.post('/api/auth/login',(req,res)=>{const token=login(String(req.body?.password||''),String(req.body?.code||''));if(!token)return res.status(401).json({error:authConfigured()?'Invalid password or authenticator code':'Server login is not configured'});res.cookie('aegis_auth',token,{httpOnly:true,sameSite:'strict',secure:process.env.COOKIE_SECURE==='true',path:'/',maxAge:28800000});res.json({ok:true})});
 app.post('/api/auth/register',async(req,res)=>{try{res.json(await beginRegistration(String(req.body?.email||''),String(req.body?.password||'')))}catch(e:any){res.status(400).json({error:e.code==='23505'?'Account already exists':e.message})}});

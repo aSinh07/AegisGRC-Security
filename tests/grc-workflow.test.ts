@@ -18,3 +18,15 @@ test('core remediation state changes commit audit events atomically',async()=>{
  assert.match(src,/CREATED',user,undefined,\{issueId\},client/);
  assert.match(src,/CLOSED'.*client/);
 });
+
+test('CAPA evidence retest and finding review audit writes are atomic',async()=>{
+ const rem=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ assert.match(rem,/EVIDENCE_SUBMITTED'.*client/);
+ assert.match(rem,/RETEST_'.*client/);
+ const review=await readFile(new URL('../src/finding-review.ts',import.meta.url),'utf8');
+ assert.match(review,/action:'FINDING_REVIEWED'/);
+ assert.match(review,/INSERT INTO audit_events/);
+ const reviewInsert=review.indexOf("INSERT INTO audit_events");
+ const commit=review.indexOf("await client.query('COMMIT')",reviewInsert);
+ assert.ok(reviewInsert>=0&&commit>reviewInsert);
+});

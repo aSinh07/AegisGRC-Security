@@ -11,23 +11,42 @@ const tokenHash=(t:string)=>crypto.createHash('sha256').update(t).digest('hex');
 export async function initUsers(){
  await pool.query('CREATE TABLE IF NOT EXISTS app_users(id uuid PRIMARY KEY,email text UNIQUE NOT NULL,password_hash text NOT NULL,password_salt text NOT NULL,totp_secret text NOT NULL,totp_verified boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now())');
  await pool.query('ALTER TABLE app_users ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()');
+ await pool.query('ALTER TABLE app_users ADD COLUMN IF NOT EXISTS full_name text');
+ await pool.query('ALTER TABLE app_users ADD COLUMN IF NOT EXISTS designation text');
+ await pool.query('ALTER TABLE app_users ADD COLUMN IF NOT EXISTS company_name text');
  await pool.query("ALTER TABLE app_users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'analyst'");
  await pool.query('CREATE TABLE IF NOT EXISTS app_sessions(token_hash text PRIMARY KEY,user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,expires_at timestamptz NOT NULL,created_at timestamptz NOT NULL DEFAULT now())');
  await pool.query('CREATE INDEX IF NOT EXISTS app_sessions_expires_idx ON app_sessions(expires_at)');
  await pool.query('DELETE FROM app_sessions WHERE expires_at<=now()');
 }
-export async function beginRegistration(email:string,password:string){
+export async function beginRegistration(email:string,password:string,profile:{fullName?:string;designation?:string;companyName?:string}={}){
  email=email.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||password.length<10)throw Error('Valid email and password of at least 10 characters required');
+ const fullName=String(profile.fullName||'').trim(),designation=String(profile.designation||'').trim(),companyName=String(profile.companyName||'').trim();
+ if(fullName.length<2||fullName.length>120)throw Error('Full name must be 2-120 characters');
+ if(designation.length<2||designation.length>120)throw Error('Designation must be 2-120 characters');
+ if(companyName.length<2||companyName.length>160)throw Error('Company name must be 2-160 characters');
  const existing=await pool.query('SELECT id,totp_verified FROM app_users WHERE email=$1',[email]);
  if(existing.rows[0]?.totp_verified)throw Error('Account already exists; sign in instead');
  const secret=b32enc(crypto.randomBytes(20)),h=hashPassword(password),id=existing.rows[0]?.id||crypto.randomUUID();
- if(existing.rows[0])await pool.query('UPDATE app_users SET password_hash=$2,password_salt=$3,totp_secret=$4,totp_verified=false,updated_at=now() WHERE id=$1',[id,h.hash,h.salt,secret]);
- else await pool.query('INSERT INTO app_users(id,email,password_hash,password_salt,totp_secret,totp_verified) VALUES($1,$2,$3,$4,$5,false)',[id,email,h.hash,h.salt,secret]);
+ if(existing.rows[0])await pool.query('UPDATE app_users SET password_hash=$2,password_salt=$3,totp_secret=$4,totp_verified=false,full_name=$5,designation=$6,company_name=$7,updated_at=now() WHERE id=$1',[id,h.hash,h.salt,secret,fullName,designation,companyName]);
+ else await pool.query('INSERT INTO app_users(id,email,password_hash,password_salt,totp_secret,totp_verified,full_name,designation,company_name) VALUES($1,$2,$3,$4,$5,false,$6,$7,$8)',[id,email,h.hash,h.salt,secret,fullName,designation,companyName]);
  const otpauth='otpauth://totp/'+encodeURIComponent('AegisGRC:'+email)+'?secret='+secret+'&issuer='+encodeURIComponent('AegisGRC');const qrDataUrl=await QRCode.toDataURL(otpauth,{errorCorrectionLevel:'M',margin:2,width:220});return {userId:id,email,secret,qrDataUrl};
 }
 export async function confirmRegistration(userId:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE id=$1',[userId]),u=r.rows[0];if(!u||!verify(u.totp_secret,code))return null;await pool.query('UPDATE app_users SET totp_verified=true,updated_at=now() WHERE id=$1',[userId]);const token=crypto.randomBytes(32).toString('base64url'),expires=new Date(Date.now()+TTL);await pool.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[tokenHash(token),u.id,expires]);return token}
+export async function resetPasswordWithTotp(email:string,code:string,newPassword:string){
+ email=email.trim().toLowerCase();if(newPassword.length<10)throw Error('New password must be at least 10 characters');
+ const r=await pool.query('SELECT id,totp_secret,totp_verified FROM app_users WHERE email=$1',[email]),u=r.rows[0];
+ // Keep the public failure generic to avoid account enumeration.
+ if(!u||!u.totp_verified||!verify(u.totp_secret,code))return false;
+ const h=hashPassword(newPassword);
+ const client=await pool.connect();try{await client.query('BEGIN');
+  await client.query('UPDATE app_users SET password_hash=$2,password_salt=$3,updated_at=now() WHERE id=$1',[u.id,h.hash,h.salt]);
+  await client.query('DELETE FROM app_sessions WHERE user_id=$1',[u.id]);
+  await client.query('COMMIT');return true;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
 export async function userLogin(email:string,password:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE email=$1',[email.trim().toLowerCase()]),u=r.rows[0];if(!u||!u.totp_verified||!pass(password,u.password_salt,u.password_hash)||!verify(u.totp_secret,code))return null;const token=crypto.randomBytes(32).toString('base64url'),expires=new Date(Date.now()+TTL);await pool.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[tokenHash(token),u.id,expires]);return token}
-export async function userSession(token:string){if(!token)return null;const r=await pool.query('SELECT s.user_id AS "userId",u.email,s.expires_at AS exp FROM app_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',[tokenHash(token)]);return r.rows[0]||null}
+export async function userSession(token:string){if(!token)return null;const r=await pool.query('SELECT s.user_id AS "userId",u.email,u.full_name AS "fullName",u.designation,u.company_name AS "companyName",s.expires_at AS exp FROM app_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',[tokenHash(token)]);return r.rows[0]||null}
 export async function userLogout(token:string){if(token)await pool.query('DELETE FROM app_sessions WHERE token_hash=$1',[tokenHash(token)])}
 
 export async function userRole(userId:string){const r=await pool.query('SELECT role,email FROM app_users WHERE id=$1',[userId]);if(!r.rows[0])return null;const configured=(process.env.GRC_REVIEWER_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);const role=configured.includes(String(r.rows[0].email).toLowerCase())?'grc_reviewer':r.rows[0].role;if(role!==r.rows[0].role)await pool.query('UPDATE app_users SET role=$2,updated_at=now() WHERE id=$1',[userId,role]);return role}

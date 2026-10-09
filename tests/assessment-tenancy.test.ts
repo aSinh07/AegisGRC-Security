@@ -8,11 +8,11 @@ test('assessment tenancy migration is additive and non-destructive',async()=>{
  assert.match(sql,/ALTER TABLE assessments ADD COLUMN IF NOT EXISTS created_by/);
  assert.doesNotMatch(sql,/DROP\s+(TABLE|COLUMN)/i);
 });
-test('evidence schema constrains sha256 format without rewriting legacy rows',async()=>{
+test('evidence integrity metadata is additive without rewriting legacy rows',async()=>{
  const sql=await readFile(new URL('../db/schema.sql',import.meta.url),'utf8');
- assert.match(sql,/evidence_sha256_format_chk/);
- assert.match(sql,/integrity_verified_at/);
- assert.doesNotMatch(sql,/ALTER TABLE evidence ADD CONSTRAINT evidence_sha256_format_chk/i);
+ assert.match(sql,/ALTER TABLE evidence ADD COLUMN IF NOT EXISTS byte_length bigint/);
+ assert.match(sql,/ALTER TABLE evidence ADD COLUMN IF NOT EXISTS integrity_verified_at timestamptz/);
+ assert.doesNotMatch(sql,/UPDATE evidence/i);
 });
 
 test('evidence migration is restart-safe and does not recreate or drop named constraint',async()=>{

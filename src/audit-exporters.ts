@@ -46,7 +46,7 @@ export function auditPdf(m:any){return new Promise<Buffer>((resolve,reject)=>{
  d.moveDown().fontSize(15).text('2. Executive Summary');
  Object.entries(m.executiveSummary||{}).forEach(([k,v])=>d.fontSize(9).text(k+': '+String(v)));
  d.addPage().fontSize(15).text('3. Evidence Register');
- for(const e of m.evidenceRegister||[])d.moveDown(.5).fontSize(9).text(String(e.source||'EVIDENCE')+' | '+String(e.created_at||e.createdAt||'')).fontSize(8).text('SHA-256: '+String(e.sha256||'NOT PROVIDED')).text('Integrity verification timestamp: '+String(e.integrity_verified_at||'NOT RECORDED'));
+ for(const e of m.evidenceRegister||[])d.moveDown(.5).fontSize(9).text(String(e.source||'EVIDENCE')+' | '+String(e.created_at||e.createdAt||'')).fontSize(8).text('SHA-256: '+String(e.sha256||'NOT PROVIDED')).text('Hash metadata timestamp: '+String(e.integrity_verified_at||'NOT RECORDED'));
  d.addPage().fontSize(15).text('4. Finding-to-Closure Trace');
  for(const x of m.findingLifecycle||[]){const latest=(x.analystDecisions||[]).at(-1);d.moveDown().fontSize(11).text(String(x.severity)+' · '+String(x.title)).fontSize(8).text('Finding: '+x.findingId+' | Source: '+x.source).text('Evidence SHA-256: '+String(x.evidenceHash||'NOT PROVIDED')).text('Analyst decision: '+String(latest?.decision||'UNREVIEWED')).text('Issue: '+String(x.issue?.issue_key||'NOT PROMOTED')).text('Risk: '+((x.risks||[]).map((r:any)=>r.risk_key+' '+r.inherent_rating).join('; ')||'NOT LINKED')).text('CAPA: '+((x.capa||[]).map((c:any)=>c.capa_key+' '+c.status+(c.retest_run_id?' retest='+c.retest_run_id:'')).join('; ')||'NOT LINKED'));}
  d.addPage().fontSize(15).text('5. Limitations');for(const x of m.limitations||[])d.fontSize(9).text('• '+x);

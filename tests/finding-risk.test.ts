@@ -9,3 +9,15 @@ test('organization SLA override changes due date deterministically',()=>{
 test('invalid SLA cannot create impossible remediation target',()=>{
  assert.throws(()=>remediationDueAt('CRITICAL',{CRITICAL:0}),/between 1 and 3650/);
 });
+
+test('finding promotion is assessment scoped owner validated and atomically audited',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const src=await readFile(new URL('../src/finding-risk.ts',import.meta.url),'utf8');
+ assert.match(src,/WHERE finding_id=\$1 AND assessment_id=\$2 ORDER BY created_at DESC LIMIT 1/);
+ assert.match(src,/Issue owner must be an active organization member/);
+ assert.match(src,/m\.status='ACTIVE' AND o\.status='ACTIVE'/);
+ assert.match(src,/CREATED_FROM_CONFIRMED_FINDING/);
+ const eventAt=src.indexOf('CREATED_FROM_CONFIRMED_FINDING');
+ const commitAt=src.indexOf("await client.query('COMMIT')",eventAt);
+ assert.ok(eventAt>=0&&commitAt>eventAt);
+});

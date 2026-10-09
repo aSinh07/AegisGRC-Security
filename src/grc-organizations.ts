@@ -27,6 +27,9 @@ export async function initOrganizations(){
    created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
    created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
  );
+ ALTER TABLE grc_organizations ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'ACTIVE';
+ ALTER TABLE grc_organizations ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES app_users(id) ON DELETE SET NULL;
+ ALTER TABLE grc_organizations ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
  CREATE TABLE IF NOT EXISTS grc_organization_members(
    organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
    user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
@@ -43,6 +46,8 @@ export async function initOrganizations(){
    created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),
    UNIQUE(organization_id,name)
  );
+ ALTER TABLE grc_scopes ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES app_users(id) ON DELETE SET NULL;
+ ALTER TABLE grc_scopes ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
  `);
 }
 

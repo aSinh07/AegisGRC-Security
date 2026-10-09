@@ -25,3 +25,14 @@ CREATE TABLE IF NOT EXISTS documents (
  content bytea NOT NULL
 );
 CREATE INDEX IF NOT EXISTS documents_assessment_idx ON documents(assessment_id);
+
+-- Assessment tenancy is additive for legacy compatibility. Existing rows remain NULL until explicitly assigned.
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS organization_id uuid REFERENCES grc_organizations(id) ON DELETE RESTRICT;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES app_users(id) ON DELETE SET NULL;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+CREATE INDEX IF NOT EXISTS assessments_organization_idx ON assessments(organization_id,authorized_at DESC);
+
+-- Evidence integrity metadata. Existing evidence is retained; integrity_verified_at is NULL until server verification.
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS byte_length bigint;
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS integrity_verified_at timestamptz;
+ALTER TABLE evidence ADD CONSTRAINT evidence_sha256_format_chk CHECK (sha256 ~ '^[0-9a-f]{64}$') NOT VALID;

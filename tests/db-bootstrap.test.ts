@@ -5,8 +5,8 @@ test('clean database schema creates FK parent tables before assessment tenancy c
  const users=sql.indexOf('CREATE TABLE IF NOT EXISTS app_users');
  const orgs=sql.indexOf('CREATE TABLE IF NOT EXISTS grc_organizations');
  const assessments=sql.indexOf('CREATE TABLE IF NOT EXISTS assessments');
- const orgFk=sql.indexOf('organization_id uuid REFERENCES grc_organizations');
- const userFk=sql.indexOf('created_by uuid REFERENCES app_users');
+ const orgFk=sql.indexOf('ALTER TABLE assessments ADD COLUMN IF NOT EXISTS organization_id uuid REFERENCES grc_organizations');
+ const userFk=sql.indexOf('ALTER TABLE assessments ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES app_users');
  assert.ok(users>=0&&orgs>users&&assessments>orgs);
  assert.ok(orgFk>assessments&&userFk>assessments);
 });

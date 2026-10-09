@@ -21,7 +21,6 @@ export async function timeline(user:string,org:string,type:string,id:string){
 }
 export async function operationsDashboard(user:string,org:string){
  await requireOrgPermission(user,org,'read');
- await pool.query(`UPDATE grc_capa SET status='OVERDUE',updated_at=now() WHERE organization_id=$1 AND due_at<now() AND status NOT IN ('CLOSED','OVERDUE')`,[org]);
  const q=await pool.query(`
  SELECT
  (SELECT count(*) FROM grc_scope_controls WHERE organization_id=$1) controls,
@@ -33,7 +32,7 @@ export async function operationsDashboard(user:string,org:string){
  (SELECT count(*) FROM grc_enterprise_risks WHERE organization_id=$1 AND status<>'CLOSED') open_risks,
  (SELECT count(*) FROM grc_enterprise_risks WHERE organization_id=$1 AND inherent_rating IN ('HIGH','CRITICAL') AND status<>'CLOSED') high_critical_risks,
  (SELECT count(*) FROM grc_capa WHERE organization_id=$1 AND status<>'CLOSED') open_capa,
- (SELECT count(*) FROM grc_capa WHERE organization_id=$1 AND status='OVERDUE') overdue_capa,
+ (SELECT count(*) FROM grc_capa WHERE organization_id=$1 AND status<>'CLOSED' AND due_at<now()) overdue_capa,
  (SELECT count(*) FROM grc_control_test_runs WHERE organization_id=$1 AND result='FAIL' AND executed_at>now()-interval '30 days') failed_tests_30d,
  (SELECT count(*) FROM grc_control_test_runs WHERE organization_id=$1 AND result='PASS' AND executed_at>now()-interval '30 days') passed_tests_30d
  `,[org]);

@@ -28,10 +28,10 @@ const rules:Record<string,Rule[]>={
   {control:'16 Application Software Security',match:any(/xss|sql|injection|application|semgrep|source|code/),rationale:'Application/source findings relate to secure software practices.',requiredEvidence:'Application test/source evidence, fix reference and verification.'}
  ],
  OWASP:[
-  {control:'A01 Broken Access Control',match:any(/access|authorization|permission|idor/),rationale:'Access-control weakness evidence maps to broken access control.',requiredEvidence:'Request/response or authorization evidence and retest.'},
-  {control:'A02 Cryptographic Failures',match:any(/tls|crypto|cleartext|https/),rationale:'Cryptographic/transport weakness evidence maps to cryptographic failures.',requiredEvidence:'TLS/cryptographic configuration and retest.'},
-  {control:'A03 Injection',match:any(/sql|injection|xss|cwe-79|cwe-89/),rationale:'Injection-family evidence maps to injection risk.',requiredEvidence:'Scanner/request evidence, affected parameter/code and clean retest.'},
-  {control:'A05 Security Misconfiguration',match:any(/header|configuration|misconfig|csp|hsts|server technology/),rationale:'Configuration evidence maps to security misconfiguration.',requiredEvidence:'Configuration baseline and retest.'}
+  {control:'A01:2025 Broken Access Control',match:any(/access|authorization|permission|idor/),rationale:'Access-control weakness evidence maps to broken access control.',requiredEvidence:'Request/response or authorization evidence and retest.'},
+  {control:'A04:2025 Cryptographic Failures',match:any(/tls|crypto|cleartext|https/),rationale:'Cryptographic/transport weakness evidence maps to cryptographic failures.',requiredEvidence:'TLS/cryptographic configuration and retest.'},
+  {control:'A05:2025 Injection',match:any(/sql|injection|xss|cwe-79|cwe-89/),rationale:'Injection-family evidence maps to injection risk.',requiredEvidence:'Scanner/request evidence, affected parameter/code and clean retest.'},
+  {control:'A02:2025 Security Misconfiguration',match:any(/header|configuration|misconfig|csp|hsts|server technology/),rationale:'Configuration evidence maps to security misconfiguration.',requiredEvidence:'Configuration baseline and retest.'}
  ],
  PCI:[
   {control:'6.3 Security vulnerabilities',match:any(/vulnerab|cve|scan|xss|sql|injection/),rationale:'Technical vulnerabilities are relevant to vulnerability identification and treatment.',requiredEvidence:'In-scope system evidence, vulnerability record, treatment and retest.'},
@@ -66,6 +66,18 @@ const rules:Record<string,Rule[]>={
 
 export function assessFramework(frameworkId:string,findings:Finding[]):ControlAssessment[]{
  const rs=rules[frameworkId]||[];
- return rs.map(r=>{const hit=findings.filter(r.match);return {control:r.control,status:hit.length?'GAP':'NOT_TESTED',findings:hit.map(x=>x.id),evidence:[...new Set(hit.map(x=>x.evidenceHash))],rationale:r.rationale,requiredEvidence:r.requiredEvidence}})
+ return rs.map(r=>{
+  const hit=findings.filter(r.match);
+  // Scanner observations are review inputs, not proof that an organizational control failed.
+  // In particular, an open port or informational observation is not a vulnerability by itself.
+  const actionable=hit.filter(f=>f.severity!=='INFO'&&f.status!=='FALSE_POSITIVE'&&f.status!=='ACCEPTED'&&f.status!=='REMEDIATED'&&f.source!=='nmap');
+  const status:ControlAssessment['status']=actionable.length?'GAP':hit.length?'OBSERVED':'NOT_TESTED';
+  const rationale=actionable.length
+   ? 'Potential technical control gap identified by automated evidence; analyst verification and organizational control review required. This is not a conformity determination.'
+   : hit.length
+    ? 'Relevant technical observations exist, but available evidence does not establish a failed control. Validate applicability and obtain further evidence.'
+    : 'No relevant technical evidence was collected for this control. Untested does not mean compliant.';
+  return {control:r.control,status,findings:hit.map(x=>x.id),evidence:[...new Set(hit.map(x=>x.evidenceHash).filter(Boolean))],rationale,requiredEvidence:r.requiredEvidence};
+ })
 }
 export function controlRefs(frameworkId:string,f:Finding[]){return assessFramework(frameworkId,f).filter(x=>x.findings.length)}

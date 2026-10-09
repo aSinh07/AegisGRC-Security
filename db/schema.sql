@@ -35,15 +35,6 @@ CREATE INDEX IF NOT EXISTS assessments_organization_idx ON assessments(organizat
 -- Evidence integrity metadata. Existing evidence is retained; integrity_verified_at is NULL until server verification.
 ALTER TABLE evidence ADD COLUMN IF NOT EXISTS byte_length bigint;
 ALTER TABLE evidence ADD COLUMN IF NOT EXISTS integrity_verified_at timestamptz;
-DO $
-BEGIN
- IF NOT EXISTS (
-  SELECT 1 FROM pg_constraint
-  WHERE conname='evidence_sha256_format_chk'
-    AND conrelid='evidence'::regclass
- ) THEN
-  ALTER TABLE evidence ADD CONSTRAINT evidence_sha256_format_chk
-   CHECK (sha256 ~ '^[0-9a-f]{64}
-) NOT VALID;
- END IF;
-END $;
+-- SHA-256 format is enforced by application writes. The named database constraint may
+-- already exist from an earlier migration; do not recreate or drop it during startup.
+

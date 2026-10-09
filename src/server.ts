@@ -266,7 +266,7 @@ app.post('/api/assessment/authorize',async(req,res)=>{
 });
 app.post('/api/scans/quick',async(req,res)=>{try{
  const session=verifySession(String(req.headers['x-assessment-session']||''));const assessmentId=session.assessmentId;
- const assessments=await db.assessments();const assessment=assessments.find(a=>a.id===assessmentId);if(!assessment)return res.status(404).json({error:'Assessment not found'});
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const assessment=await db.assessmentForUser(u.userId,assessmentId);if(!assessment)return res.status(404).json({error:'Assessment not found'});
  const t=await validateTarget(String(req.body.targetUrl||''));if(t.url.origin!==session.targetOrigin||assessment.target!==session.targetOrigin)return res.status(403).json({error:'Target is outside the authorized assessment scope'});
  const q=await quickPosture(assessmentId,t);const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};
  await db.saveEvidence(ev);if(q.findings.length)await db.saveFindings(q.findings);await db.saveAssessment({...assessment,status:q.error?'FAILED':'COMPLETED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...q.findings]});
@@ -293,7 +293,7 @@ app.post('/api/scans/run',async(req,res)=>{
   try{
     const session=verifySession(String(req.headers['x-assessment-session']||''));
     const assessmentId=session.assessmentId;
-    const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
+    const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const assessment=await db.assessmentForUser(u.userId,assessmentId);
     if(!assessment) return res.status(404).json({error:'Assessment not found; enter through the authorization gate first'});
     const tool=String(req.body.tool||'') as Tool;
     if(!['nmap','wapiti','sqlmap','zap','all'].includes(tool)) return res.status(400).json({error:'Tool is not enabled for real execution'});
@@ -303,7 +303,7 @@ app.post('/api/scans/run',async(req,res)=>{
       console.log('\n[AEGIS FULL ASSESSMENT] START '+t.url.origin+' assessment='+assessmentId);
       const q=await quickPosture(assessmentId,t);const qev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};await db.saveEvidence(qev);if(q.findings.length)await db.saveFindings(q.findings);console.log('[AEGIS REAL SCAN] HTTP POSTURE | findings='+q.findings.length+' | evidence='+q.sha256);
       const runs=[];for(const name of ['nmap','zap','wapiti','sqlmap'] as const){try{runs.push(await executeRealTool(name,assessmentId,t))}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);runs.push({tool:name,error:e.message,findings:[]})}}
-      const fresh=(await db.assessments()).find(x=>x.id===assessmentId)||assessment;const allFindings=(await db.findings()).filter(x=>x.assessmentId===assessmentId);const allEvidence=(await db.evidence()).filter(x=>x.assessmentId===assessmentId);await db.saveAssessment({...fresh,status:'COMPLETED',findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});console.log('[AEGIS FULL ASSESSMENT] COMPLETE | findings='+allFindings.length+' | evidence='+allEvidence.length);return res.json({execution:'REAL_FULL_ASSESSMENT',target:t.url.origin,assessmentId,tools:['http-posture','nmap','zap','wapiti','sqlmap'],runs,summary:{findings:allFindings.length,evidenceRecords:allEvidence.length},findings:allFindings});
+      const fresh=await db.assessmentForUser(u.userId,assessmentId)||assessment;const allFindings=await db.findingsForAssessment(assessmentId);const allEvidence=await db.evidenceForAssessment(assessmentId);await db.saveAssessment({...fresh,status:'COMPLETED',findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});console.log('[AEGIS FULL ASSESSMENT] COMPLETE | findings='+allFindings.length+' | evidence='+allEvidence.length);return res.json({execution:'REAL_FULL_ASSESSMENT',target:t.url.origin,assessmentId,tools:['http-posture','nmap','zap','wapiti','sqlmap'],runs,summary:{findings:allFindings.length,evidenceRecords:allEvidence.length},findings:allFindings});
     }
     const startedAt=new Date().toISOString();
     let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number}; let zapAlerts:any[]=[];
@@ -323,7 +323,7 @@ app.post('/api/scans/run',async(req,res)=>{
 });
 app.post('/api/source/semgrep',async(req,res)=>{
  try{
-  const session=verifySession(String(req.headers['x-assessment-session']||'')); const assessmentId=session.assessmentId; const assessments=await db.assessments(); const assessment=assessments.find(a=>a.id===assessmentId);
+  const session=verifySession(String(req.headers['x-assessment-session']||'')); const assessmentId=session.assessmentId; const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const assessment=await db.assessmentForUser(u.userId,assessmentId);
   if(!assessment) return res.status(404).json({error:'Assessment not found'});
   const result=await scanSource(String(req.body.sourcePath||'/workspace/source'));
   const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'semgrep',sha256:result.evidence.sha256,createdAt:new Date().toISOString(),exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{sourcePath:req.body.sourcePath||'/workspace/source'}};
@@ -395,8 +395,8 @@ app.get('/api/integrations',async(_req,res)=>{
 });
 app.post('/api/copilot',async(req,res)=>{try{
  const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
- const requestedId=String(req.body?.assessmentId||'');const a=requestedId?(await db.assessments()).find(x=>x.id===requestedId):null;
- const fs=a?(await db.findings()).filter(x=>x.assessmentId===a.id):[];
+ const requestedId=String(req.body?.assessmentId||''),u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=requestedId?await db.assessmentForUser(u.userId,requestedId):null;
+ if(requestedId&&!a)return res.status(404).json({error:'Assessment not found'});const fs=a?await db.findingsForAssessment(a.id):[];
  const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs);
  if(a)await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_CHAT_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
  res.json(answer);

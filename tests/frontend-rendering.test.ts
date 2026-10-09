@@ -17,7 +17,7 @@ test('dashboard exposes authenticated audit traceability workspace',async()=>{
 test('premium Aegis identity and login hero are present',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
  assert.match(html,/class="brand-shield hero-shield"/);
- assert.match(html,/LIVE SECURITY CONTROL PLANE/);
+ assert.match(html,/AEGISGRC SECURITY CONTROL PLANE/);
  assert.match(html,/class="executive-hero"/);
  assert.match(html,/AEGIS COMMAND CENTER/);
 });

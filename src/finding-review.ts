@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import pg from 'pg';
 import type {Finding} from './models.js';
-import {requireAssessmentAccess} from './grc-organizations.js';
+import {requireAssessmentAccess,requireOrgPermission} from './grc-organizations.js';
 
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
 export type FindingDecision='CONFIRMED'|'FALSE_POSITIVE'|'ACCEPTED'|'REMEDIATED';
@@ -24,7 +24,8 @@ function statusFor(d:FindingDecision):Finding['status']{
  return d==='CONFIRMED'?'OPEN':d;
 }
 export async function reviewFinding(userId:string,assessmentId:string,findingId:string,input:{decision:string;rationale:string}){
- await requireAssessmentAccess(userId,assessmentId);
+ const access=await requireAssessmentAccess(userId,assessmentId);
+ await requireOrgPermission(userId,access.organization_id,'findingReview');
  const decision=String(input.decision||'').toUpperCase() as FindingDecision;
  const rationale=String(input.rationale||'').trim();
  if(!decisions.has(decision))throw new Error('Decision must be CONFIRMED, FALSE_POSITIVE, ACCEPTED or REMEDIATED');

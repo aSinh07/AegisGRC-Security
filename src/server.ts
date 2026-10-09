@@ -30,6 +30,7 @@ import { askCopilot } from './copilot.js';
 import { knowledgeCatalog } from './knowledge.js';
 import { extractDocument } from './document-extract.js';
 import { parseFindingImport } from './finding-import.js';
+import { initFindingReview,reviewFinding,findingReviewHistory } from './finding-review.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import { analyzeIntel } from './intel-ai.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
@@ -44,6 +45,7 @@ await initControlRegistry();
 await initEvidenceEngine();
 await initIssueRiskCapa();
 await initGrcOperations();
+await initFindingReview();
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static('public'));
@@ -85,6 +87,16 @@ app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file
  await db.saveEvidence(ev);if(parsed.findings.length)await db.saveFindings(parsed.findings);
  await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'FINDINGS_IMPORTED',actor:u.email,createdAt,metadata:{evidenceId,sha256,format:parsed.format,count:parsed.findings.length}});
  res.status(201).json({imported:true,evidence:{id:evidenceId,sha256,verified:true},format:parsed.format,count:parsed.findings.length,warnings:parsed.warnings,findings:parsed.findings});
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ const result=await reviewFinding(u.userId,req.params.assessmentId,req.params.findingId,req.body||{});
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'FINDING_REVIEWED',actor:u.email,createdAt:new Date().toISOString(),metadata:{findingId:req.params.findingId,decision:result.review.decision,reviewId:result.review.id}});
+ res.json(result);
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/assessments/:assessmentId/findings/:findingId/reviews',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ res.json({reviews:await findingReviewHistory(u.userId,req.params.assessmentId,req.params.findingId)});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/assessments/:assessmentId/correlated-findings',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.assessmentId);const {correlateFindings,correlationSummary}=await import('./finding-correlation.js');const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.assessmentId);res.json({assessmentId:req.params.assessmentId,summary:correlationSummary(fs),groups:correlateFindings(fs),assurance:'Advisory correlation; original evidence and findings remain immutable inputs and analyst confirmation is required.'})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/evidence',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({evidence:await listEvidence(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

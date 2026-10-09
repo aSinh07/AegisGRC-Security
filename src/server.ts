@@ -18,6 +18,7 @@ import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport } from '.
 import { initGrcCore } from './grc-core.js';
 import { initOrganizations,createOrganization,memberships,createScope,listScopes,addMember } from './grc-organizations.js';
 import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,mapControl,setScopeControl,approveScopeControl,statementOfApplicability } from './grc-controls.js';
+import { initEvidenceEngine,createEvidenceRequest,submitEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence } from './grc-evidence.js';
 import multer from 'multer';
 import { frameworkCatalog,mapFinding } from './grc.js';
 import { assessFramework } from './grc-engine.js';
@@ -37,6 +38,7 @@ await initGrcReviews();
 await initGrcCore();
 await initOrganizations();
 await initControlRegistry();
+await initEvidenceEngine();
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static('public'));
@@ -60,6 +62,12 @@ app.post('/api/grc/organizations/:orgId/control-mappings',async(req,res)=>{try{c
 app.put('/api/grc/organizations/:orgId/scopes/:scopeId/controls',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await setScopeControl(u.userId,req.params.orgId,req.params.scopeId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/scopes/:scopeId/controls/:scopeControlId/approve',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await approveScopeControl(u.userId,req.params.orgId,req.params.scopeId,req.params.scopeControlId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/scopes/:scopeId/soa',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await statementOfApplicability(u.userId,req.params.orgId,req.params.scopeId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/evidence',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({evidence:await listEvidence(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/evidence-requests',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createEvidenceRequest(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/evidence-requests/:requestId/versions',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await submitEvidence(u.userId,req.params.orgId,req.params.requestId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/evidence-requests/:requestId/versions/:versionId/validate',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await validateEvidence(u.userId,req.params.orgId,req.params.requestId,req.params.versionId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/control-tests',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createTestDefinition(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/control-tests/:testId/run',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await runControlTest(u.userId,req.params.orgId,req.params.testId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.use('/api/grc',(_req,res)=>res.status(503).json({error:'This GRC module remains gated until tenant authorization and workflow enforcement are complete',code:'GRC_MODULE_IMPLEMENTATION_PENDING'}));
 
 const PORT=Number(process.env.PORT||8080);

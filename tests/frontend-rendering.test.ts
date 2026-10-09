@@ -8,7 +8,7 @@ test('dashboard exposes authenticated audit traceability workspace',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
  assert.match(html,/id="audittrace"/);
  assert.match(html,/loadAuditTrace\(\)/);
- assert.match(html,/audit-package\.\'+format/);
+ assert.equal(html.includes("/audit-package.'+format"),true);
  assert.match(html,/Download PDF/);
  assert.match(html,/Download DOCX/);
  assert.match(html,/Download XLSX/);

@@ -38,3 +38,22 @@ test('legacy assessment reads use tenant-scoped database accessors',async()=>{
  assert.match(server,/db\.auditsForAssessment\(req\.params\.id\)/);
  assert.match(server,/db\.evidenceForAssessment\(req\.params\.id\)/);
 });
+
+test('legacy document AI review and export routes enforce user tenant access',async()=>{
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ for(const route of [
+  "/api/assessments/:id/documents/:docId/security-assess",
+  "/api/assessments/:id/documents/:docId/analyze",
+  "/api/assessments/:id/documents/:docId",
+  "/api/assessments/:id/copilot",
+  "/api/assessments/:id/ai-remediation",
+  "/api/assessments/:id/report.pdf",
+  "/api/assessments/:id/report/download",
+  "/api/assessments/:id/grc-reviews",
+  "/api/assessments/:id/framework-assessment/:framework",
+  "/api/assessments/:id/framework-report/:framework/:format",
+  "/api/assessments/:id/export/:kind/:format"
+ ])assert.equal(server.includes(route),true,route);
+ assert.match(server,/assessmentForUser\(u\.userId,req\.params\.id\)/);
+ assert.match(server,/requireAssessmentAccess\(u\.userId,req\.params\.id\)/);
+});

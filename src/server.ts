@@ -15,6 +15,7 @@ import { renderPdf,renderFrameworkPdf } from './pdf.js';
 import { authConfigured, login, logout, valid, verifyCredentials } from './auth.js';
 import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,userLogout,userRole,verifyUserStepUp } from './user-auth.js';
 import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport } from './grc-review.js';
+import { initGrcCore,createRisk,listRisks,createControlAssessment,updateControlAssessment,recordWorkflowTransition,grcDashboard } from './grc-core.js';
 import multer from 'multer';
 import { frameworkCatalog,mapFinding } from './grc.js';
 import { assessFramework } from './grc-engine.js';
@@ -31,6 +32,7 @@ const app=express();
 app.set('trust proxy',1);
 await initUsers();
 await initGrcReviews();
+await initGrcCore();
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static('public'));
@@ -41,6 +43,14 @@ app.post('/api/auth/user-login',async(req,res)=>{try{const token=await userLogin
 app.post('/api/auth/logout',async(req,res)=>{const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';logout(token);const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';await userLogout(ut);res.setHeader('Set-Cookie',['aegis_auth=; HttpOnly; SameSite=Strict; Max-Age=0; Path=/','aegis_user=; HttpOnly; SameSite=Strict; Max-Age=0; Path=/']);res.json({ok:true})});
 app.get('/api/auth/status',async(req,res)=>{const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';res.json({authenticated:valid(token)||Boolean(await userSession(ut)),configured:authConfigured()})});
 app.use('/api',async(req,res,next)=>{if(['/ready','/health','/integrations','/auth/login','/auth/user-login','/auth/register','/auth/register/confirm','/auth/status'].includes(req.path))return next();const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';if(!valid(token)&&!await userSession(ut))return res.status(401).json({error:'Login required'});next()});
+
+app.get('/api/grc/dashboard',async(req,res)=>{try{res.json(await grcDashboard())}catch(e:any){res.status(500).json({error:e.message})}});
+app.get('/api/grc/risks',async(req,res)=>{try{res.json(await listRisks(String(req.query.organizationId||'')||undefined))}catch(e:any){res.status(500).json({error:e.message})}});
+app.post('/api/grc/risks',async(req,res)=>{try{const u=await currentUser(req);res.status(201).json(await createRisk({...req.body,ownerUserId:req.body?.ownerUserId||u?.userId}))}catch(e:any){res.status(400).json({error:e.message})}});
+app.post('/api/grc/control-assessments',async(req,res)=>{try{const u=await currentUser(req);res.status(201).json(await createControlAssessment({scopeId:String(req.body?.scopeId||''),controlId:String(req.body?.controlId||''),ownerUserId:req.body?.ownerUserId||u?.userId}))}catch(e:any){res.status(400).json({error:e.message})}});
+app.patch('/api/grc/control-assessments/:id',async(req,res)=>{try{res.json(await updateControlAssessment(req.params.id,req.body||{}))}catch(e:any){res.status(400).json({error:e.message})}});
+app.post('/api/grc/workflow/transitions',async(req,res)=>{try{const u=await currentUser(req);res.status(201).json(await recordWorkflowTransition({...req.body,actorUserId:u?.userId}))}catch(e:any){res.status(400).json({error:e.message})}});
+
 const PORT=Number(process.env.PORT||8080);
 const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
 const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);

@@ -109,3 +109,25 @@ export async function listMembers(userId:string,organizationId:string){
  FROM grc_organization_members m JOIN app_users u ON u.id=m.user_id
  WHERE m.organization_id=$1 ORDER BY u.email`,[organizationId])).rows;
 }
+
+export async function assignAssessmentToOrganization(userId:string,organizationId:string,assessmentId:string){
+ await requireOrgPermission(userId,organizationId,'manageScope');
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const row=(await client.query('SELECT id,organization_id FROM assessments WHERE id=$1 FOR UPDATE',[assessmentId])).rows[0];
+  if(!row)throw Object.assign(new Error('Assessment not found'),{statusCode:404});
+  if(row.organization_id&&row.organization_id!==organizationId)throw Object.assign(new Error('Assessment already belongs to another organization'),{statusCode:409});
+  const updated=(await client.query(`UPDATE assessments SET organization_id=$1,created_by=COALESCE(created_by,$2),updated_at=now()
+   WHERE id=$3 RETURNING id,organization_id,created_by,authorized_at,status,target`,[organizationId,userId,assessmentId])).rows[0];
+  await client.query('COMMIT');return updated;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
+export async function requireAssessmentAccess(userId:string,assessmentId:string){
+ const r=(await pool.query(`SELECT a.id,a.organization_id,a.target,a.status
+ FROM assessments a JOIN grc_organization_members m ON m.organization_id=a.organization_id
+ JOIN grc_organizations o ON o.id=a.organization_id
+ WHERE a.id=$1 AND m.user_id=$2 AND m.status='ACTIVE' AND o.status='ACTIVE'`,[assessmentId,userId])).rows[0];
+ if(!r)throw Object.assign(new Error('Assessment organization access required'),{statusCode:403});
+ return r;
+}

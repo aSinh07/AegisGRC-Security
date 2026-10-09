@@ -102,3 +102,10 @@ export async function addMember(actorId:string,organizationId:string,userId:stri
  VALUES($1,$2,$3,'ACTIVE') ON CONFLICT(organization_id,user_id)
  DO UPDATE SET role=EXCLUDED.role,status='ACTIVE' RETURNING organization_id,user_id,role,status`,[organizationId,userId,role])).rows[0];
 }
+
+export async function listMembers(userId:string,organizationId:string){
+ await requireOrgPermission(userId,organizationId,'read');
+ return (await pool.query(`SELECT m.user_id,u.email,m.role,m.status,m.created_at
+ FROM grc_organization_members m JOIN app_users u ON u.id=m.user_id
+ WHERE m.organization_id=$1 ORDER BY u.email`,[organizationId])).rows;
+}

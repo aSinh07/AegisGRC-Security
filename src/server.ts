@@ -15,7 +15,8 @@ import { renderPdf,renderFrameworkPdf } from './pdf.js';
 import { authConfigured, login, logout, valid, verifyCredentials } from './auth.js';
 import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,userLogout,userRole,verifyUserStepUp } from './user-auth.js';
 import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport } from './grc-review.js';
-import { initGrcCore,createRisk,listRisks,createControlAssessment,updateControlAssessment,recordWorkflowTransition,grcDashboard } from './grc-core.js';
+import { initGrcCore } from './grc-core.js';
+import { initOrganizations,createOrganization,memberships,createScope,listScopes,addMember } from './grc-organizations.js';
 import multer from 'multer';
 import { frameworkCatalog,mapFinding } from './grc.js';
 import { assessFramework } from './grc-engine.js';
@@ -33,6 +34,7 @@ app.set('trust proxy',1);
 await initUsers();
 await initGrcReviews();
 await initGrcCore();
+await initOrganizations();
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static('public'));
@@ -44,14 +46,13 @@ app.post('/api/auth/logout',async(req,res)=>{const token=(req.headers.cookie||''
 app.get('/api/auth/status',async(req,res)=>{const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';res.json({authenticated:valid(token)||Boolean(await userSession(ut)),configured:authConfigured()})});
 app.use('/api',async(req,res,next)=>{if(['/ready','/health','/integrations','/auth/login','/auth/user-login','/auth/register','/auth/register/confirm','/auth/status'].includes(req.path))return next();const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';if(!valid(token)&&!await userSession(ut))return res.status(401).json({error:'Login required'});next()});
 
-// Enterprise GRC Core V1 is intentionally gated until organization membership,
-// row-level authorization, server-owned workflow transitions and evidence validation
-// are implemented. Never expose cross-tenant risk or arbitrary approval APIs.
-app.use('/api/grc',(_req,res)=>res.status(503).json({
-  error:'GRC Core API is in secure implementation mode',
-  code:'GRC_TENANT_AUTHORIZATION_REQUIRED',
-  message:'Tenant-scoped authorization and evidence-backed workflow enforcement are required before enabling this module.'
-}));
+// Tenant-safe GRC organization and scope onboarding. Higher-risk GRC modules remain fail-closed.
+app.get('/api/grc/organizations',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({organizations:await memberships(u.userId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createOrganization(u.userId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/scopes',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({scopes:await listScopes(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/scopes',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createScope(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/members',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await addMember(u.userId,req.params.orgId,String(req.body?.userId||''),String(req.body?.role||'') as any))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.use('/api/grc',(_req,res)=>res.status(503).json({error:'This GRC module remains gated until tenant authorization and workflow enforcement are complete',code:'GRC_MODULE_IMPLEMENTATION_PENDING'}));
 
 const PORT=Number(process.env.PORT||8080);
 const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);

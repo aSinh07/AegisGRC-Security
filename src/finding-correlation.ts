@@ -14,8 +14,8 @@ const ranks:Record<Severity,number>={INFO:0,LOW:1,MEDIUM:2,HIGH:3,CRITICAL:4};
 function identifier(f:Finding):string|null{
  const cve=(f.title+' '+f.description).match(/\bCVE-\d{4}-\d{4,}\b/i);
  if(cve)return cve[0].toUpperCase();
- const cwe=f.cwe?.match(/^CWE-\d+$/i);
- return cwe?cwe[0].toUpperCase():null;
+ // CWE is a weakness class, not a unique vulnerability identifier. Never merge on CWE alone.
+ return null;
 }
 export function correlateFindings(findings:Finding[]):CorrelatedFinding[]{
  const groups=new Map<string,Finding[]>();
@@ -45,5 +45,5 @@ export function correlationSummary(findings:Finding[]){
  return {rawFindings:findings.length,correlatedGroups:groups.length,
   groupedObservations:findings.length-groups.length,
   evidenceSources:[...new Set(findings.map(f=>f.source))].sort(),
-  limitations:'Identifier/asset grouping is advisory. Shared CWE alone does not prove identical root cause. Analyst confirmation required before deduplication or closure.'};
+  limitations:'Only explicit CVE plus normalized asset can group observations automatically. CWE is classification only and never a deduplication key. Analyst confirmation is required before closure.'};
 }

@@ -32,6 +32,7 @@ import { extractDocument } from './document-extract.js';
 import { parseFindingImport } from './finding-import.js';
 import { initFindingReview,reviewFinding,findingReviewHistory } from './finding-review.js';
 import { initFindingRisk,slaPolicy,setSlaPolicy,promoteFindingToIssue } from './finding-risk.js';
+import { assessmentTrace } from './audit-trace.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import { analyzeIntel } from './intel-ai.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
@@ -108,6 +109,7 @@ app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/findings/:find
  await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'CONFIRMED_FINDING_PROMOTED_TO_GRC_ISSUE',actor:u.email,createdAt:new Date().toISOString(),metadata:{findingId:req.params.findingId,issueId:issue.id,dueAt:issue.due_at}});
  res.status(201).json({issue});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/assessments/:assessmentId/traceability',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await assessmentTrace(u.userId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/assessments/:assessmentId/correlated-findings',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.assessmentId);const {correlateFindings,correlationSummary}=await import('./finding-correlation.js');const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.assessmentId);res.json({assessmentId:req.params.assessmentId,summary:correlationSummary(fs),groups:correlateFindings(fs),assurance:'Advisory correlation; original evidence and findings remain immutable inputs and analyst confirmation is required.'})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/evidence',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({evidence:await listEvidence(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/evidence-requests',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createEvidenceRequest(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

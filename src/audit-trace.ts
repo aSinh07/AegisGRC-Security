@@ -90,7 +90,7 @@ export function auditPackageModel(trace:any){
    openIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED').length,
    overdueIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED'&&x.issue.due_at&&new Date(x.issue.due_at)<new Date()).length
   },
-  evidenceRegister:trace?.evidence||[],
+  evidenceRegister:(trace?.evidence||[]).map((e:any)=>({...e,hash_recorded_at:e.integrity_verified_at||e.created_at,integrity_status:'HASH_RECORDED_AT_INGEST'})),
   findingLifecycle:chains.map((x:any)=>({
    findingId:x.findingId,title:x.title,severity:x.severity,source:x.source,evidenceHash:x.evidenceHash,
    findingStatus:x.status,analystDecisions:x.reviews||[],issue:x.issue||null,risks:x.risks||[],capa:x.capa||[]
@@ -99,7 +99,8 @@ export function auditPackageModel(trace:any){
    'Scanner or imported observations require analyst validation before escalation.',
    'Framework mappings are cross-references and do not constitute certification.',
    'Risk treatment and acceptance remain accountable human decisions.',
-   'Closure requires the applicable remediation, evidence and retest workflow.'
+   'Closure requires the applicable remediation, evidence and retest workflow.',
+   'A stored SHA-256 records evidence identity at ingest. Unless retained bytes are re-read and compared later, it is not a subsequent integrity re-verification.'
   ]
  };
 }

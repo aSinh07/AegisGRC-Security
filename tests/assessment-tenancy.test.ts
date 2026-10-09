@@ -26,3 +26,15 @@ test('unassigned assessment cannot be claimed without creator ownership',async()
  assert.match(src,/row\.created_by!==userId/);
  assert.match(src,/administrator-led migration/);
 });
+
+test('legacy assessment reads use tenant-scoped database accessors',async()=>{
+ const store=await readFile(new URL('../src/store.ts',import.meta.url),'utf8');
+ assert.match(store,/assessmentForUser/);assert.match(store,/assessmentsForUser/);
+ assert.match(store,/WHERE a\.id=\$1 AND m\.user_id=\$2/);
+ assert.match(store,/findingsForAssessment/);assert.match(store,/evidenceForAssessment/);assert.match(store,/auditsForAssessment/);
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(server,/db\.assessmentsForUser\(u\.userId\)/);
+ assert.match(server,/db\.assessmentForUser\(u\.userId,req\.params\.id\)/);
+ assert.match(server,/db\.auditsForAssessment\(req\.params\.id\)/);
+ assert.match(server,/db\.evidenceForAssessment\(req\.params\.id\)/);
+});

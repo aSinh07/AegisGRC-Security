@@ -36,7 +36,7 @@ export function correlateFindings(findings:Finding[]):CorrelatedFinding[]{
    sources:[...new Set(fs.map(f=>f.source))].sort(),
    evidenceHashes:[...new Set(fs.map(f=>f.evidenceHash).filter(Boolean))].sort(),
    findingIds:fs.map(f=>f.id),statuses:[...new Set(fs.map(f=>f.status||'UNREVIEWED'))],
-   confidence:id==='UNVERIFIED'?'UNVERIFIED_SINGLE':'IDENTIFIER_MATCH'
+   confidence:(id==='UNVERIFIED'?'UNVERIFIED_SINGLE':'IDENTIFIER_MATCH') as CorrelatedFinding['confidence']
   };
  }).sort((a,b)=>ranks[b.severity]-ranks[a.severity]||a.asset.localeCompare(b.asset));
 }

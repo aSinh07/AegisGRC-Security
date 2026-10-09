@@ -1,3 +1,4 @@
+import PDFDocument from 'pdfkit';
 import {Document,Packer,Paragraph,HeadingLevel,Table,TableRow,TableCell,WidthType} from 'docx';
 import * as XLSX from 'xlsx';
 
@@ -34,3 +35,21 @@ export function auditXlsx(m:any){
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((m.limitations||[]).map((x:string)=>({Limitation:x}))),'Limitations');
  return Buffer.from(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}));
 }
+
+export function auditPdf(m:any){return new Promise<Buffer>((resolve,reject)=>{
+ const d=new PDFDocument({margin:48,bufferPages:true}),chunks:Buffer[]=[];
+ d.on('data',x=>chunks.push(x));d.on('end',()=>resolve(Buffer.concat(chunks)));d.on('error',reject);
+ d.fontSize(8).text('AEGISGRC AUDIT TRACEABILITY | CONFIDENTIAL',{align:'right'});
+ d.moveDown(2).fontSize(22).text('AegisGRC Audit Traceability Package');
+ d.fontSize(10).text('Assessment: '+m.assessmentId).text('Generated: '+m.generatedAt);
+ d.moveDown().fontSize(15).text('1. Assurance Boundary').fontSize(9).text(m.assuranceBoundary);
+ d.moveDown().fontSize(15).text('2. Executive Summary');
+ Object.entries(m.executiveSummary||{}).forEach(([k,v])=>d.fontSize(9).text(k+': '+String(v)));
+ d.addPage().fontSize(15).text('3. Evidence Register');
+ for(const e of m.evidenceRegister||[])d.moveDown(.5).fontSize(9).text(String(e.source||'EVIDENCE')+' | '+String(e.created_at||e.createdAt||'')).fontSize(8).text('SHA-256: '+String(e.sha256||'NOT PROVIDED')).text('Integrity verification timestamp: '+String(e.integrity_verified_at||'NOT RECORDED'));
+ d.addPage().fontSize(15).text('4. Finding-to-Closure Trace');
+ for(const x of m.findingLifecycle||[]){const latest=(x.analystDecisions||[]).at(-1);d.moveDown().fontSize(11).text(String(x.severity)+' · '+String(x.title)).fontSize(8).text('Finding: '+x.findingId+' | Source: '+x.source).text('Evidence SHA-256: '+String(x.evidenceHash||'NOT PROVIDED')).text('Analyst decision: '+String(latest?.decision||'UNREVIEWED')).text('Issue: '+String(x.issue?.issue_key||'NOT PROMOTED')).text('Risk: '+((x.risks||[]).map((r:any)=>r.risk_key+' '+r.inherent_rating).join('; ')||'NOT LINKED')).text('CAPA: '+((x.capa||[]).map((c:any)=>c.capa_key+' '+c.status+(c.retest_run_id?' retest='+c.retest_run_id:'')).join('; ')||'NOT LINKED'));}
+ d.addPage().fontSize(15).text('5. Limitations');for(const x of m.limitations||[])d.fontSize(9).text('• '+x);
+ d.moveDown().fontSize(9).text('This package is an internal traceability record. It is not an ISO certificate, regulatory approval, penetration-test attestation, or external audit opinion.');
+ d.end();
+})}

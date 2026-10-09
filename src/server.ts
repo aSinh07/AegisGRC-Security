@@ -8,7 +8,6 @@ import { db } from './store.js';
 import { scanSource } from './semgrep.js';
 import { semgrepFindings, wapitiFindings, nmapFindings } from './parsers.js';
 import { assessmentReport } from './reports.js';
-import { correlateFindings, correlationSummary } from './finding-correlation.js';
 import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
 import { issueSession, verifySession } from './session.js';
@@ -265,15 +264,6 @@ app.get('/api/assessments',async(_req,res)=>res.json(await db.assessments()));
 app.get('/api/assessments/:id',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});res.json(a)});
 app.get('/api/assessments/:id/audit',async(req,res)=>res.json((await db.audits()).filter(x=>x.assessmentId===req.params.id)));
 app.get('/api/assessments/:id/evidence',async(req,res)=>res.json((await db.evidence()).filter(x=>x.assessmentId===req.params.id)));
-app.get('/api/assessments/:id/correlated-findings',async(req,res)=>{try{
- const user=await currentUser(req);
- if(!user)return res.status(401).json({error:'User session required'});
- const a=(await db.assessments()).find(x=>x.id===req.params.id);
- if(!a)return res.status(404).json({error:'Assessment not found'});
- const findings=(await db.findings()).filter(x=>x.assessmentId===a.id);
- res.json({assessmentId:a.id,summary:correlationSummary(findings),groups:correlateFindings(findings),
-  assurance:'Advisory grouping only; original findings remain unchanged. Not a vulnerability verification or audit conclusion.'});
- }catch(e:any){res.status(400).json({error:'Unable to correlate assessment findings'})}});
 app.get('/api/assessments/:id/report',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(assessmentReport(a,fs))});
 
 app.get('/api/knowledge',(_req,res)=>res.json({modules:knowledgeCatalog(),authoritativeResources:authoritativeResources(),provenance:'Aegis learning modules plus direct authoritative resources. Live intelligence is retrieved from CISA/NIST endpoints.'}));

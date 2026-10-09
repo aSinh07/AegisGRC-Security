@@ -13,3 +13,16 @@ test('dashboard exposes authenticated audit traceability workspace',async()=>{
  assert.match(html,/Download DOCX/);
  assert.match(html,/Download XLSX/);
 });
+
+test('premium Aegis identity and login hero are present',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ assert.match(html,/class="brand-shield hero-shield"/);
+ assert.match(html,/LIVE SECURITY CONTROL PLANE/);
+ assert.match(html,/class="executive-hero"/);
+ assert.match(html,/AEGIS COMMAND CENTER/);
+});
+test('rendered HTML has no literal escaped newline markup artifacts',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const htmlOnly=html.split('<script>')[0];
+ assert.doesNotMatch(htmlOnly,/\\n/);
+});

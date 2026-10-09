@@ -17,6 +17,11 @@ export async function initUsers(){
  await pool.query("ALTER TABLE app_users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'analyst'");
  await pool.query('CREATE TABLE IF NOT EXISTS app_sessions(token_hash text PRIMARY KEY,user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,expires_at timestamptz NOT NULL,created_at timestamptz NOT NULL DEFAULT now())');
  await pool.query('CREATE INDEX IF NOT EXISTS app_sessions_expires_idx ON app_sessions(expires_at)');
+ await pool.query(`CREATE TABLE IF NOT EXISTS app_auth_attempts(
+  attempt_key text PRIMARY KEY,failures int NOT NULL DEFAULT 0,window_started_at timestamptz NOT NULL DEFAULT now(),
+  blocked_until timestamptz,updated_at timestamptz NOT NULL DEFAULT now()
+ )`);
+ await pool.query('CREATE INDEX IF NOT EXISTS app_auth_attempts_blocked_idx ON app_auth_attempts(blocked_until)');
  await pool.query('DELETE FROM app_sessions WHERE expires_at<=now()');
 }
 export async function beginRegistration(email:string,password:string,profile:{fullName?:string;designation?:string;companyName?:string}={}){
@@ -51,3 +56,20 @@ export async function userLogout(token:string){if(token)await pool.query('DELETE
 export async function userRole(userId:string){const r=await pool.query('SELECT role,email FROM app_users WHERE id=$1',[userId]);if(!r.rows[0])return null;const configured=(process.env.GRC_REVIEWER_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);const role=configured.includes(String(r.rows[0].email).toLowerCase())?'grc_reviewer':r.rows[0].role;if(role!==r.rows[0].role)await pool.query('UPDATE app_users SET role=$2,updated_at=now() WHERE id=$1',[userId,role]);return role}
 
 export async function verifyUserStepUp(userId:string,password:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE id=$1',[userId]),u=r.rows[0];if(!u)return {ok:false,reason:'USER_NOT_FOUND'};if(!u.totp_verified)return {ok:false,reason:'MFA_NOT_ENROLLED'};if(!pass(password,u.password_salt,u.password_hash))return {ok:false,reason:'PASSWORD_INVALID'};if(!verify(u.totp_secret,code))return {ok:false,reason:'TOTP_INVALID'};return {ok:true,reason:'OK'}}
+
+export async function authAttemptAllowed(key:string,limit=10,windowMinutes=15){
+ const r=await pool.query('SELECT failures,window_started_at,blocked_until FROM app_auth_attempts WHERE attempt_key=$1',[key]),x=r.rows[0],now=Date.now();
+ if(!x)return true;
+ if(x.blocked_until&&new Date(x.blocked_until).getTime()>now)return false;
+ if(now-new Date(x.window_started_at).getTime()>=windowMinutes*60000){await pool.query('DELETE FROM app_auth_attempts WHERE attempt_key=$1',[key]);return true}
+ return Number(x.failures)<limit;
+}
+export async function recordAuthFailure(key:string,limit=10,windowMinutes=15){
+ await pool.query(`INSERT INTO app_auth_attempts(attempt_key,failures,window_started_at,blocked_until,updated_at)
+ VALUES($1,1,now(),NULL,now()) ON CONFLICT(attempt_key) DO UPDATE SET
+ failures=CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN 1 ELSE app_auth_attempts.failures+1 END,
+ window_started_at=CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN now() ELSE app_auth_attempts.window_started_at END,
+ blocked_until=CASE WHEN (CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN 1 ELSE app_auth_attempts.failures+1 END)>=$2 THEN now()+($3::text||' minutes')::interval ELSE NULL END,
+ updated_at=now()`,[key,limit,windowMinutes]);
+}
+export async function clearAuthFailures(key:string){await pool.query('DELETE FROM app_auth_attempts WHERE attempt_key=$1',[key])}

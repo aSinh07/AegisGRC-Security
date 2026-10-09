@@ -116,9 +116,10 @@ export async function assignAssessmentToOrganization(userId:string,organizationI
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
-  const row=(await client.query('SELECT id,organization_id FROM assessments WHERE id=$1 FOR UPDATE',[assessmentId])).rows[0];
+  const row=(await client.query('SELECT id,organization_id,created_by FROM assessments WHERE id=$1 FOR UPDATE',[assessmentId])).rows[0];
   if(!row)throw Object.assign(new Error('Assessment not found'),{statusCode:404});
   if(row.organization_id&&row.organization_id!==organizationId)throw Object.assign(new Error('Assessment already belongs to another organization'),{statusCode:409});
+  if(!row.organization_id&&row.created_by!==userId)throw Object.assign(new Error('Unassigned assessments require verified creator ownership; legacy records need an administrator-led migration'),{statusCode:403});
   const updated=(await client.query(`UPDATE assessments SET organization_id=$1,created_by=COALESCE(created_by,$2),updated_at=now()
    WHERE id=$3 RETURNING id,organization_id,created_by,authorized_at,status,target`,[organizationId,userId,assessmentId])).rows[0];
   await client.query('COMMIT');return updated;

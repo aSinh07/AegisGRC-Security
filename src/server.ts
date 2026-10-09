@@ -47,6 +47,7 @@ await initGrcOperations();
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static('public'));
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024,files:10}});
 app.post('/api/auth/login',(req,res)=>{const token=login(String(req.body?.password||''),String(req.body?.code||''));if(!token)return res.status(401).json({error:authConfigured()?'Invalid password or authenticator code':'Server login is not configured'});res.cookie('aegis_auth',token,{httpOnly:true,sameSite:'strict',secure:process.env.COOKIE_SECURE==='true',path:'/',maxAge:28800000});res.json({ok:true})});
 app.post('/api/auth/register',async(req,res)=>{try{res.json(await beginRegistration(String(req.body?.email||''),String(req.body?.password||'')))}catch(e:any){res.status(400).json({error:e.code==='23505'?'Account already exists':e.message})}});
 app.post('/api/auth/register/confirm',async(req,res)=>{try{const token=await confirmRegistration(String(req.body?.userId||''),String(req.body?.code||''));if(!token)return res.status(401).json({error:'Invalid authenticator code. Check that the server and authenticator device clocks are synchronized.'});res.cookie('aegis_user',token,{httpOnly:true,sameSite:'strict',secure:process.env.COOKIE_SECURE==='true',path:'/',maxAge:28800000});res.json({ok:true,authenticated:true,message:'Authenticator verified. You are signed in.'})}catch(e:any){res.status(400).json({error:e.message})}});
@@ -110,7 +111,7 @@ app.use('/api/grc',(_req,res)=>res.status(503).json({error:'This GRC module rema
 const PORT=Number(process.env.PORT||8080);
 const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
 const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024,files:10}});
+
 async function currentUser(req:any){const ut=(req.headers.cookie||'').split(';').map((x:string)=>x.trim()).find((x:string)=>x.startsWith('aegis_user='))?.slice(11)||'';return userSession(ut)}
 async function reportAuthorized(req:any){if(verifyCredentials(String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||'')))return {ok:true,mode:'admin'};const u=await currentUser(req);if(!u)return {ok:false,reason:'USER_SESSION_MISSING'};const v=await verifyUserStepUp(u.userId,String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||''));return v.ok?{ok:true,mode:'user'}:{ok:false,reason:v.reason}}
 

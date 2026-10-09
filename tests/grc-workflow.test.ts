@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {authorizeGrcTransition,allowedTransitions} from '../src/grc-workflow.js';
 const base={type:'EVIDENCE' as const,from:'SUBMITTED',to:'APPROVED',role:'REVIEWER' as const,actorId:'reviewer',ownerId:'owner',submitterId:'owner',evidenceValidated:true};

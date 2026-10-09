@@ -32,8 +32,8 @@ test('source record remains unchanged',()=>{
 });
 
 test('same CWE on same asset is not sufficient to merge distinct observations',()=>{
- const a=mk({id:'cwe-a',cwe:'CWE-79',title:'Reflected XSS',description:'parameter q'});
- const b=mk({id:'cwe-b',cwe:'CWE-79',title:'Stored XSS',description:'profile field'});
+ const a=make('cwe-a','zap',{cwe:'CWE-79',title:'Reflected XSS',description:'parameter q'});
+ const b=make('cwe-b','wapiti',{cwe:'CWE-79',title:'Stored XSS',description:'profile field'});
  const groups=correlateFindings([a,b]);
  assert.equal(groups.length,2);
  assert.ok(groups.every(g=>g.confidence==='UNVERIFIED_SINGLE'));

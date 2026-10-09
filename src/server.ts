@@ -44,12 +44,14 @@ app.post('/api/auth/logout',async(req,res)=>{const token=(req.headers.cookie||''
 app.get('/api/auth/status',async(req,res)=>{const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';res.json({authenticated:valid(token)||Boolean(await userSession(ut)),configured:authConfigured()})});
 app.use('/api',async(req,res,next)=>{if(['/ready','/health','/integrations','/auth/login','/auth/user-login','/auth/register','/auth/register/confirm','/auth/status'].includes(req.path))return next();const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';if(!valid(token)&&!await userSession(ut))return res.status(401).json({error:'Login required'});next()});
 
-app.get('/api/grc/dashboard',async(req,res)=>{try{res.json(await grcDashboard())}catch(e:any){res.status(500).json({error:e.message})}});
-app.get('/api/grc/risks',async(req,res)=>{try{res.json(await listRisks(String(req.query.organizationId||'')||undefined))}catch(e:any){res.status(500).json({error:e.message})}});
-app.post('/api/grc/risks',async(req,res)=>{try{const u=await currentUser(req);res.status(201).json(await createRisk({...req.body,ownerUserId:req.body?.ownerUserId||u?.userId}))}catch(e:any){res.status(400).json({error:e.message})}});
-app.post('/api/grc/control-assessments',async(req,res)=>{try{const u=await currentUser(req);res.status(201).json(await createControlAssessment({scopeId:String(req.body?.scopeId||''),controlId:String(req.body?.controlId||''),ownerUserId:req.body?.ownerUserId||u?.userId}))}catch(e:any){res.status(400).json({error:e.message})}});
-app.patch('/api/grc/control-assessments/:id',async(req,res)=>{try{res.json(await updateControlAssessment(req.params.id,req.body||{}))}catch(e:any){res.status(400).json({error:e.message})}});
-app.post('/api/grc/workflow/transitions',async(req,res)=>{try{const u=await currentUser(req);res.status(201).json(await recordWorkflowTransition({...req.body,actorUserId:u?.userId}))}catch(e:any){res.status(400).json({error:e.message})}});
+// Enterprise GRC Core V1 is intentionally gated until organization membership,
+// row-level authorization, server-owned workflow transitions and evidence validation
+// are implemented. Never expose cross-tenant risk or arbitrary approval APIs.
+app.use('/api/grc',(_req,res)=>res.status(503).json({
+  error:'GRC Core API is in secure implementation mode',
+  code:'GRC_TENANT_AUTHORIZATION_REQUIRED',
+  message:'Tenant-scoped authorization and evidence-backed workflow enforcement are required before enabling this module.'
+}));
 
 const PORT=Number(process.env.PORT||8080);
 const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);

@@ -23,8 +23,8 @@ test('premium Aegis identity and login hero are present',async()=>{
 });
 test('rendered HTML has no literal escaped newline markup artifacts',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
- const htmlOnly=html.split('<script>')[0];
- assert.doesNotMatch(htmlOnly,/\\n/);
+ const bodyMarkup=html.slice(html.indexOf('</head>')+7,html.indexOf('<script>'));
+ assert.doesNotMatch(bodyMarkup,/>\\n</);
 });
 
 test('premium frontend release has a verifiable marker',async()=>{

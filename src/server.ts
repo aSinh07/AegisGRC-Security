@@ -29,6 +29,7 @@ import { zapReady,zapScan,zapFindings } from './zap.js';
 import { askCopilot } from './copilot.js';
 import { knowledgeCatalog } from './knowledge.js';
 import { extractDocument } from './document-extract.js';
+import { parseFindingImport } from './finding-import.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import { analyzeIntel } from './intel-ai.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
@@ -71,6 +72,19 @@ app.put('/api/grc/organizations/:orgId/scopes/:scopeId/controls',async(req,res)=
 app.post('/api/grc/organizations/:orgId/scopes/:scopeId/controls/:scopeControlId/approve',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await approveScopeControl(u.userId,req.params.orgId,req.params.scopeId,req.params.scopeControlId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/scopes/:scopeId/soa',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await statementOfApplicability(u.userId,req.params.orgId,req.params.scopeId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/assign',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await assignAssessmentToOrganization(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file'),async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ await requireAssessmentAccess(u.userId,req.params.assessmentId);
+ const file=req.file;if(!file)return res.status(400).json({error:'JSON or SARIF file required'});
+ const sha256=crypto.createHash('sha256').update(file.buffer).digest('hex');
+ const parsed=parseFindingImport(req.params.assessmentId,file.originalname,file.buffer);
+ const evidenceId=crypto.randomUUID(),createdAt=new Date().toISOString();
+ const ev:Evidence={id:evidenceId,assessmentId:req.params.assessmentId,source:'finding-import',sha256,createdAt,exitCode:0,
+  stdout:'',stderr:'',metadata:{filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype,size:file.size,format:parsed.format,importedFindings:parsed.findings.length}};
+ await db.saveEvidence(ev);if(parsed.findings.length)await db.saveFindings(parsed.findings);
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'FINDINGS_IMPORTED',actor:u.email,createdAt,metadata:{evidenceId,sha256,format:parsed.format,count:parsed.findings.length}});
+ res.status(201).json({imported:true,evidence:{id:evidenceId,sha256,verified:true},format:parsed.format,count:parsed.findings.length,warnings:parsed.warnings,findings:parsed.findings});
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/assessments/:assessmentId/correlated-findings',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.assessmentId);const {correlateFindings,correlationSummary}=await import('./finding-correlation.js');const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.assessmentId);res.json({assessmentId:req.params.assessmentId,summary:correlationSummary(fs),groups:correlateFindings(fs),assurance:'Advisory correlation; original evidence and findings remain immutable inputs and analyst confirmation is required.'})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/evidence',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({evidence:await listEvidence(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/evidence-requests',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createEvidenceRequest(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

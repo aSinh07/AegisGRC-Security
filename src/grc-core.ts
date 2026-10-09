@@ -141,10 +141,9 @@ export async function createRisk(input:{
   return r.rows[0];
 }
 
-export async function listRisks(organizationId?:string){
-  const r=organizationId
-    ? await pool.query('SELECT * FROM grc_risks WHERE organization_id=$1 ORDER BY inherent_score DESC,created_at DESC',[organizationId])
-    : await pool.query('SELECT * FROM grc_risks ORDER BY inherent_score DESC,created_at DESC LIMIT 250');
+export async function listRisks(organizationId:string){
+  if(!organizationId)throw new Error('Organization scope is required');
+  const r=await pool.query('SELECT * FROM grc_risks WHERE organization_id=$1 ORDER BY inherent_score DESC,created_at DESC',[organizationId]);
   return r.rows;
 }
 
@@ -184,20 +183,25 @@ export async function recordWorkflowTransition(input:{recordType:string;recordId
   return r.rows[0];
 }
 
-export async function grcDashboard(){
+export async function grcDashboard(organizationId:string){
+  if(!organizationId)throw new Error('Organization scope is required');
   const [controls,risks,issues,evidence]=await Promise.all([
     pool.query(`SELECT count(*)::int total,
-      count(*) FILTER(WHERE overall_status='EFFECTIVE')::int effective,
-      count(*) FILTER(WHERE overall_status='INEFFECTIVE')::int ineffective,
-      count(*) FILTER(WHERE overall_status='PARTIALLY_EFFECTIVE')::int partial,
-      count(*) FILTER(WHERE overall_status='NOT_ASSESSED')::int not_assessed FROM grc_control_assessments`),
+      count(*) FILTER(WHERE ca.overall_status='EFFECTIVE')::int effective,
+      count(*) FILTER(WHERE ca.overall_status='INEFFECTIVE')::int ineffective,
+      count(*) FILTER(WHERE ca.overall_status='PARTIALLY_EFFECTIVE')::int partial,
+      count(*) FILTER(WHERE ca.overall_status='NOT_ASSESSED')::int not_assessed
+      FROM grc_control_assessments ca JOIN grc_scopes s ON s.id=ca.scope_id WHERE s.organization_id=$1`,[organizationId]),
     pool.query(`SELECT count(*)::int total,count(*) FILTER(WHERE status='OPEN')::int open,
-      count(*) FILTER(WHERE inherent_rating='CRITICAL' AND status='OPEN')::int critical FROM grc_risks`),
+      count(*) FILTER(WHERE inherent_rating='CRITICAL' AND status='OPEN')::int critical
+      FROM grc_risks WHERE organization_id=$1`,[organizationId]),
     pool.query(`SELECT count(*) FILTER(WHERE status<>'CLOSED')::int open,
-      count(*) FILTER(WHERE status<>'CLOSED' AND due_at<now())::int overdue FROM grc_issues`),
+      count(*) FILTER(WHERE status<>'CLOSED' AND due_at<now())::int overdue
+      FROM grc_issues WHERE organization_id=$1`,[organizationId]),
     pool.query(`SELECT count(*) FILTER(WHERE status='VALID')::int valid,
       count(*) FILTER(WHERE valid_until IS NOT NULL AND valid_until<now())::int expired,
-      count(*) FILTER(WHERE valid_until BETWEEN now() AND now()+interval '7 days')::int expiring FROM grc_evidence`)
+      count(*) FILTER(WHERE valid_until BETWEEN now() AND now()+interval '7 days')::int expiring
+      FROM grc_evidence WHERE organization_id=$1`,[organizationId])
   ]);
-  return {controls:controls.rows[0],risks:risks.rows[0],issues:issues.rows[0],evidence:evidence.rows[0]};
+  return {organizationId,controls:controls.rows[0],risks:risks.rows[0],issues:issues.rows[0],evidence:evidence.rows[0]};
 }

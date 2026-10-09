@@ -105,3 +105,15 @@ export async function statementOfApplicability(userId:string,orgId:string,scopeI
  summary:{total:rows.length,applicable:rows.filter((x:any)=>x.applicability==='APPLICABLE').length,notApplicable:rows.filter((x:any)=>x.applicability==='NOT_APPLICABLE').length,pending:rows.filter((x:any)=>x.applicability==='PENDING').length,approved:rows.filter((x:any)=>x.approved_at).length},
  disclaimer:'Statement of Applicability workspace record; internal approval is not external certification.'};
 }
+
+
+export async function listCanonicalControls(userId:string,orgId:string){
+ await requireOrgPermission(userId,orgId,'read');
+ return (await pool.query(`SELECT id,control_key,title,description,domain,version,active,created_at,updated_at
+ FROM grc_canonical_controls WHERE active=true ORDER BY domain,control_key`)).rows;
+}
+export async function listFrameworkRequirements(userId:string,orgId:string){
+ await requireOrgPermission(userId,orgId,'read');
+ return (await pool.query(`SELECT id,framework,framework_version,requirement_key,title,summary,active
+ FROM grc_framework_requirements WHERE active=true ORDER BY framework,framework_version,requirement_key`)).rows;
+}

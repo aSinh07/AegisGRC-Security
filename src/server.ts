@@ -19,6 +19,7 @@ import { initGrcCore } from './grc-core.js';
 import { initOrganizations,createOrganization,memberships,createScope,listScopes,addMember } from './grc-organizations.js';
 import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,mapControl,setScopeControl,approveScopeControl,statementOfApplicability } from './grc-controls.js';
 import { initEvidenceEngine,createEvidenceRequest,submitEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence } from './grc-evidence.js';
+import { initIssueRiskCapa,listIssues,createRiskFromIssue,approveRiskAcceptance,createCapa,submitCapaEvidence,attachRetest,closeCapa,listCapa,listEnterpriseRisks } from './grc-remediation.js';
 import multer from 'multer';
 import { frameworkCatalog,mapFinding } from './grc.js';
 import { assessFramework } from './grc-engine.js';
@@ -39,6 +40,7 @@ await initGrcCore();
 await initOrganizations();
 await initControlRegistry();
 await initEvidenceEngine();
+await initIssueRiskCapa();
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static('public'));
@@ -68,6 +70,15 @@ app.post('/api/grc/organizations/:orgId/evidence-requests/:requestId/versions',a
 app.post('/api/grc/organizations/:orgId/evidence-requests/:requestId/versions/:versionId/validate',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await validateEvidence(u.userId,req.params.orgId,req.params.requestId,req.params.versionId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/control-tests',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createTestDefinition(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/control-tests/:testId/run',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await runControlTest(u.userId,req.params.orgId,req.params.testId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/issues',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({issues:await listIssues(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/risks',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({risks:await listEnterpriseRisks(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/issues/:issueId/risks',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createRiskFromIssue(u.userId,req.params.orgId,req.params.issueId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/risks/:riskId/accept',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await approveRiskAcceptance(u.userId,req.params.orgId,req.params.riskId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/capa',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({capa:await listCapa(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/issues/:issueId/capa',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createCapa(u.userId,req.params.orgId,req.params.issueId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/capa/:capaId/evidence/:evidenceVersionId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await submitCapaEvidence(u.userId,req.params.orgId,req.params.capaId,req.params.evidenceVersionId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/capa/:capaId/retest/:testRunId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await attachRetest(u.userId,req.params.orgId,req.params.capaId,req.params.testRunId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/capa/:capaId/close',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await closeCapa(u.userId,req.params.orgId,req.params.capaId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.use('/api/grc',(_req,res)=>res.status(503).json({error:'This GRC module remains gated until tenant authorization and workflow enforcement are complete',code:'GRC_MODULE_IMPLEMENTATION_PENDING'}));
 
 const PORT=Number(process.env.PORT||8080);

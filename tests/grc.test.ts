@@ -17,7 +17,7 @@ test('maps XSS to OWASP injection and ISO/NIST controls', () => {
   };
 
   const m = mapFinding(f);
-  assert.ok(m.mappings.owasp?.includes('A03 Injection'));
+  assert.ok(m.mappings.owasp?.includes('A05:2025 Injection'));
   assert.ok((m.mappings.iso27001?.length ?? 0) > 0);
   assert.ok((m.mappings.nist?.length ?? 0) > 0);
 });

@@ -73,3 +73,12 @@ export async function runControlTest(userId:string,orgId:string,testId:string){
  return run
 }
 export async function listEvidence(userId:string,orgId:string){await requireOrgPermission(userId,orgId,'read');return (await pool.query(`SELECT r.*,v.id latest_version_id,v.version,v.sha256,v.validated_at,v.valid_until FROM grc_evidence_requests r LEFT JOIN LATERAL(SELECT * FROM grc_evidence_versions WHERE evidence_request_id=r.id ORDER BY version DESC LIMIT 1)v ON true WHERE r.organization_id=$1 ORDER BY r.created_at DESC`,[orgId])).rows}
+
+export async function listControlTests(userId:string,orgId:string){
+ await requireOrgPermission(userId,orgId,'read');
+ return (await pool.query(`SELECT t.id,t.scope_control_id,t.name,t.test_type,t.active,t.created_at,
+ r.id latest_run_id,r.result latest_result,r.rationale latest_rationale,r.executed_at latest_executed_at
+ FROM grc_control_test_definitions t
+ LEFT JOIN LATERAL(SELECT * FROM grc_control_test_runs WHERE test_definition_id=t.id ORDER BY executed_at DESC LIMIT 1) r ON true
+ WHERE t.organization_id=$1 ORDER BY t.created_at DESC`,[orgId])).rows;
+}

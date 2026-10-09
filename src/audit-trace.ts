@@ -77,3 +77,29 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
     chains
   };
 }
+
+export function auditPackageModel(trace:any){
+ const chains=Array.isArray(trace?.chains)?trace.chains:[];
+ return {
+  reportType:'AEGIS_GRC_AUDIT_PACKAGE',
+  generatedAt:trace?.generatedAt||new Date().toISOString(),
+  assessmentId:trace?.assessmentId||'',
+  organizationId:trace?.organizationId||'',
+  assuranceBoundary:trace?.assuranceBoundary||'Traceability is not certification.',
+  executiveSummary:{...trace?.summary,
+   openIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED').length,
+   overdueIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED'&&x.issue.due_at&&new Date(x.issue.due_at)<new Date()).length
+  },
+  evidenceRegister:trace?.evidence||[],
+  findingLifecycle:chains.map((x:any)=>({
+   findingId:x.findingId,title:x.title,severity:x.severity,source:x.source,evidenceHash:x.evidenceHash,
+   findingStatus:x.status,analystDecisions:x.reviews||[],issue:x.issue||null,risks:x.risks||[],capa:x.capa||[]
+  })),
+  limitations:[
+   'Scanner or imported observations require analyst validation before escalation.',
+   'Framework mappings are cross-references and do not constitute certification.',
+   'Risk treatment and acceptance remain accountable human decisions.',
+   'Closure requires the applicable remediation, evidence and retest workflow.'
+  ]
+ };
+}

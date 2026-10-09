@@ -331,11 +331,11 @@ app.post('/api/source/semgrep',async(req,res)=>{
   res.json({...result,assessmentId,findings});
  }catch(e:any){res.status(400).json({error:e.message})}
 });
-app.get('/api/assessments',async(_req,res)=>res.json(await db.assessments()));
-app.get('/api/assessments/:id',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});res.json(a)});
-app.get('/api/assessments/:id/audit',async(req,res)=>res.json((await db.audits()).filter(x=>x.assessmentId===req.params.id)));
-app.get('/api/assessments/:id/evidence',async(req,res)=>res.json((await db.evidence()).filter(x=>x.assessmentId===req.params.id)));
-app.get('/api/assessments/:id/report',async(req,res)=>{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=(await db.findings()).filter(x=>x.assessmentId===req.params.id);res.json(assessmentReport(a,fs))});
+app.get('/api/assessments',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await db.assessmentsForUser(u.userId))});
+app.get('/api/assessments/:id',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});res.json(a)});
+app.get('/api/assessments/:id/audit',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.auditsForAssessment(req.params.id))});
+app.get('/api/assessments/:id/evidence',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.evidenceForAssessment(req.params.id))});
+app.get('/api/assessments/:id/report',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=await db.findingsForAssessment(req.params.id);res.json(assessmentReport(a,fs))});
 
 app.get('/api/knowledge',(_req,res)=>res.json({modules:knowledgeCatalog(),authoritativeResources:authoritativeResources(),provenance:'Aegis learning modules plus direct authoritative resources. Live intelligence is retrieved from CISA/NIST endpoints.'}));
 app.get('/api/cyber-intel',async(req,res)=>{try{res.json(await cyberIntel(req.query.refresh==='1'))}catch(e:any){res.status(502).json({error:e.message})}});
@@ -345,7 +345,7 @@ app.get('/api/frameworks',(_req,res)=>res.json({frameworks:frameworkCatalog,note
 app.post('/api/assessments/:id/documents',upload.array('files',10),async(req,res)=>{
  try{const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const files=(req.files||[]) as Express.Multer.File[];if(!files.length)return res.status(400).json({error:'No files supplied'});const denied=/\.(exe|dll|so|dylib|msi|apk|bat|cmd|ps1|sh|scr|com|jar)$/i;const saved=[];for(const file of files){if(denied.test(file.originalname))return res.status(400).json({error:'Executable/script uploads are not accepted'});const id=crypto.randomUUID(),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();await db.saveDocument({id,assessmentId:a.id,filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype||'application/octet-stream',size:file.size,sha256,createdAt,content:file.buffer});await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:'operator',createdAt,metadata:{documentId:id,filename:file.originalname,size:file.size,sha256}});saved.push({id,filename:file.originalname,size:file.size,sha256,createdAt})}res.json({stored:true,documents:saved})}catch(e:any){res.status(400).json({error:e.message})}
 });
-app.get('/api/assessments/:id/documents',async(req,res)=>res.json(await db.documents(req.params.id)));
+app.get('/api/assessments/:id/documents',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.documents(req.params.id))});
 app.post('/api/assessments/:id/documents/:docId/security-assess',async(req,res)=>{try{
  const a=(await db.assessments()).find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
  const d=await db.document(req.params.docId);if(!d||d.assessmentId!==a.id)return res.status(404).json({error:'Document not found'});

@@ -17,3 +17,10 @@ test('approval signature is bound to report snapshot digest',()=>{
  assert.equal(verifyApprovedReportSignature({...base,signature}),true);
  assert.equal(verifyApprovedReportSignature({...base,snapshotDigest:'b'.repeat(64),signature}),false);
 });
+
+test('report digest ignores presentation clock but includes changed finding evidence',()=>{
+ const base={assessmentId:'a1',generatedAt:'2026-10-10T10:00:00Z',documentControl:{generatedAt:'2026-10-10T10:00:00Z'},executiveSummary:{findings:1,overdueIssues:0},findingLifecycle:[{findingId:'f1',evidenceHash:'a'.repeat(64)}]};
+ const refreshed={...base,generatedAt:'2026-10-11T10:00:00Z',documentControl:{generatedAt:'2026-10-11T10:00:00Z'},executiveSummary:{findings:1,overdueIssues:1}};
+ assert.equal(reportSnapshotDigest(base),reportSnapshotDigest(refreshed));
+ assert.notEqual(reportSnapshotDigest(base),reportSnapshotDigest({...base,findingLifecycle:[{findingId:'f1',evidenceHash:'b'.repeat(64)}]}));
+});

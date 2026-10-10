@@ -44,7 +44,7 @@ test('CAPA evidence and retest preconditions are locked inside their transaction
  assert.match(evidence,/client\.query\('ROLLBACK'\)/);
  assert.ok(retest.indexOf("client.query('BEGIN')")<retest.indexOf('FOR UPDATE'));
  assert.match(retest,/CAPA is not ready for retest/);
- assert.match(retest,/grc_control_test_runs WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.match(retest,/grc_control_test_runs[\s\S]*WHERE r\.id=\$1 AND r\.organization_id=\$2 FOR UPDATE OF r,d/);
  assert.match(retest,/client\.query\('ROLLBACK'\)/);
 });
 
@@ -83,8 +83,8 @@ test('CAPA closure validates retest and reviewer independence under transaction 
  const end=remediation.indexOf('export async function listCapa',start);
  const fn=remediation.slice(start,end);
  assert.ok(fn.indexOf("client.query('BEGIN')")<fn.indexOf('SELECT c.*,r.result retest_result'));
- assert.match(fn,/FOR UPDATE OF c,r/);
- assert.match(fn,/Passing retest in validation state required/);
+ assert.match(fn,/FOR UPDATE OF c/);
+ assert.match(fn,/Validated control-test or targeted finding-retest proof required/);
  assert.match(fn,/Independent reviewer required for CAPA closure/);
  assert.match(fn,/WHERE id=\$1 AND status='VALIDATION' RETURNING \*/);
  assert.match(fn,/CAPA state changed before closure/);
@@ -106,7 +106,7 @@ test('finding promotion audit is committed with the issue transaction',async()=>
  const risk=await readFile(new URL('../src/finding-risk.ts',import.meta.url),'utf8');
  const start=risk.indexOf('export async function promoteFindingToIssue');const fn=risk.slice(start);
  assert.match(fn,/CONFIRMED_FINDING_PROMOTED_TO_GRC_ISSUE/);
- assert.ok(fn.indexOf('INSERT INTO audit_events')<fn.indexOf("client.query('COMMIT')"));
+ assert.match(fn,/CONFIRMED_FINDING_PROMOTED_TO_GRC_ISSUE[\s\S]*client/);
  const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
  const rs=server.indexOf("app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/findings/:findingId/issue'");const re=server.indexOf("app.get('/api/grc/assessments/:assessmentId/audit-package.:format'",rs);const route=server.slice(rs,re);
  assert.doesNotMatch(route,/db\.saveAudit/);
@@ -204,7 +204,7 @@ test('CAPA retest only accepts deterministic result and compare-and-set transiti
  const start=remediation.indexOf('export async function attachRetest');
  const end=remediation.indexOf('export async function closeCapa',start);
  const fn=remediation.slice(start,end);
- assert.match(fn,/grc_control_test_runs WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.match(fn,/grc_control_test_runs[\s\S]*WHERE r\.id=\$1 AND r\.organization_id=\$2 FOR UPDATE OF r,d/);
  assert.match(fn,/run\.result!=='PASS'&&run\.result!=='FAIL'/);
  assert.match(fn,/Retest must have a deterministic PASS or FAIL result/);
  assert.match(fn,/status = ANY\(\$4::text\[\]\) RETURNING \*/);

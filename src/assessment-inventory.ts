@@ -30,6 +30,9 @@ export async function createAssessmentAsset(userId:string,organizationId:string,
  await requireOrgPermission(userId,organizationId,'manageAssessment');
  const assetType=String(input.assetType||'').toUpperCase() as AssetType;if(!assetTypes.includes(assetType))throw new Error('Invalid asset type');
  const key=String(input.assetKey||'').trim(),name=String(input.name||'').trim();if(!key||!name)throw new Error('Asset key and name are required');
+ if(input.scopeId){const scope=(await pool.query('SELECT 1 FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,organizationId])).rows[0];if(!scope)throw Object.assign(new Error('Scope does not belong to this organization'),{statusCode:403});}
+ if(input.containsPii!==undefined&&typeof input.containsPii!=='boolean')throw new Error('containsPii must be boolean');
+ if(input.metadata!==undefined&&(typeof input.metadata!=='object'||Array.isArray(input.metadata)||input.metadata===null))throw new Error('metadata must be an object');
  return (await pool.query(`INSERT INTO assessment_assets(id,organization_id,scope_id,asset_type,asset_key,name,criticality,data_classification,contains_pii,owner,metadata,created_by)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,[crypto.randomUUID(),organizationId,input.scopeId||null,assetType,key,name,String(input.criticality||'MEDIUM').toUpperCase(),String(input.dataClassification||'INTERNAL').toUpperCase(),Boolean(input.containsPii),String(input.owner||'').trim()||null,input.metadata||{},userId])).rows[0]
 }
@@ -44,10 +47,11 @@ export async function initializeLayerCoverage(userId:string,organizationId:strin
 }
 export async function recordLayerResult(userId:string,organizationId:string,assessmentId:string,layer:AssessmentLayer,input:{status:LayerStatus;engines?:string[];evidenceCount?:number;failureReasons?:string[]}){
  await requireOrgPermission(userId,organizationId,'manageAssessment');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});if(!ASSESSMENT_LAYERS.includes(layer))throw new Error('Invalid assessment layer');
+ const validStatuses:LayerStatus[]=['NOT_STARTED','RUNNING','COMPLETE','PARTIAL','FAILED','NOT_APPLICABLE'];if(!validStatuses.includes(input.status))throw new Error('Invalid assessment layer status');
  if(input.status==='COMPLETE'&&Number(input.evidenceCount||0)<1)throw new Error('Complete assessment layer requires persisted evidence');
- return (await pool.query(`UPDATE assessment_layer_runs SET status=$4,engines=$5,evidence_count=$6,failure_reasons=$7,
+ const updated=(await pool.query(`UPDATE assessment_layer_runs SET status=$4,engines=$5,evidence_count=$6,failure_reasons=$7,
  started_at=COALESCE(started_at,now()),completed_at=CASE WHEN $4 IN ('COMPLETE','PARTIAL','FAILED','NOT_APPLICABLE') THEN now() ELSE NULL END,updated_at=now()
- WHERE assessment_id=$1 AND organization_id=$2 AND layer=$3 RETURNING *`,[assessmentId,organizationId,layer,input.status,input.engines||[],Number(input.evidenceCount||0),input.failureReasons||[]])).rows[0]
+ WHERE assessment_id=$1 AND organization_id=$2 AND layer=$3 RETURNING *`,[assessmentId,organizationId,layer,input.status,input.engines||[],Number(input.evidenceCount||0),input.failureReasons||[]])).rows[0];if(!updated)throw Object.assign(new Error('Assessment layer is not initialized'),{statusCode:409});return updated
 }
 export async function assessmentLayerCoverage(userId:string,organizationId:string,assessmentId:string){
  await requireOrgPermission(userId,organizationId,'read');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});const rows=(await pool.query('SELECT layer,status,required,engines,evidence_count,failure_reasons FROM assessment_layer_runs WHERE assessment_id=$1 AND organization_id=$2 ORDER BY layer',[assessmentId,organizationId])).rows;

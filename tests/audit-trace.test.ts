@@ -29,7 +29,7 @@ test('audit package separates evidence workflow from assurance claims',()=>{
  const m=auditPackageModel({assessmentId:'a1',organizationId:'o1',generatedAt:'2026-01-01T00:00:00Z',assuranceBoundary:'Not certification',summary:{findings:1},evidence:[{sha256:'a'.repeat(64)}],chains:[{findingId:'f1',title:'Test',severity:'HIGH',source:'document',evidenceHash:'a'.repeat(64),status:'OPEN',reviews:[{decision:'CONFIRMED'}],issue:null,risks:[],capa:[]}]});
  assert.equal(m.reportType,'AEGIS_GRC_AUDIT_PACKAGE');
  assert.equal(m.findingLifecycle[0].analystDecisions[0].decision,'CONFIRMED');
- assert.match(m.limitations.join(' '),/do not constitute certification/i);
+ assert.match(m.limitations.join(' '),/do not establish[\s\S]*certification/i);
 });
 
 test('audit package reports control relevance separately from deterministic control test',()=>{

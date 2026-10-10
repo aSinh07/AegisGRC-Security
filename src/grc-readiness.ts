@@ -44,3 +44,31 @@ export async function organizationAuditReadiness(userId:string,orgId:string,scop
  return {organizationId:orgId,scope,generatedAt:new Date().toISOString(),...result,
   auditChecklist:['Confirm scope and framework inventory completeness.','Review every applicability decision and justification.','Verify evidence provenance, integrity, freshness and independent approval.','Review unresolved findings, risks, accepted exceptions and CAPA.','Confirm operating effectiveness through representative audit sampling.','Obtain authorized management sign-off before external submission.']};
 }
+
+
+export function auditReadinessReportModel(r:any){
+ const controls=Array.isArray(r?.controls)?r.controls:[];
+ const frameworks=[...new Set(controls.flatMap((c:any)=>(c.mappings||[]).map((m:any)=>String(m.framework||'').trim())).filter(Boolean))];
+ const clauses=controls.flatMap((c:any)=>(c.mappings||[]).map((m:any)=>({
+  framework:m.framework,version:m.version,clause:m.clause,title:m.title,summary:m.summary,
+  controlKey:c.control_key,controlTitle:c.title,readiness:c.readiness,gaps:(c.gaps||[]).join(' | ')
+ })));
+ return {
+  reportType:'AEGIS_GRC_AUDIT_READINESS_REPORT',generatedAt:r.generatedAt,organizationId:r.organizationId,scope:r.scope,
+  assuranceBoundary:r.assuranceBoundary,frameworks,
+  executiveSummary:{...r.summary,frameworksAssessed:frameworks.length,clausesMapped:clauses.length},
+  controls,clauses,auditChecklist:r.auditChecklist||[],
+  methodology:[
+   'Scope controls are evaluated only from records stored for the selected organization and scope.',
+   'Applicable controls require completed implementation, independent applicability approval, current independently validated evidence, a passing deterministic test, no unresolved linked issue, and at least one framework mapping.',
+   'Not-applicable controls require a documented justification and independent approval.',
+   'A readiness percentage measures completion of this internal evidence checklist; it is not a compliance percentage or certification score.'
+  ],
+  limitations:[
+   'The report cannot prove that every applicable framework requirement has been loaded into the registry; framework inventory completeness requires authorized review.',
+   'Automated tests and vulnerability observations are evidence inputs and do not replace auditor sampling or professional judgment.',
+   'External certification, regulatory approval and formal audit opinions can only be issued by appropriately authorized independent parties.',
+   'Risk acceptance, scope decisions and management sign-off remain accountable human decisions.'
+  ]
+ };
+}

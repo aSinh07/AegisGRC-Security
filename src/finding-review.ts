@@ -51,6 +51,8 @@ export async function reviewFinding(userId:string,assessmentId:string,findingId:
    if(Number(ev.payload?.exitCode)!==0)throw Object.assign(new Error('Retest evidence must come from a successful tool execution'),{statusCode:409});
    if(new Date(ev.created_at).getTime()<=new Date(original.createdAt).getTime())throw Object.assign(new Error('Retest evidence must be newer than the original finding'),{statusCode:409});
    if(String(ev.source)!==String(original.source))throw Object.assign(new Error('Retest evidence must use the same scanner source as the original finding'),{statusCode:409});
+   const meta=ev.payload?.metadata||{};
+   if(meta.retestMode!=='TARGETED'||String(meta.retestOfFindingId||'')!==findingId||String(meta.retestOfFingerprint||'')!==fingerprint)throw Object.assign(new Error('Retest evidence must explicitly reference this finding and fingerprint'),{statusCode:409});
    const stillPresent=(await client.query("SELECT 1 FROM findings WHERE assessment_id=$1 AND id<>$2 AND COALESCE(payload->>'fingerprint','')=$3 AND created_at >= $4 LIMIT 1",[assessmentId,findingId,fingerprint,ev.created_at])).rows[0];
    if(stillPresent)throw Object.assign(new Error('Retest still detects the original vulnerability fingerprint'),{statusCode:409});
   }

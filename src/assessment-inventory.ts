@@ -53,3 +53,16 @@ export async function assessmentLayerCoverage(userId:string,organizationId:strin
  await requireOrgPermission(userId,organizationId,'read');const rows=(await pool.query('SELECT layer,status,required,engines,evidence_count,failure_reasons FROM assessment_layer_runs WHERE assessment_id=$1 AND organization_id=$2 ORDER BY layer',[assessmentId,organizationId])).rows;
  return {layers:rows,summary:assessmentCoverage(rows.map(r=>({layer:r.layer,status:r.status,required:r.required,engines:r.engines||[],evidenceCount:Number(r.evidence_count),failureReasons:r.failure_reasons||[]})))}
 }
+
+export async function reconcileInfrastructureCoverage(userId:string,organizationId:string,assessmentId:string){
+ await requireOrgPermission(userId,organizationId,'manageAssessment');
+ const access=(await pool.query('SELECT 1 FROM grc_assessment_org WHERE assessment_id=$1 AND organization_id=$2',[assessmentId,organizationId])).rows[0];if(!access)throw new Error('Assessment is not assigned to this organization');
+ const ev=(await pool.query(`SELECT source,payload FROM evidence WHERE assessment_id=$1 AND source = ANY($2::text[])`,[assessmentId,['nmap','openvas']])).rows;
+ const valid=(source:string)=>ev.some((x:any)=>x.source===source&&Number(x.payload?.exitCode)===0&&!x.payload?.metadata?.timedOut&&!x.payload?.metadata?.stdoutTruncated&&!x.payload?.metadata?.stderrTruncated&&String(x.payload?.stdout||'').length>0);
+ const nmap=valid('nmap'),openvas=valid('openvas'),reasons:string[]=[];if(!nmap)reasons.push('Nmap successful evidence missing');if(!openvas)reasons.push('OpenVAS successful evidence missing');
+ const status:LayerStatus=nmap&&openvas?'COMPLETE':'PARTIAL',engines=['NMAP','OPENVAS'],count=ev.filter((x:any)=>valid(x.source)).length;
+ await pool.query(`INSERT INTO assessment_layer_runs(id,assessment_id,organization_id,layer,status,required,engines,evidence_count,failure_reasons,started_at,completed_at)
+ VALUES($1,$2,$3,'INFRASTRUCTURE',$4,true,$5,$6,$7,now(),CASE WHEN $4='COMPLETE' THEN now() ELSE NULL END)
+ ON CONFLICT(assessment_id,layer) DO UPDATE SET status=EXCLUDED.status,required=true,engines=EXCLUDED.engines,evidence_count=EXCLUDED.evidence_count,failure_reasons=EXCLUDED.failure_reasons,started_at=COALESCE(assessment_layer_runs.started_at,now()),completed_at=EXCLUDED.completed_at,updated_at=now()`,[crypto.randomUUID(),assessmentId,organizationId,status,engines,count,reasons]);
+ return {layer:'INFRASTRUCTURE',status,requiredEngines:engines,evidenceCount:count,reasons,nmap:{complete:nmap},openvas:{complete:openvas}};
+}

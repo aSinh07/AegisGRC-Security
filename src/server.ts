@@ -17,7 +17,8 @@ import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,u
 import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport } from './grc-review.js';
 import { initGrcCore } from './grc-core.js';
 import { initOrganizations,createOrganization,memberships,createScope,listScopes,addMember,listMembers,assignAssessmentToOrganization,requireAssessmentAccess,requireOrgPermission } from './grc-organizations.js';
-import {organizationAuditReadiness} from './grc-readiness.js';
+import {organizationAuditReadiness,auditReadinessReportModel} from './grc-readiness.js';
+import {readinessPdf,readinessDocx,readinessXlsx} from './readiness-exporters.js';
 import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,mapControl,setScopeControl,approveScopeControl,statementOfApplicability,listCanonicalControls,listFrameworkRequirements } from './grc-controls.js';
 import { initEvidenceEngine,createEvidenceRequest,submitEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence,listControlTests } from './grc-evidence.js';
 import { initIssueRiskCapa,listIssues,createRiskFromIssue,approveRiskAcceptance,createCapa,submitCapaEvidence,attachRetest,closeCapa,listCapa,listEnterpriseRisks } from './grc-remediation.js';
@@ -161,6 +162,16 @@ app.get('/api/grc/organizations/:orgId/my-work',async(req,res)=>{try{const u=awa
 app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
  res.json(await organizationAuditReadiness(u.userId,req.params.orgId,req.params.scopeId));
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness.:format',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ const model=auditReadinessReportModel(await organizationAuditReadiness(u.userId,req.params.orgId,req.params.scopeId));
+ const format=String(req.params.format||'').toLowerCase();let body:Buffer,contentType:string,ext:string;
+ if(format==='pdf'){body=await readinessPdf(model);contentType='application/pdf';ext='pdf'}
+ else if(format==='docx'){body=await readinessDocx(model);contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document';ext='docx'}
+ else if(format==='xlsx'){body=readinessXlsx(model);contentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';ext='xlsx'}
+ else return res.status(400).json({error:'Audit readiness format must be pdf, docx or xlsx'});
+ res.setHeader('Content-Type',contentType);res.setHeader('Content-Disposition','attachment; filename="AegisGRC-Readiness-'+req.params.scopeId+'.'+ext+'"');res.send(body);
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/dashboard',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await operationsDashboard(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/sla',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await sla(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

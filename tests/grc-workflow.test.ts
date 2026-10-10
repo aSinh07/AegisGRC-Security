@@ -111,3 +111,18 @@ test('finding promotion audit is committed with the issue transaction',async()=>
  const rs=server.indexOf("app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/findings/:findingId/issue'");const re=server.indexOf("app.get('/api/grc/assessments/:assessmentId/audit-package.:format'",rs);const route=server.slice(rs,re);
  assert.doesNotMatch(route,/db\.saveAudit/);
 });
+
+
+test('failed control test and generated issue commit atomically',async()=>{
+ const evidence=await readFile(new URL('../src/grc-evidence.ts',import.meta.url),'utf8');
+ const start=evidence.indexOf('export async function runControlTest');
+ const end=evidence.indexOf('export async function listEvidence',start);
+ const fn=evidence.slice(start,end);
+ assert.ok(fn.indexOf("client.query('BEGIN')")<fn.indexOf('grc_control_test_definitions'));
+ assert.match(fn,/active=true FOR UPDATE/);
+ assert.match(fn,/INSERT INTO grc_control_test_runs/);
+ assert.match(fn,/INSERT INTO grc_issues/);
+ assert.ok(fn.indexOf('INSERT INTO grc_control_test_runs')<fn.indexOf('INSERT INTO grc_issues'));
+ assert.ok(fn.indexOf('INSERT INTO grc_issues')<fn.indexOf("client.query('COMMIT')"));
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});

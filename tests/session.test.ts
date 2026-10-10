@@ -76,3 +76,15 @@ test('scan targets are revalidated against DNS rebinding and unsafe ports',async
  const real=server.slice(server.indexOf('async function executeRealTool'),server.indexOf("app.post('/api/scans/run'"));
  assert.match(real,/t=await revalidateTarget\(t\)/);
 });
+
+
+test('TOTP secrets support authenticated encryption at rest with legacy compatibility',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const auth=await readFile(new URL('../src/user-auth.ts',import.meta.url),'utf8');
+ assert.match(auth,/createCipheriv\('aes-256-gcm'/);
+ assert.match(auth,/createDecipheriv\('aes-256-gcm'/);
+ assert.match(auth,/TOTP_ENCRYPTION_KEY/);
+ assert.match(auth,/const secret=b32enc\(crypto\.randomBytes\(20\)\),storedSecret=protectTotp\(secret\)/);
+ assert.match(auth,/verify\(revealTotp\(u\.totp_secret\),code\)/);
+ assert.match(auth,/if\(!value\.startsWith\('enc:v1:'\)\)return value/);
+});

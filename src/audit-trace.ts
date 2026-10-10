@@ -36,6 +36,26 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
     'SELECT ce.capa_id,ce.evidence_version_id,ce.linked_at FROM grc_capa_evidence ce JOIN grc_capa c ON c.id=ce.capa_id JOIN grc_issues i ON i.id=c.issue_id WHERE i.assessment_id=$1 ORDER BY ce.linked_at',
     [assessmentId]
   )).rows;
+  const controlAssurance = (await pool.query(`
+    SELECT DISTINCT i.id issue_id,sc.id scope_control_id,c.control_key,c.title control_title,
+      sc.applicability,sc.implementation,sc.approved_at applicability_approved_at,
+      lr.id test_run_id,lr.result test_result,lr.rationale test_rationale,lr.executed_at test_executed_at,
+      COALESCE(json_agg(DISTINCT jsonb_build_object('framework',fr.framework,'version',fr.framework_version,'requirementKey',fr.requirement_key,'title',fr.title,'mappingType',m.mapping_type))
+        FILTER(WHERE fr.id IS NOT NULL),'[]'::json) framework_mappings
+    FROM grc_issues i
+    JOIN grc_scope_controls sc ON sc.id=i.scope_control_id
+    JOIN grc_canonical_controls c ON c.id=sc.control_id
+    LEFT JOIN grc_control_framework_mappings m ON m.control_id=c.id
+    LEFT JOIN grc_framework_requirements fr ON fr.id=m.requirement_id
+    LEFT JOIN LATERAL(
+      SELECT tr.id,tr.result,tr.rationale,tr.executed_at FROM grc_control_test_definitions td
+      JOIN grc_control_test_runs tr ON tr.test_definition_id=td.id
+      WHERE td.scope_control_id=sc.id AND td.organization_id=sc.organization_id AND td.active=true
+      ORDER BY tr.executed_at DESC LIMIT 1
+    ) lr ON true
+    WHERE i.assessment_id=$1
+    GROUP BY i.id,sc.id,c.id,lr.id,lr.result,lr.rationale,lr.executed_at
+    ORDER BY c.control_key`,[assessmentId])).rows;
 
   const chains = findings.map((row:any) => {
     const f = row.payload || {};
@@ -50,6 +70,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       status: f.status || 'UNREVIEWED',
       reviews: history,
       issue,
+      controlAssurance: issue ? controlAssurance.find((x:any)=>x.issue_id===issue.id)||null : null,
       risks: issue ? risks.filter((x:any) => x.issue_id === issue.id) : [],
       capa: issue ? capas.filter((x:any) => x.issue_id === issue.id).map((x:any) => ({
         ...x,
@@ -71,7 +92,9 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       issues: issues.length,
       risks: risks.length,
       capa: capas.length,
-      closedCapa: capas.filter((x:any) => x.status === 'CLOSED').length
+      closedCapa: capas.filter((x:any) => x.status === 'CLOSED').length,
+      controlsWithDeterministicTests: controlAssurance.filter((x:any)=>['PASS','FAIL'].includes(x.test_result)).length,
+      controlsNotTested: controlAssurance.filter((x:any)=>!['PASS','FAIL'].includes(x.test_result)).length
     },
     evidence,
     chains
@@ -93,11 +116,12 @@ export function auditPackageModel(trace:any){
   evidenceRegister:(trace?.evidence||[]).map((e:any)=>({...e,hash_recorded_at:e.integrity_verified_at||e.created_at,integrity_status:'HASH_RECORDED_AT_INGEST'})),
   findingLifecycle:chains.map((x:any)=>({
    findingId:x.findingId,title:x.title,severity:x.severity,source:x.source,evidenceHash:x.evidenceHash,
-   findingStatus:x.status,analystDecisions:x.reviews||[],issue:x.issue||null,risks:x.risks||[],capa:x.capa||[]
+   findingStatus:x.status,analystDecisions:x.reviews||[],issue:x.issue||null,controlAssurance:x.controlAssurance||null,risks:x.risks||[],capa:x.capa||[]
   })),
   limitations:[
    'Scanner or imported observations require analyst validation before escalation.',
-   'Framework mappings are cross-references and do not constitute certification.',
+   'Framework mappings are CONTROL_RELEVANCE cross-references only. They do not establish a control failure, pass, conformity or certification.',
+   'Control effectiveness is reported only from the latest separately executed deterministic control test. Missing tests remain NOT_TESTED.',
    'Risk treatment and acceptance remain accountable human decisions.',
    'Closure requires the applicable remediation, evidence and retest workflow.',
    'A stored SHA-256 records evidence identity at ingest. Unless retained bytes are re-read and compared later, it is not a subsequent integrity re-verification.'

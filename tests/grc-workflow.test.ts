@@ -211,3 +211,18 @@ test('CAPA retest only accepts deterministic result and compare-and-set transiti
  assert.match(fn,/CAPA state changed before retest attachment/);
  assert.match(fn,/client\.query\('ROLLBACK'\)/);
 });
+
+
+test('scope control approval locks reviewed state and compare-and-set protects decision',async()=>{
+ const controls=await readFile(new URL('../src/grc-controls.ts',import.meta.url),'utf8');
+ const start=controls.indexOf('export async function approveScopeControl');
+ const end=controls.indexOf('export async function statementOfApplicability',start);
+ const fn=controls.slice(start,end);
+ assert.ok(fn.indexOf("client.query('BEGIN')")<fn.indexOf('grc_scope_controls WHERE id=$1'));
+ assert.match(fn,/grc_scope_controls WHERE id=\$1 AND organization_id=\$2 AND scope_id=\$3 FOR UPDATE/);
+ assert.ok(fn.indexOf('FOR UPDATE')<fn.indexOf('Control owner cannot approve own applicability decision'));
+ assert.ok(fn.indexOf('FOR UPDATE')<fn.indexOf('Pending applicability cannot be approved'));
+ assert.match(fn,/applicability=\$5 AND owner_user_id IS NOT DISTINCT FROM \$6 RETURNING \*/);
+ assert.match(fn,/Scope control state changed before approval/);
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});

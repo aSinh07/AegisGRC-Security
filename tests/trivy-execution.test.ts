@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {scanContainerImageWithTrivy} from '../src/trivy.js';
 
 test('Trivy execution is restricted to workspace filesystem artifacts',async()=>{
  const s=await readFile(new URL('../src/trivy.ts',import.meta.url),'utf8');

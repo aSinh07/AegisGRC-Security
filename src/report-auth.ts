@@ -16,7 +16,10 @@ export function canonicalReportSnapshot(model:any){
 }
 
 export function reportSnapshotDigest(model:any){
-  return crypto.createHash('sha256').update(canonicalReportSnapshot(model)).digest('hex');
+  // Exclude presentation-only clock fields; the governed report content remains signed.
+  const {generatedAt,documentControl,executiveSummary,...rest}=model||{};
+  const stable={...rest,executiveSummary:executiveSummary?Object.fromEntries(Object.entries(executiveSummary).filter(([key])=>key!=='overdueIssues')):executiveSummary};
+  return crypto.createHash('sha256').update(canonicalReportSnapshot(stable)).digest('hex');
 }
 
 function signingKey(){

@@ -90,3 +90,30 @@ export async function runAutomationRule(user:string,org:string,ruleId:string){
   await client.query('COMMIT');return {runId,status:'SUCCEEDED',actionsCount:count,actions};
  }catch(e:any){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
+
+
+export async function runDueAutomations(limit=50){
+ const capped=Math.max(1,Math.min(200,Number(limit)||50));
+ const due=(await pool.query('SELECT id,organization_id FROM grc_automation_rules WHERE enabled=true AND next_run_at<=now() ORDER BY next_run_at LIMIT $1',[capped])).rows;
+ const results:any[]=[];
+ for(const item of due){
+  const client=await pool.connect();
+  try{
+   await client.query('BEGIN');
+   const rule=(await client.query('SELECT * FROM grc_automation_rules WHERE id=$1 AND organization_id=$2 AND enabled=true AND next_run_at<=now() FOR UPDATE SKIP LOCKED',[item.id,item.organization_id])).rows[0];
+   if(!rule){await client.query('ROLLBACK');continue}
+   const runId=crypto.randomUUID();
+   await client.query("INSERT INTO grc_automation_runs(id,organization_id,rule_id,status) VALUES($1,$2,$3,'RUNNING')",[runId,item.organization_id,item.id]);
+   const actions=await execute(client,item.organization_id,rule.kind as Kind,rule.config||{});
+   const count=actions.reduce((n:number,x:any)=>n+Object.entries(x).filter(([k])=>!k.endsWith('Ids')).reduce((a,[,v])=>a+(typeof v==='number'?v:0),0),0);
+   await client.query("UPDATE grc_automation_runs SET status='SUCCEEDED',finished_at=now(),actions_count=$2,summary=$3 WHERE id=$1",[runId,count,{actions,trigger:'SCHEDULED'}]);
+   await client.query("UPDATE grc_automation_rules SET last_run_at=now(),next_run_at=now()+(interval_hours::text||' hours')::interval,updated_at=now() WHERE id=$1",[item.id]);
+   await client.query('COMMIT');
+   results.push({ruleId:item.id,runId,status:'SUCCEEDED',actionsCount:count});
+  }catch(e:any){
+   await client.query('ROLLBACK');
+   results.push({ruleId:item.id,status:'FAILED',error:String(e?.message||e).slice(0,500)});
+  }finally{client.release()}
+ }
+ return results;
+}

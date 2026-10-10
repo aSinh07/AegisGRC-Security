@@ -88,3 +88,16 @@ test('TOTP secrets support authenticated encryption at rest with legacy compatib
  assert.match(auth,/verify\(revealTotp\(u\.totp_secret\),code\)/);
  assert.match(auth,/if\(!value\.startsWith\('enc:v1:'\)\)return value/);
 });
+
+
+test('authentication throttle state updates are atomic PostgreSQL upserts',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const auth=await readFile(new URL('../src/user-auth.ts',import.meta.url),'utf8');
+ const start=auth.indexOf('export async function authAttemptAllowed');
+ const limiter=auth.slice(start);
+ assert.match(limiter,/INSERT INTO app_auth_attempts/);
+ assert.match(limiter,/ON CONFLICT\(attempt_key\) DO UPDATE SET/);
+ assert.match(limiter,/RETURNING failures,blocked_until/);
+ assert.doesNotMatch(limiter,/SELECT failures,window_started_at,blocked_until FROM app_auth_attempts/);
+ assert.match(limiter,/blocked_until=CASE WHEN app_auth_attempts\.blocked_until<=now\(\) THEN NULL/);
+});

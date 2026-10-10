@@ -26,3 +26,6 @@ test('API coverage requires successful ZAP and Nuclei evidence',async()=>{const 
 test('server exposes authoritative API reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/api\/reconcile/);assert.match(s,/reconcileApiCoverage/)});
 
 test('evidence-derived layers cannot be manually marked complete',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/INFRASTRUCTURE','ENDPOINT','WEB','API/);assert.match(s,/coverage is evidence-derived and must use its reconciliation endpoint/)});
+
+test('source-code coverage is evidence-derived from Semgrep',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/reconcileSourceCodeCoverage/);assert.match(s,/Semgrep successful source-code evidence missing/);assert.match(s,/SOURCE_CODE.*SEMGREP/);assert.match(s,/SOURCE_CODE'\]\.includes\(layer\)/)});
+test('server exposes authoritative source-code reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/source-code\/reconcile/);assert.match(s,/reconcileSourceCodeCoverage/)});

@@ -184,3 +184,30 @@ test('issue derived risk and CAPA lock source issue and reject closed state',asy
  assert.match(capa,/Closed issue cannot create CAPA/);
  assert.match(capa,/client\.query\('ROLLBACK'\)/);
 });
+
+
+test('CAPA evidence submission enforces lifecycle state and compare-and-set update',async()=>{
+ const remediation=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ const start=remediation.indexOf('export async function submitCapaEvidence');
+ const end=remediation.indexOf('export async function attachRetest',start);
+ const fn=remediation.slice(start,end);
+ assert.match(fn,/grc_capa WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.match(fn,/CAPA is not accepting evidence in its current state/);
+ assert.match(fn,/v\.validated_at IS NOT NULL AND v\.valid_until>now\(\)/);
+ assert.match(fn,/status = ANY\(\$3::text\[\]\) RETURNING \*/);
+ assert.match(fn,/CAPA state changed before evidence submission/);
+ assert.ok(fn.indexOf('EVIDENCE_SUBMITTED')<fn.indexOf("client.query('COMMIT')"));
+});
+
+test('CAPA retest only accepts deterministic result and compare-and-set transition',async()=>{
+ const remediation=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ const start=remediation.indexOf('export async function attachRetest');
+ const end=remediation.indexOf('export async function closeCapa',start);
+ const fn=remediation.slice(start,end);
+ assert.match(fn,/grc_control_test_runs WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.match(fn,/run\.result!=='PASS'&&run\.result!=='FAIL'/);
+ assert.match(fn,/Retest must have a deterministic PASS or FAIL result/);
+ assert.match(fn,/status = ANY\(\$4::text\[\]\) RETURNING \*/);
+ assert.match(fn,/CAPA state changed before retest attachment/);
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});

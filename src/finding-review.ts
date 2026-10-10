@@ -34,6 +34,8 @@ export async function initFindingReview(){
   FOREIGN KEY(evidence_id,assessment_id) REFERENCES evidence(id,assessment_id) ON DELETE RESTRICT
  );
  CREATE INDEX IF NOT EXISTS finding_retests_finding_idx ON finding_retests(finding_id,created_at DESC);
+ ALTER TABLE grc_capa DROP CONSTRAINT IF EXISTS grc_capa_finding_retest_id_fkey;
+ ALTER TABLE grc_capa ADD CONSTRAINT grc_capa_finding_retest_id_fkey FOREIGN KEY(finding_retest_id) REFERENCES finding_retests(id) ON DELETE SET NULL;
  CREATE INDEX IF NOT EXISTS finding_reviews_finding_idx ON finding_reviews(finding_id,created_at DESC);
  CREATE INDEX IF NOT EXISTS finding_reviews_assessment_idx ON finding_reviews(assessment_id,created_at DESC);
  `);

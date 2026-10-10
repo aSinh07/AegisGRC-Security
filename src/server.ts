@@ -126,7 +126,6 @@ app.put('/api/grc/organizations/:orgId/sla-policy',async(req,res)=>{try{const u=
 app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/findings/:findingId/issue',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
  const issue=await promoteFindingToIssue(u.userId,req.params.orgId,req.params.assessmentId,req.params.findingId,req.body||{});
- await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'CONFIRMED_FINDING_PROMOTED_TO_GRC_ISSUE',actor:u.email,createdAt:new Date().toISOString(),metadata:{findingId:req.params.findingId,issueId:issue.id,dueAt:issue.due_at}});
  res.status(201).json({issue});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/assessments/:assessmentId/audit-package.:format',async(req,res)=>{try{

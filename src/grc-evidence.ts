@@ -70,12 +70,15 @@ export async function validateEvidence(userId:string,orgId:string,requestId:stri
   await client.query('BEGIN');
   const q=(await client.query(`SELECT r.*,v.submitted_by FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.id=$1 AND r.organization_id=$2 AND v.id=$3 FOR UPDATE OF r,v`,[requestId,orgId,versionId])).rows[0];
   if(!q)throw Object.assign(new Error('Evidence version not found'),{statusCode:404});
+  if(q.status!=='SUBMITTED')throw Object.assign(new Error('Evidence request is not awaiting validation'),{statusCode:409});
+  const latest=(await client.query('SELECT id,version FROM grc_evidence_versions WHERE evidence_request_id=$1 ORDER BY version DESC LIMIT 1 FOR UPDATE',[requestId])).rows[0];
+  if(!latest||latest.id!==versionId)throw Object.assign(new Error('Only the latest evidence version can be validated'),{statusCode:409});
   if(q.submitted_by===userId)throw Object.assign(new Error('Evidence submitter cannot validate own evidence'),{statusCode:409});
   if(approved){
    await client.query(`UPDATE grc_evidence_versions SET validated_by=$2,validated_at=now(),valid_until=now()+($3::text||' days')::interval,validation_note=$4 WHERE id=$1`,[versionId,userId,q.validity_days,note||null]);
-   await client.query(`UPDATE grc_evidence_requests SET status='VALID',updated_at=now() WHERE id=$1`,[requestId]);
+   const changed=(await client.query(`UPDATE grc_evidence_requests SET status='VALID',updated_at=now() WHERE id=$1 AND status='SUBMITTED' RETURNING id`,[requestId])).rows[0];if(!changed)throw Object.assign(new Error('Evidence request state changed before validation'),{statusCode:409});
   }else{
-   await client.query(`UPDATE grc_evidence_requests SET status='CHANGES_REQUESTED',updated_at=now() WHERE id=$1`,[requestId]);
+   await client.query(`UPDATE grc_evidence_versions SET validated_by=$2,validated_at=now(),validation_note=$3 WHERE id=$1`,[versionId,userId,note]);const changed=(await client.query(`UPDATE grc_evidence_requests SET status='CHANGES_REQUESTED',updated_at=now() WHERE id=$1 AND status='SUBMITTED' RETURNING id`,[requestId])).rows[0];if(!changed)throw Object.assign(new Error('Evidence request state changed before rejection'),{statusCode:409});
   }
   await client.query('COMMIT');return {requestId,versionId,status:approved?'VALID':'CHANGES_REQUESTED'};
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}

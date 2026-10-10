@@ -35,8 +35,10 @@ export async function organizationAuditReadiness(userId:string,orgId:string,scop
  FROM grc_control_framework_mappings m JOIN grc_framework_requirements fr ON fr.id=m.requirement_id WHERE m.control_id=sc.control_id AND fr.active=true),'[]'::json) mappings,
  (SELECT count(*)::int FROM grc_evidence_requests er JOIN grc_evidence_versions ev ON ev.evidence_request_id=er.id
   WHERE er.organization_id=sc.organization_id AND er.scope_control_id=sc.id AND er.status='VALID' AND ev.validated_at IS NOT NULL AND ev.valid_until>now()) valid_evidence,
- (SELECT count(*)::int FROM grc_control_test_definitions td JOIN grc_control_test_runs tr ON tr.test_definition_id=td.id
-  WHERE td.organization_id=sc.organization_id AND td.scope_control_id=sc.id AND tr.organization_id=sc.organization_id AND tr.result='PASS') passed_tests,
+ (SELECT count(*)::int FROM grc_control_test_definitions td
+  WHERE td.organization_id=sc.organization_id AND td.scope_control_id=sc.id AND td.active=true AND EXISTS(
+   SELECT 1 FROM grc_control_test_runs tr WHERE tr.test_definition_id=td.id AND tr.organization_id=sc.organization_id AND tr.result='PASS'
+   AND tr.id=(SELECT tr2.id FROM grc_control_test_runs tr2 WHERE tr2.test_definition_id=td.id ORDER BY tr2.executed_at DESC LIMIT 1))) passed_tests,
  (SELECT count(*)::int FROM grc_issues i WHERE i.organization_id=sc.organization_id AND i.scope_control_id=sc.id AND i.status<>'CLOSED') open_issues
  FROM grc_scope_controls sc JOIN grc_canonical_controls c ON c.id=sc.control_id
  WHERE sc.organization_id=$1 AND sc.scope_id=$2 ORDER BY c.control_key`,[orgId,scopeId])).rows;

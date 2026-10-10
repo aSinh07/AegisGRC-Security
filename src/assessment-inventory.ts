@@ -48,6 +48,7 @@ export async function initializeLayerCoverage(userId:string,organizationId:strin
 export async function recordLayerResult(userId:string,organizationId:string,assessmentId:string,layer:AssessmentLayer,input:{status:LayerStatus;engines?:string[];evidenceCount?:number;failureReasons?:string[]}){
  await requireOrgPermission(userId,organizationId,'manageAssessment');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});if(!ASSESSMENT_LAYERS.includes(layer))throw new Error('Invalid assessment layer');
  const validStatuses:LayerStatus[]=['NOT_STARTED','RUNNING','COMPLETE','PARTIAL','FAILED','NOT_APPLICABLE'];if(!validStatuses.includes(input.status))throw new Error('Invalid assessment layer status');
+ if(['INFRASTRUCTURE','ENDPOINT','WEB','API'].includes(layer))throw Object.assign(new Error(layer+' coverage is evidence-derived and must use its reconciliation endpoint'),{statusCode:409});
  if(input.status==='COMPLETE'&&Number(input.evidenceCount||0)<1)throw new Error('Complete assessment layer requires persisted evidence');
  const updated=(await pool.query(`UPDATE assessment_layer_runs SET status=$4,engines=$5,evidence_count=$6,failure_reasons=$7,
  started_at=COALESCE(started_at,now()),completed_at=CASE WHEN $4 IN ('COMPLETE','PARTIAL','FAILED','NOT_APPLICABLE') THEN now() ELSE NULL END,updated_at=now()

@@ -25,3 +25,13 @@ test('raw evidence is not mutated to attach retest metadata',async()=>{
  const store=await readFile(new URL('../src/store.ts',import.meta.url),'utf8');
  assert.doesNotMatch(store,/updateEvidence:/);assert.match(store,/saveFindingRetest:/);
 });
+
+test('CAPA closure requires independent approval after targeted finding retest',async()=>{
+ const remediation=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ const review=await readFile(new URL('../src/finding-review.ts',import.meta.url),'utf8');
+ assert.match(remediation,/finding_retest_id/);
+ assert.match(remediation,/finding_retest_by===user/);
+ assert.match(remediation,/TARGETED_FINDING_RETEST/);
+ assert.match(review,/TECHNICAL_REMEDIATION_VERIFIED/);
+ assert.match(review,/closure:'INDEPENDENT_REVIEW_REQUIRED'/);
+});

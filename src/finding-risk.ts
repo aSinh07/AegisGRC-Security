@@ -58,6 +58,8 @@ export async function promoteFindingToIssue(user:string,org:string,assessmentId:
   const row=(await client.query(`INSERT INTO grc_issues(id,organization_id,issue_key,title,description,source_type,source_id,priority,status,owner_user_id,due_at,created_by,assessment_id,finding_id) VALUES($1,$2,$3,$4,$5,'CONFIRMED_FINDING',$6,$7,'OPEN',$8,$9,$10,$11,$12) ON CONFLICT (organization_id,finding_id) WHERE finding_id IS NOT NULL DO NOTHING RETURNING *`,[id,org,issueKey,String(input.title||f.title),String(input.description||f.description||''),findingId,priority,input.ownerUserId||null,due,user,assessmentId,findingId])).rows[0];
   if(!row){const winner=(await client.query('SELECT * FROM grc_issues WHERE organization_id=$1 AND finding_id=$2',[org,findingId])).rows[0];await client.query('COMMIT');return winner}
   await client.query(`INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,snapshot) VALUES($1,$2,'ISSUE',$3,'CREATED_FROM_CONFIRMED_FINDING',$4,$5)`,[crypto.randomUUID(),org,id,user,{assessmentId,findingId,priority,dueAt:due.toISOString()}]);
+  const audit={id:crypto.randomUUID(),assessmentId,action:'CONFIRMED_FINDING_PROMOTED_TO_GRC_ISSUE',actor:user,createdAt:new Date().toISOString(),metadata:{findingId,issueId:row.id,dueAt:row.due_at}};
+  await client.query('INSERT INTO audit_events(id,assessment_id,action,created_at,payload) VALUES($1,$2,$3,$4,$5)',[audit.id,assessmentId,audit.action,audit.createdAt,audit]);
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }

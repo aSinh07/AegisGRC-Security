@@ -296,9 +296,9 @@ function run(cmd:string,args:string[]){
 app.get('/api/ready',async(_req,res)=>{try{res.json(await db.ready())}catch(e:any){res.status(503).json({ok:false,error:e.message})}});
 app.get('/api/health',async(_req,res)=>{
  const check=async(cmd:string,args:string[])=>{try{const r=await run(cmd,args);return {available:r.exitCode===0,version:(r.stdout||r.stderr).split('\n')[0]}}catch(e:any){return {available:false,error:e.message}}};
- const [nmap,wapiti,semgrep,sqlmap,tshark]=await Promise.all([check('nmap',['--version']),check('wapiti',['--version']),check('semgrep',['--version']),check('sqlmap',['--version']),check('tshark',['--version'])]);
+ const [nmap,wapiti,semgrep,sqlmap,tshark,nuclei]=await Promise.all([check('nmap',['--version']),check('wapiti',['--version']),check('semgrep',['--version']),check('sqlmap',['--version']),check('tshark',['--version']),check('nuclei',['-version'])]);
  let zap:any={available:false};try{zap={available:await zapReady()}}catch(e:any){zap={available:false,error:e.message}}
- const tools={nmap,zap,wapiti,semgrep,sqlmap,tshark};const coreReady=nmap.available&&zap.available&&wapiti.available&&sqlmap.available;
+ const tools={nmap,zap,wapiti,semgrep,sqlmap,tshark,nuclei};const coreReady=nmap.available&&zap.available&&wapiti.available&&sqlmap.available&&nuclei.available;
  res.status(coreReady?200:503).json({ok:coreReady,service:'AegisGRC Security',coreUrlAssessmentReady:coreReady,tools,note:'Availability confirms executable/service readiness only; finding correctness depends on scanner evidence and parser interpretation.'});
 });
 app.post('/api/assessment/authorize',async(req,res)=>{

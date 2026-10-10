@@ -16,3 +16,6 @@ test('inventory validates scope ownership booleans metadata status and initializ
 
 test('endpoint coverage requires persisted Wazuh evidence',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/reconcileEndpointCoverage/);assert.match(s,/Wazuh endpoint evidence missing/);assert.match(s,/requiredEngines:\['WAZUH'\]/)});
 test('endpoint routes bind Wazuh ingest and retest to assessment and fingerprint',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/wazuh-report/);assert.match(s,/endpoint\/reconcile/);assert.match(s,/wazuh-retest/);assert.match(s,/original\.source!=='wazuh'/);assert.match(s,/scannerSource:'wazuh'/);assert.match(s,/stillPresent\?409:200/)});
+
+test('web coverage requires successful ZAP and Nuclei evidence',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/reconcileWebCoverage/);assert.match(s,/ZAP successful web evidence missing/);assert.match(s,/Nuclei successful web evidence missing/);assert.match(s,/zap&&nuclei\?'COMPLETE':'PARTIAL'/)});
+test('server exposes authoritative web reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/web\/reconcile/);assert.match(s,/reconcileWebCoverage/)});

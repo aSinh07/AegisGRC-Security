@@ -75,3 +75,18 @@ test('finding review route relies on the transactional audit event only',async()
  assert.match(fn,/client\.query\('COMMIT'\)/);
  assert.match(fn,/client\.query\('ROLLBACK'\)/);
 });
+
+
+test('CAPA closure validates retest and reviewer independence under transaction locks',async()=>{
+ const remediation=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ const start=remediation.indexOf('export async function closeCapa');
+ const end=remediation.indexOf('export async function listCapa',start);
+ const fn=remediation.slice(start,end);
+ assert.ok(fn.indexOf("client.query('BEGIN')")<fn.indexOf('SELECT c.*,r.result retest_result'));
+ assert.match(fn,/FOR UPDATE OF c,r/);
+ assert.match(fn,/Passing retest in validation state required/);
+ assert.match(fn,/Independent reviewer required for CAPA closure/);
+ assert.match(fn,/WHERE id=\$1 AND status='VALIDATION' RETURNING \*/);
+ assert.match(fn,/CAPA state changed before closure/);
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});

@@ -33,5 +33,5 @@ test('CAPA closure requires independent approval after targeted finding retest',
  assert.match(remediation,/finding_retest_by===user/);
  assert.match(remediation,/TARGETED_FINDING_RETEST/);
  assert.match(review,/TECHNICAL_REMEDIATION_VERIFIED/);
- assert.match(review,/closure:'INDEPENDENT_REVIEW_REQUIRED'/);
+ assert.match(review,/closure:'INDEPENDENT_REVIEW_REQUIRED'/); // verification branch
 });

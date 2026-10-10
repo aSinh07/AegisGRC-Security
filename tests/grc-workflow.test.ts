@@ -100,3 +100,14 @@ test('assessment mutations require an explicit mutation role',async()=>{
   const start=server.indexOf(route);assert.ok(start>=0,route+' missing');const next=server.indexOf('app.',start+10);const body=server.slice(start,next<0?start+5000:next);assert.match(body,/requireOrgPermission\(u\.userId,access\.organization_id,'manageAssessment'\)/,route);
  }
 });
+
+
+test('finding promotion audit is committed with the issue transaction',async()=>{
+ const risk=await readFile(new URL('../src/finding-risk.ts',import.meta.url),'utf8');
+ const start=risk.indexOf('export async function promoteFindingToIssue');const fn=risk.slice(start);
+ assert.match(fn,/CONFIRMED_FINDING_PROMOTED_TO_GRC_ISSUE/);
+ assert.ok(fn.indexOf('INSERT INTO audit_events')<fn.indexOf("client.query('COMMIT')"));
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const rs=server.indexOf("app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/findings/:findingId/issue'");const re=server.indexOf("app.get('/api/grc/assessments/:assessmentId/audit-package.:format'",rs);const route=server.slice(rs,re);
+ assert.doesNotMatch(route,/db\.saveAudit/);
+});

@@ -126,3 +126,29 @@ test('failed control test and generated issue commit atomically',async()=>{
  assert.ok(fn.indexOf('INSERT INTO grc_issues')<fn.indexOf("client.query('COMMIT')"));
  assert.match(fn,/client\.query\('ROLLBACK'\)/);
 });
+
+
+test('evidence submission serializes version allocation under request lock',async()=>{
+ const evidence=await readFile(new URL('../src/grc-evidence.ts',import.meta.url),'utf8');
+ const start=evidence.indexOf('export async function submitEvidence');
+ const end=evidence.indexOf('export async function validateEvidence',start);
+ const fn=evidence.slice(start,end);
+ assert.ok(fn.indexOf("client.query('BEGIN')")<fn.indexOf('grc_evidence_requests'));
+ assert.match(fn,/grc_evidence_requests WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.ok(fn.indexOf('FOR UPDATE')<fn.indexOf('COALESCE(max(version),0)+1'));
+ assert.match(fn,/INSERT INTO grc_evidence_versions/);
+ assert.ok(fn.indexOf('INSERT INTO grc_evidence_versions')<fn.indexOf("client.query('COMMIT')"));
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});
+
+test('evidence reviewer independence is checked under transaction locks',async()=>{
+ const evidence=await readFile(new URL('../src/grc-evidence.ts',import.meta.url),'utf8');
+ const start=evidence.indexOf('export async function validateEvidence');
+ const end=evidence.indexOf('export async function createTestDefinition',start);
+ const fn=evidence.slice(start,end);
+ assert.ok(fn.indexOf("client.query('BEGIN')")<fn.indexOf('SELECT r.*,v.submitted_by'));
+ assert.match(fn,/FOR UPDATE OF r,v/);
+ assert.ok(fn.indexOf('FOR UPDATE OF r,v')<fn.indexOf('Evidence submitter cannot validate own evidence'));
+ assert.ok(fn.indexOf('Evidence submitter cannot validate own evidence')<fn.indexOf("client.query('COMMIT')"));
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});

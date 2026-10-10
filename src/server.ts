@@ -9,7 +9,7 @@ import { scanSource } from './semgrep.js';
 import { semgrepFindings, wapitiFindings, nmapFindings } from './parsers.js';
 import {nucleiJsonlFindings,trivyJsonFindings,openvasJsonFindings} from './infrastructure-parsers.js';
 import {wazuhJsonFindings} from './endpoint-parsers.js';
-import {scanFilesystemWithTrivy} from './trivy.js';
+import {scanFilesystemWithTrivy,scanContainerImageWithTrivy} from './trivy.js';
 import { assessmentReport } from './reports.js';
 import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
@@ -44,7 +44,7 @@ import { auditPackageModel } from './audit-trace.js';
 import {reportSnapshotDigest} from './report-auth.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
-import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage} from './assessment-inventory.js';
+import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage,reconcileContainerCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import { analyzeIntel } from './intel-ai.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
@@ -130,6 +130,7 @@ app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file
  await db.saveFindingImport(ev,parsed.findings,audit);
  res.status(201).json({imported:true,evidence:{id:evidenceId,sha256,hashComputedByServer:true,integrityStatus:'HASHED_AT_INGEST'},format:parsed.format,count:parsed.findings.length,warnings:parsed.warnings,findings:parsed.findings});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/container/reconcile',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reconcileContainerCoverage(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/dependencies/reconcile',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reconcileDependencyCoverage(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/source-code/reconcile',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reconcileSourceCodeCoverage(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/api/reconcile',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reconcileApiCoverage(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
@@ -588,4 +589,5 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
  }catch(e:any){res.status(500).json({error:e.message})}
 });
 
-app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));
+app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));app.post('/api/grc/assessments/:assessmentId/trivy-image',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');const assetId=String(req.body?.assetId||''),imageRef=String(req.body?.imageRef||'');const asset=(await pool.query("SELECT id,asset_key FROM assessment_assets WHERE id=$1 AND organization_id=$2 AND asset_type='CONTAINER' AND status='ACTIVE'",[assetId,access.organization_id])).rows[0];if(!asset)return res.status(400).json({error:'Active container asset required'});const out=await scanContainerImageWithTrivy(imageRef);const evidenceHash=out.evidence.sha256;const findings=trivyJsonFindings(req.params.assessmentId,asset.asset_key,evidenceHash,out.stdout);const evidence={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,source:'trivy',payload:{exitCode:out.exitCode,stdout:out.stdout,stderr:out.stderr,metadata:{scanType:'IMAGE',assetId,imageRef,timedOut:out.timedOut,truncated:out.truncated,durationMs:out.durationMs}},hash:evidenceHash,createdAt:new Date().toISOString()};await db.saveFindingImport(evidence,findings);res.status(out.exitCode===0&&!out.timedOut&&!out.truncated?201:422).json({evidenceHash,findings:findings.length,exitCode:out.exitCode,timedOut:out.timedOut,truncated:out.truncated})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+

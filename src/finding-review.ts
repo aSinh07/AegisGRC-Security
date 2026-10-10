@@ -74,7 +74,8 @@ export async function reviewFinding(userId:string,assessmentId:string,findingId:
    if(issue&&issue.status!=='CLOSED'){
     await client.query("UPDATE grc_issues SET status='REMEDIATION_VERIFIED',updated_at=now() WHERE id=$1",[issue.id]);
     await client.query("INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,snapshot) VALUES($1,$2,'ISSUE',$3,'TECHNICAL_REMEDIATION_VERIFIED',$4,$5)",[crypto.randomUUID(),issue.organization_id,issue.id,userId,{findingId,retestEvidenceId,fingerprint}]);
-    const capas=(await client.query("UPDATE grc_capa SET status='VALIDATION',updated_at=now() WHERE issue_id=$1 AND status IN ('OPEN','IN_PROGRESS','EVIDENCE_SUBMITTED','RETEST_PENDING','CHANGES_REQUESTED') RETURNING id,organization_id",[issue.id])).rows;
+    const retest=(await client.query('SELECT id FROM finding_retests WHERE evidence_id=$1 AND assessment_id=$2 AND finding_id=$3',[retestEvidenceId,assessmentId,findingId])).rows[0];
+    const capas=(await client.query("UPDATE grc_capa SET status='VALIDATION',finding_retest_id=$2,updated_at=now() WHERE issue_id=$1 AND status IN ('OPEN','IN_PROGRESS','EVIDENCE_SUBMITTED','RETEST_PENDING','CHANGES_REQUESTED') RETURNING id,organization_id",[issue.id,retest.id])).rows;
     for(const capa of capas)await client.query("INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,snapshot) VALUES($1,$2,'CAPA',$3,'FINDING_RETEST_VERIFIED',$4,$5)",[crypto.randomUUID(),capa.organization_id,capa.id,userId,{findingId,retestEvidenceId,fingerprint,closure:'INDEPENDENT_REVIEW_REQUIRED'}]);
    }
   }

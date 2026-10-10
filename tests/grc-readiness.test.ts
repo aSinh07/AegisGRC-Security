@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {evaluateReadiness,auditReadinessReportModel} from '../src/grc-readiness.js';
 
 const complete={id:'1',control_key:'AC-1',title:'Access control',applicability:'APPLICABLE',approved_at:'2026-10-10',implementation:'IMPLEMENTED',valid_evidence:1,passed_tests:1,open_issues:0,mappings:[{framework:'ISO27001',clause:'A.5.15'}]};

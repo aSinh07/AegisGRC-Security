@@ -317,17 +317,17 @@ app.post('/api/scans/run',async(req,res)=>{
       const runs=[];for(const name of ['nmap','zap','wapiti','sqlmap'] as const){try{runs.push(await executeRealTool(name,assessmentId,t))}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);runs.push({tool:name,error:e.message,findings:[]})}}
       const fresh=await db.assessmentForUser(u.userId,assessmentId)||assessment;const allFindings=await db.findingsForAssessment(assessmentId);const allEvidence=await db.evidenceForAssessment(assessmentId);await db.saveAssessment({...fresh,status:'COMPLETED',findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});console.log('[AEGIS FULL ASSESSMENT] COMPLETE | findings='+allFindings.length+' | evidence='+allEvidence.length);return res.json({execution:'REAL_FULL_ASSESSMENT',target:t.url.origin,assessmentId,tools:['http-posture','nmap','zap','wapiti','sqlmap'],runs,summary:{findings:allFindings.length,evidenceRecords:allEvidence.length},findings:allFindings});
     }
-    const safeTarget=await revalidateTarget(t);t=safeTarget;
+    const safeTarget=await revalidateTarget(t);
     const startedAt=new Date().toISOString();
     let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number}; let zapAlerts:any[]=[];
-    if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}
-    else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p-','--open','-oX','-',t.url.hostname]:tool==='wapiti'?['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
+    if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(safeTarget.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}
+    else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p-','--open','-oX','-',safeTarget.url.hostname]:tool==='wapiti'?['-u',safeTarget.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:['-u',safeTarget.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
     const completedAt=new Date().toISOString();
-    const evidence=JSON.stringify({tool,target:t.url.origin,startedAt,completedAt,...result});
+    const evidence=JSON.stringify({tool,target:safeTarget.url.origin,startedAt,completedAt,...result});
     const sha256=crypto.createHash('sha256').update(evidence).digest('hex');
-    const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs}};
+    const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:safeTarget.url.origin,resolvedAddresses:safeTarget.addresses,durationMs:result.durationMs}};
     await db.saveEvidence(ev);
-    const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='nmap'?nmapFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='zap'?zapFindings(assessmentId,t.url.origin,sha256,zapAlerts):[];
+    const findings=tool==='wapiti'?wapitiFindings(assessmentId,safeTarget.url.origin,sha256,result.stdout):tool==='nmap'?nmapFindings(assessmentId,safeTarget.url.origin,sha256,result.stdout):tool==='zap'?zapFindings(assessmentId,safeTarget.url.origin,sha256,zapAlerts):[];
     await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'REAL_SCAN_COMPLETED',actor:'operator',createdAt:completedAt,metadata:{tool,exitCode:result.exitCode,evidenceHash:sha256,durationMs:result.durationMs}});
     if(findings.length) await db.saveFindings(findings);
     await db.saveAssessment({...assessment,status:result.exitCode===0?'COMPLETED':'FAILED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});

@@ -37,3 +37,16 @@ test('legacy admin cookie cannot authorize tenant APIs or report step-up',async(
  assert.doesNotMatch(step,/verifyCredentials/);
  assert.match(step,/verifyUserStepUp/);
 });
+
+
+test('registration abuse controls and legacy login retirement are enforced',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const auth=await readFile(new URL('../src/user-auth.ts',import.meta.url),'utf8');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(server,/authAttemptKey\(req,'register',email\)/);
+ assert.match(server,/authAttemptKey\(req,'register-confirm',userId\)/);
+ assert.match(server,/Legacy administrator login is disabled/);
+ assert.match(server,/status\(410\)/);
+ assert.match(auth,/totp_verified=false AND created_at < now\(\)-interval '24 hours'/);
+ assert.match(auth,/app_auth_attempts WHERE updated_at < now\(\)-interval '2 days'/);
+});

@@ -39,6 +39,7 @@ import { assessmentTrace } from './audit-trace.js';
 import { auditDocx,auditXlsx,auditPdf } from './audit-exporters.js';
 import { auditPackageModel } from './audit-trace.js';
 import {reportSnapshotDigest} from './report-auth.js';
+import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import { analyzeIntel } from './intel-ai.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
@@ -351,8 +352,8 @@ app.post('/api/scans/run',async(req,res)=>{
     if(tool==='all'){
       console.log('\n[AEGIS FULL ASSESSMENT] START '+t.url.origin+' assessment='+assessmentId);
       const q=await quickPosture(assessmentId,t);const qev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};await db.saveEvidence(qev);if(q.findings.length)await db.saveFindings(q.findings);console.log('[AEGIS REAL SCAN] HTTP POSTURE | findings='+q.findings.length+' | evidence='+q.sha256);
-      const runs=[];for(const name of ['nmap','zap','wapiti','sqlmap'] as const){try{runs.push(await executeRealTool(name,assessmentId,t))}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);runs.push({tool:name,error:e.message,findings:[]})}}
-      const fresh=await db.assessmentForUser(u.userId,assessmentId)||assessment;const allFindings=await db.findingsForAssessment(assessmentId);const allEvidence=await db.evidenceForAssessment(assessmentId);await db.saveAssessment({...fresh,status:'COMPLETED',findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});console.log('[AEGIS FULL ASSESSMENT] COMPLETE | findings='+allFindings.length+' | evidence='+allEvidence.length);return res.json({execution:'REAL_FULL_ASSESSMENT',target:t.url.origin,assessmentId,tools:['http-posture','nmap','zap','wapiti','sqlmap'],runs,summary:{findings:allFindings.length,evidenceRecords:allEvidence.length},findings:allFindings});
+      const runs:any[]=[];for(const name of ['nmap','zap','wapiti','sqlmap'] as const){try{const rr:any=await executeRealTool(name,assessmentId,t);runs.push({...rr,tool:name,status:scannerRunStatus(rr.exitCode)})}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);runs.push({tool:name,status:'FAILED',error:e.message,findings:[]})}}
+      const required=['http-posture','nmap','zap','wapiti','sqlmap'];const coverage=scanCoverage(required,[{tool:'http-posture',status:q.error?'FAILED':'SUCCEEDED'},...runs]);const finalStatus=assessmentStatusForCoverage(coverage);const fresh=await db.assessmentForUser(u.userId,assessmentId)||assessment;const allFindings=await db.findingsForAssessment(assessmentId);const allEvidence=await db.evidenceForAssessment(assessmentId);await db.saveAssessment({...fresh,status:finalStatus,scanCoverage:coverage,findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});console.log('[AEGIS FULL ASSESSMENT] '+finalStatus+' | findings='+allFindings.length+' | evidence='+allEvidence.length);return res.json({execution:'REAL_FULL_ASSESSMENT',status:finalStatus,target:t.url.origin,assessmentId,tools:required,runs,coverage,summary:{findings:allFindings.length,evidenceRecords:allEvidence.length},findings:allFindings});
     }
     const safeTarget=await revalidateTarget(t);
     const startedAt=new Date().toISOString();

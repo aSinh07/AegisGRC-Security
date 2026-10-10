@@ -7,6 +7,7 @@ ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS scope_control_id uuid REFERENCES
 ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES app_users(id) ON DELETE SET NULL;
 ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS closed_by uuid REFERENCES app_users(id) ON DELETE SET NULL;
 ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS closed_at timestamptz;
+ALTER TABLE grc_capa ADD COLUMN IF NOT EXISTS finding_retest_id uuid REFERENCES finding_retests(id) ON DELETE SET NULL;
 CREATE TABLE IF NOT EXISTS grc_enterprise_risks(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,risk_key text UNIQUE NOT NULL,
  title text NOT NULL,description text NOT NULL DEFAULT '',likelihood int NOT NULL CHECK(likelihood BETWEEN 1 AND 5),impact int NOT NULL CHECK(impact BETWEEN 1 AND 5),
@@ -124,14 +125,15 @@ export async function closeCapa(user:string,org:string,capaId:string,input:any){
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
-  const c=(await client.query(`SELECT c.*,r.result retest_result FROM grc_capa c LEFT JOIN grc_control_test_runs r ON r.id=c.retest_run_id WHERE c.id=$1 AND c.organization_id=$2 FOR UPDATE OF c,r`,[capaId,org])).rows[0];
+  const c=(await client.query(`SELECT c.*,r.result retest_result,fr.id finding_retest_proof FROM grc_capa c LEFT JOIN grc_control_test_runs r ON r.id=c.retest_run_id LEFT JOIN finding_retests fr ON fr.id=c.finding_retest_id WHERE c.id=$1 AND c.organization_id=$2 FOR UPDATE OF c`,[capaId,org])).rows[0];
   if(!c)throw Object.assign(new Error('CAPA not found'),{statusCode:404});
-  if(c.status!=='VALIDATION'||c.retest_result!=='PASS')throw Object.assign(new Error('Passing retest in validation state required'),{statusCode:409});
+  const validatedByControlTest=c.retest_result==='PASS',validatedByFindingRetest=Boolean(c.finding_retest_proof);
+  if(c.status!=='VALIDATION'||(!validatedByControlTest&&!validatedByFindingRetest))throw Object.assign(new Error('Validated control-test or targeted finding-retest proof required'),{statusCode:409});
   if(c.created_by===user||c.owner_user_id===user||c.submitted_by===user)throw Object.assign(new Error('Independent reviewer required for CAPA closure'),{statusCode:409});
   const out=(await client.query(`UPDATE grc_capa SET status='CLOSED',approved_by=$2,closed_at=now(),updated_at=now() WHERE id=$1 AND status='VALIDATION' RETURNING *`,[capaId,user])).rows[0];
   if(!out)throw Object.assign(new Error('CAPA state changed before closure'),{statusCode:409});
   await client.query(`UPDATE grc_issues SET status='CLOSED',closed_by=$2,closed_at=now(),updated_at=now() WHERE id=$1`,[c.issue_id,user]);
-  await event(org,'CAPA',capaId,'CLOSED',user,String(input.reason||''),{retestRunId:c.retest_run_id},client);
+  await event(org,'CAPA',capaId,'CLOSED',user,String(input.reason||''),{retestRunId:c.retest_run_id,findingRetestId:c.finding_retest_id,validationSource:c.finding_retest_id?'TARGETED_FINDING_RETEST':'CONTROL_TEST'},client);
   await client.query('COMMIT');return out;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }

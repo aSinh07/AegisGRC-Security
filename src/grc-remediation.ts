@@ -7,7 +7,6 @@ ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS scope_control_id uuid REFERENCES
 ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES app_users(id) ON DELETE SET NULL;
 ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS closed_by uuid REFERENCES app_users(id) ON DELETE SET NULL;
 ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS closed_at timestamptz;
-ALTER TABLE grc_capa ADD COLUMN IF NOT EXISTS finding_retest_id uuid REFERENCES finding_retests(id) ON DELETE SET NULL;
 CREATE TABLE IF NOT EXISTS grc_enterprise_risks(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,risk_key text UNIQUE NOT NULL,
  title text NOT NULL,description text NOT NULL DEFAULT '',likelihood int NOT NULL CHECK(likelihood BETWEEN 1 AND 5),impact int NOT NULL CHECK(impact BETWEEN 1 AND 5),
@@ -28,6 +27,7 @@ CREATE TABLE IF NOT EXISTS grc_capa(
 );
 CREATE TABLE IF NOT EXISTS grc_capa_evidence(capa_id uuid NOT NULL REFERENCES grc_capa(id) ON DELETE CASCADE,evidence_version_id uuid NOT NULL REFERENCES grc_evidence_versions(id) ON DELETE RESTRICT,linked_by uuid REFERENCES app_users(id) ON DELETE SET NULL,linked_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(capa_id,evidence_version_id));
 CREATE TABLE IF NOT EXISTS grc_record_events(id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,record_type text NOT NULL,record_id uuid NOT NULL,event text NOT NULL,actor_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,reason text,snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now());
+ALTER TABLE grc_capa ADD COLUMN IF NOT EXISTS finding_retest_id uuid;
 CREATE INDEX IF NOT EXISTS grc_capa_org_status_idx ON grc_capa(organization_id,status,due_at);CREATE INDEX IF NOT EXISTS grc_erisk_org_idx ON grc_enterprise_risks(organization_id,status,inherent_score DESC);
 `)}
 type Queryable={query:(text:string,values?:any[])=>Promise<any>};

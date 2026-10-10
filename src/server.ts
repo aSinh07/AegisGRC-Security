@@ -108,8 +108,8 @@ app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file
  const evidenceId=crypto.randomUUID(),createdAt=new Date().toISOString();
  const ev:Evidence={id:evidenceId,assessmentId:req.params.assessmentId,source:'finding-import',sha256,createdAt,exitCode:0,
   stdout:'',stderr:'',metadata:{filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype,size:file.size,format:parsed.format,importedFindings:parsed.findings.length}};
- await db.saveEvidence(ev);if(parsed.findings.length)await db.saveFindings(parsed.findings);
- await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'FINDINGS_IMPORTED',actor:u.email,createdAt,metadata:{evidenceId,sha256,format:parsed.format,count:parsed.findings.length}});
+ const audit={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'FINDINGS_IMPORTED',actor:u.email,createdAt,metadata:{evidenceId,sha256,format:parsed.format,count:parsed.findings.length}};
+ await db.saveFindingImport(ev,parsed.findings,audit);
  res.status(201).json({imported:true,evidence:{id:evidenceId,sha256,hashComputedByServer:true,integrityStatus:'HASHED_AT_INGEST'},format:parsed.format,count:parsed.findings.length,warnings:parsed.warnings,findings:parsed.findings});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review',async(req,res)=>{try{

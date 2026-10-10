@@ -242,3 +242,27 @@ test('GRC automation is persisted and tenant-scoped',async()=>{
  assert.match(automation,/status='OVERDUE'/);
  assert.match(automation,/status='ACCEPTANCE_PENDING'/);
 });
+
+
+test('scheduled automation runner locks due rules against duplicate execution',async()=>{
+ const automation=await readFile(new URL('../src/grc-automation.ts',import.meta.url),'utf8');
+ const start=automation.indexOf('export async function runDueAutomations');
+ const fn=automation.slice(start);
+ assert.match(fn,/next_run_at<=now\(\)/);
+ assert.match(fn,/FOR UPDATE SKIP LOCKED/);
+ assert.ok(fn.indexOf('FOR UPDATE SKIP LOCKED')<fn.indexOf("status) VALUES($1,$2,$3,'RUNNING')"));
+ assert.match(fn,/trigger:'SCHEDULED'/);
+ assert.match(fn,/next_run_at=now\(\)\+\(interval_hours::text\|\|' hours'\)::interval/);
+});
+
+test('scheduler ingress requires dedicated timing-safe secret',async()=>{
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const start=server.indexOf("app.post('/api/internal/grc/automation/run-due'");
+ const end=server.indexOf("app.get('/api/grc/organizations/:orgId/automation'",start);
+ const fn=server.slice(start,end);
+ assert.match(fn,/GRC_AUTOMATION_SECRET/);
+ assert.match(fn,/x-aegis-automation-secret/);
+ assert.match(fn,/expected\.length<32/);
+ assert.match(fn,/crypto\.timingSafeEqual/);
+ assert.match(fn,/runDueAutomations/);
+});

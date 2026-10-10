@@ -115,7 +115,6 @@ app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file
 app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
  const result=await reviewFinding(u.userId,req.params.assessmentId,req.params.findingId,req.body||{});
- await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'FINDING_REVIEWED',actor:u.email,createdAt:new Date().toISOString(),metadata:{findingId:req.params.findingId,decision:result.review.decision,reviewId:result.review.id}});
  res.json(result);
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/assessments/:assessmentId/findings/:findingId/reviews',async(req,res)=>{try{

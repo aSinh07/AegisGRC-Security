@@ -98,11 +98,40 @@ export async function listScopes(userId:string,organizationId:string){
 export async function addMember(actorId:string,organizationId:string,userId:string,role:OrgRole){
  await requireOrgPermission(actorId,organizationId,'manageOrg');
  if(!roles.includes(role))throw new Error('Invalid organization role');
- if(actorId===userId&&role!=='ORG_ADMIN')throw new Error('Organization admin cannot demote self through this endpoint');
- const exists=(await pool.query('SELECT id FROM app_users WHERE id=$1',[userId])).rows[0];if(!exists)throw new Error('User not found');
- return (await pool.query(`INSERT INTO grc_organization_members(organization_id,user_id,role,status)
- VALUES($1,$2,$3,'ACTIVE') ON CONFLICT(organization_id,user_id)
- DO UPDATE SET role=EXCLUDED.role,status='ACTIVE' RETURNING organization_id,user_id,role,status`,[organizationId,userId,role])).rows[0];
+ if(actorId===userId&&role!=='ORG_ADMIN')throw Object.assign(new Error('Organization admin cannot demote self'),{statusCode:409});
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  await client.query('SELECT id FROM grc_organizations WHERE id=$1 FOR UPDATE',[organizationId]);
+  const exists=(await client.query('SELECT id FROM app_users WHERE id=$1',[userId])).rows[0];if(!exists)throw Object.assign(new Error('User not found'),{statusCode:404});
+  const current=(await client.query('SELECT role,status FROM grc_organization_members WHERE organization_id=$1 AND user_id=$2 FOR UPDATE',[organizationId,userId])).rows[0];
+  if(current?.role==='ORG_ADMIN'&&current?.status==='ACTIVE'&&role!=='ORG_ADMIN'){
+   const admins=Number((await client.query("SELECT count(*) c FROM grc_organization_members WHERE organization_id=$1 AND role='ORG_ADMIN' AND status='ACTIVE'",[organizationId])).rows[0].c);
+   if(admins<=1)throw Object.assign(new Error('Organization must retain at least one active administrator'),{statusCode:409});
+  }
+  const out=(await client.query(`INSERT INTO grc_organization_members(organization_id,user_id,role,status)
+   VALUES($1,$2,$3,'ACTIVE') ON CONFLICT(organization_id,user_id)
+   DO UPDATE SET role=EXCLUDED.role,status='ACTIVE' RETURNING organization_id,user_id,role,status`,[organizationId,userId,role])).rows[0];
+  await client.query('COMMIT');return out;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
+
+export async function setMemberStatus(actorId:string,organizationId:string,userId:string,status:'ACTIVE'|'SUSPENDED'){
+ await requireOrgPermission(actorId,organizationId,'manageOrg');
+ if(status!=='ACTIVE'&&status!=='SUSPENDED')throw new Error('Invalid member status');
+ if(actorId===userId&&status==='SUSPENDED')throw Object.assign(new Error('Organization administrator cannot suspend self'),{statusCode:409});
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');await client.query('SELECT id FROM grc_organizations WHERE id=$1 FOR UPDATE',[organizationId]);
+  const member=(await client.query('SELECT role,status FROM grc_organization_members WHERE organization_id=$1 AND user_id=$2 FOR UPDATE',[organizationId,userId])).rows[0];
+  if(!member)throw Object.assign(new Error('Organization member not found'),{statusCode:404});
+  if(member.role==='ORG_ADMIN'&&member.status==='ACTIVE'&&status==='SUSPENDED'){
+   const admins=Number((await client.query("SELECT count(*) c FROM grc_organization_members WHERE organization_id=$1 AND role='ORG_ADMIN' AND status='ACTIVE'",[organizationId])).rows[0].c);
+   if(admins<=1)throw Object.assign(new Error('Organization must retain at least one active administrator'),{statusCode:409});
+  }
+  const out=(await client.query('UPDATE grc_organization_members SET status=$3 WHERE organization_id=$1 AND user_id=$2 RETURNING organization_id,user_id,role,status',[organizationId,userId,status])).rows[0];
+  await client.query('COMMIT');return out;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 
 export async function listMembers(userId:string,organizationId:string){

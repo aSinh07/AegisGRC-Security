@@ -29,3 +29,6 @@ test('evidence-derived layers cannot be manually marked complete',async()=>{cons
 
 test('source-code coverage is evidence-derived from Semgrep',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/reconcileSourceCodeCoverage/);assert.match(s,/Semgrep successful source-code evidence missing/);assert.match(s,/SOURCE_CODE.*SEMGREP/);assert.match(s,/SOURCE_CODE'\]\.includes\(layer\)/)});
 test('server exposes authoritative source-code reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/source-code\/reconcile/);assert.match(s,/reconcileSourceCodeCoverage/)});
+
+test('dependency coverage is evidence-derived from Trivy',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/reconcileDependencyCoverage/);assert.match(s,/Trivy successful dependency evidence missing/);assert.match(s,/DEPENDENCIES.*TRIVY/);assert.match(s,/DEPENDENCIES'\]\.includes\(layer\)/)});
+test('server exposes authoritative dependency reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/dependencies\/reconcile/);assert.match(s,/reconcileDependencyCoverage/)});

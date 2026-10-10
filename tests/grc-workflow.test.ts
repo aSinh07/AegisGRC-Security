@@ -294,3 +294,20 @@ test('CAPA evidence and retest are semantically bound to affected control',async
  assert.match(retestFn,/run\.scope_control_id!==issue\.scope_control_id/);
  assert.match(retestFn,/CAPA retest must test the affected control/);
 });
+
+
+test('organization membership changes protect last administrator',async()=>{
+ const org=await readFile(new URL('../src/grc-organizations.ts',import.meta.url),'utf8');
+ const addStart=org.indexOf('export async function addMember');
+ const statusStart=org.indexOf('export async function setMemberStatus');
+ const listStart=org.indexOf('export async function listMembers');
+ const addFn=org.slice(addStart,statusStart),statusFn=org.slice(statusStart,listStart);
+ assert.match(addFn,/SELECT id FROM grc_organizations WHERE id=\$1 FOR UPDATE/);
+ assert.match(addFn,/SELECT role,status FROM grc_organization_members.*FOR UPDATE/);
+ assert.match(addFn,/Organization must retain at least one active administrator/);
+ assert.match(addFn,/Organization admin cannot demote self/);
+ assert.match(statusFn,/Organization administrator cannot suspend self/);
+ assert.match(statusFn,/role='ORG_ADMIN' AND status='ACTIVE'/);
+ assert.match(statusFn,/admins<=1/);
+ assert.match(statusFn,/BEGIN/);assert.match(statusFn,/COMMIT/);assert.match(statusFn,/ROLLBACK/);
+});

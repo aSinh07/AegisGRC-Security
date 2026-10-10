@@ -125,11 +125,11 @@ export async function closeCapa(user:string,org:string,capaId:string,input:any){
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
-  const c=(await client.query(`SELECT c.*,r.result retest_result,fr.id finding_retest_proof FROM grc_capa c LEFT JOIN grc_control_test_runs r ON r.id=c.retest_run_id LEFT JOIN finding_retests fr ON fr.id=c.finding_retest_id WHERE c.id=$1 AND c.organization_id=$2 FOR UPDATE OF c`,[capaId,org])).rows[0];
+  const c=(await client.query(`SELECT c.*,r.result retest_result,fr.id finding_retest_proof,fr.created_by finding_retest_by FROM grc_capa c LEFT JOIN grc_control_test_runs r ON r.id=c.retest_run_id LEFT JOIN finding_retests fr ON fr.id=c.finding_retest_id WHERE c.id=$1 AND c.organization_id=$2 FOR UPDATE OF c`,[capaId,org])).rows[0];
   if(!c)throw Object.assign(new Error('CAPA not found'),{statusCode:404});
   const validatedByControlTest=c.retest_result==='PASS',validatedByFindingRetest=Boolean(c.finding_retest_proof);
   if(c.status!=='VALIDATION'||(!validatedByControlTest&&!validatedByFindingRetest))throw Object.assign(new Error('Validated control-test or targeted finding-retest proof required'),{statusCode:409});
-  if(c.created_by===user||c.owner_user_id===user||c.submitted_by===user)throw Object.assign(new Error('Independent reviewer required for CAPA closure'),{statusCode:409});
+  if(c.created_by===user||c.owner_user_id===user||c.submitted_by===user||c.finding_retest_by===user)throw Object.assign(new Error('Independent reviewer required for CAPA closure; creator, owner, submitter or targeted-retest operator cannot approve'),{statusCode:409});
   const out=(await client.query(`UPDATE grc_capa SET status='CLOSED',approved_by=$2,closed_at=now(),updated_at=now() WHERE id=$1 AND status='VALIDATION' RETURNING *`,[capaId,user])).rows[0];
   if(!out)throw Object.assign(new Error('CAPA state changed before closure'),{statusCode:409});
   await client.query(`UPDATE grc_issues SET status='CLOSED',closed_by=$2,closed_at=now(),updated_at=now() WHERE id=$1`,[c.issue_id,user]);

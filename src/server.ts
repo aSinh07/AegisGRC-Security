@@ -43,7 +43,7 @@ import { auditPackageModel } from './audit-trace.js';
 import {reportSnapshotDigest} from './report-auth.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
-import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage} from './assessment-inventory.js';
+import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import { analyzeIntel } from './intel-ai.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';

@@ -16,7 +16,7 @@ import { authConfigured, login, logout } from './auth.js';
 import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,userLogout,userRole,verifyUserStepUp,resetPasswordWithTotp,authAttemptAllowed,recordAuthFailure,clearAuthFailures } from './user-auth.js';
 import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport } from './grc-review.js';
 import { initGrcCore } from './grc-core.js';
-import { initOrganizations,createOrganization,memberships,createScope,listScopes,addMember,listMembers,assignAssessmentToOrganization,requireAssessmentAccess } from './grc-organizations.js';
+import { initOrganizations,createOrganization,memberships,createScope,listScopes,addMember,listMembers,assignAssessmentToOrganization,requireAssessmentAccess,requireOrgPermission } from './grc-organizations.js';
 import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,mapControl,setScopeControl,approveScopeControl,statementOfApplicability,listCanonicalControls,listFrameworkRequirements } from './grc-controls.js';
 import { initEvidenceEngine,createEvidenceRequest,submitEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence,listControlTests } from './grc-evidence.js';
 import { initIssueRiskCapa,listIssues,createRiskFromIssue,approveRiskAcceptance,createCapa,submitCapaEvidence,attachRetest,closeCapa,listCapa,listEnterpriseRisks } from './grc-remediation.js';
@@ -100,7 +100,8 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/soa',async(req,res)=>{try
 app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/assign',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await assignAssessmentToOrganization(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file'),async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
- await requireAssessmentAccess(u.userId,req.params.assessmentId);
+ const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);
+ await requireOrgPermission(u.userId,access.organization_id,'findingReview');
  const file=req.file;if(!file)return res.status(400).json({error:'JSON or SARIF file required'});
  const sha256=crypto.createHash('sha256').update(file.buffer).digest('hex');
  const parsed=parseFindingImport(req.params.assessmentId,file.originalname,file.buffer);

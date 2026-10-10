@@ -351,6 +351,23 @@ async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei',asse
  if(result.stderr)console.log('[AEGIS STDERR] '+result.stderr.slice(0,4000));
  return {tool,startedAt,completedAt,...result,evidence:{sha256},findings};
 }
+app.post('/api/findings/:findingId/retest',async(req,res)=>{try{
+ const session=verifySession(String(req.headers['x-assessment-session']||'')),assessmentId=session.assessmentId;
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ const assessment=await db.assessmentForUser(u.userId,assessmentId);if(!assessment)return res.status(404).json({error:'Assessment not found'});
+ const access=await requireAssessmentAccess(u.userId,assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');
+ const original=(await db.findingsForAssessment(assessmentId)).find(x=>x.id===req.params.findingId);if(!original)return res.status(404).json({error:'Finding not found'});
+ if(!['nmap','wapiti','zap','nuclei'].includes(original.source))return res.status(409).json({error:'This finding source does not yet support deterministic server-side retest'});
+ const fingerprint=original.fingerprint||findingFingerprint(original);
+ const t=await validateTarget(assessment.target);if(t.url.origin!==session.targetOrigin)return res.status(403).json({error:'Assessment target is outside the authorized session scope'});
+ const rr:any=await executeRealTool(original.source as 'nmap'|'wapiti'|'zap'|'nuclei',assessmentId,t);
+ const records=await db.evidenceForAssessment(assessmentId),ev=records.find(x=>x.sha256===rr.evidence.sha256);
+ if(!ev)throw new Error('Retest evidence persistence failed');
+ ev.metadata={...(ev.metadata||{}),retestMode:'TARGETED',retestOfFindingId:original.id,retestOfFingerprint:fingerprint,retestScannerId:original.externalIds?.scannerId||null};
+ await db.saveEvidence(ev);
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'TARGETED_RETEST_COMPLETED',actor:u.userId,createdAt:new Date().toISOString(),metadata:{findingId:original.id,fingerprint,source:original.source,evidenceId:ev.id,evidenceHash:ev.sha256,exitCode:rr.exitCode}});
+ return res.status(rr.exitCode===0?200:502).json({execution:'TARGETED_RETEST',findingId:original.id,fingerprint,source:original.source,evidenceId:ev.id,evidence:{sha256:ev.sha256},exitCode:rr.exitCode,findings:rr.findings});
+}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/scans/run',async(req,res)=>{
   try{
     const session=verifySession(String(req.headers['x-assessment-session']||''));

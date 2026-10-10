@@ -31,3 +31,14 @@ test('audit package separates evidence workflow from assurance claims',()=>{
  assert.equal(m.findingLifecycle[0].analystDecisions[0].decision,'CONFIRMED');
  assert.match(m.limitations.join(' '),/do not constitute certification/i);
 });
+
+test('audit package reports control relevance separately from deterministic control test',()=>{
+ const m=auditPackageModel({assessmentId:'a1',organizationId:'o1',generatedAt:'2026-10-10T00:00:00Z',summary:{},evidence:[],chains:[{
+  findingId:'f1',title:'TLS issue',severity:'HIGH',source:'zap',status:'CONFIRMED',reviews:[{decision:'CONFIRMED'}],
+  issue:{issue_key:'ISS-1'},controlAssurance:{control_key:'VULN-01',framework_mappings:[{framework:'ISO27001',requirementKey:'A.8.8'}],test_result:null},risks:[],capa:[]
+ }]});
+ assert.equal(m.findingLifecycle[0].controlAssurance.control_key,'VULN-01');
+ assert.match(m.limitations.join(' '),/CONTROL_RELEVANCE/);
+ assert.match(m.limitations.join(' '),/NOT_TESTED/);
+ assert.equal(m.documentControl.documentId,'AEGIS-AUDIT-a1');
+});

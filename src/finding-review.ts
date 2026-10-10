@@ -69,6 +69,15 @@ export async function reviewFinding(userId:string,assessmentId:string,findingId:
    const stillPresent=(await client.query("SELECT 1 FROM findings WHERE assessment_id=$1 AND id<>$2 AND COALESCE(payload->>'fingerprint','')=$3 AND created_at >= $4 LIMIT 1",[assessmentId,findingId,fingerprint,ev.created_at])).rows[0];
    if(stillPresent)throw Object.assign(new Error('Retest still detects the original vulnerability fingerprint'),{statusCode:409});
   }
+  if(decision==='REMEDIATED'){
+   const issue=(await client.query('SELECT id,organization_id,status FROM grc_issues WHERE assessment_id=$1 AND finding_id=$2 FOR UPDATE',[assessmentId,findingId])).rows[0];
+   if(issue&&issue.status!=='CLOSED'){
+    await client.query("UPDATE grc_issues SET status='REMEDIATION_VERIFIED',updated_at=now() WHERE id=$1",[issue.id]);
+    await client.query("INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,snapshot) VALUES($1,$2,'ISSUE',$3,'TECHNICAL_REMEDIATION_VERIFIED',$4,$5)",[crypto.randomUUID(),issue.organization_id,issue.id,userId,{findingId,retestEvidenceId,fingerprint}]);
+    const capas=(await client.query("UPDATE grc_capa SET status='VALIDATION',updated_at=now() WHERE issue_id=$1 AND status IN ('OPEN','IN_PROGRESS','EVIDENCE_SUBMITTED','RETEST_PENDING','CHANGES_REQUESTED') RETURNING id,organization_id",[issue.id])).rows;
+    for(const capa of capas)await client.query("INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,snapshot) VALUES($1,$2,'CAPA',$3,'FINDING_RETEST_VERIFIED',$4,$5)",[crypto.randomUUID(),capa.organization_id,capa.id,userId,{findingId,retestEvidenceId,fingerprint,closure:'INDEPENDENT_REVIEW_REQUIRED'}]);
+   }
+  }
   const updated:Finding={...original,fingerprint,status:statusFor(decision)};
   await client.query('UPDATE findings SET payload=$1 WHERE id=$2',[updated,findingId]);
   const reviewId=crypto.randomUUID();

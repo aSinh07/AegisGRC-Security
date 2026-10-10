@@ -47,6 +47,8 @@ export async function reviewGrcReport(id:string,reviewerId:string,status:ReviewS
     const locked=await client.query('SELECT * FROM grc_report_reviews WHERE id=$1 FOR UPDATE',[id]);
     const current=locked.rows[0];
     if(!current)throw Error('GRC review not found');
+    if(current.submitted_by===reviewerId)throw Object.assign(new Error('Report submitter cannot approve or review their own submission'),{statusCode:403});
+    if(current.status==='APPROVED')throw Object.assign(new Error('Approved report must be resubmitted for a new review'),{statusCode:409});
     if(status==='APPROVED'&&!current.snapshot_digest)throw Error('Report snapshot digest is required before approval');
     const approvedAt=status==='APPROVED'?new Date().toISOString():null;
     const approvalHash=status==='APPROVED'?signApprovedReport({

@@ -8,6 +8,10 @@ function verify(secret:string,code:string){code=code.trim();return /^\d{6}$/.tes
 function hashPassword(p:string,salt=crypto.randomBytes(16)){return {salt:salt.toString('hex'),hash:crypto.scryptSync(p,salt,64).toString('hex')}}
 function pass(p:string,salt:string,hash:string){const h=crypto.scryptSync(p,Buffer.from(salt,'hex'),64),x=Buffer.from(hash,'hex');return h.length===x.length&&crypto.timingSafeEqual(h,x)}
 const tokenHash=(t:string)=>crypto.createHash('sha256').update(t).digest('hex');
+function totpKey(){const raw=process.env.TOTP_ENCRYPTION_KEY||'';if(!raw)return null;const b=Buffer.from(raw,'base64');if(b.length!==32)throw new Error('TOTP_ENCRYPTION_KEY must be a base64-encoded 32-byte key');return b}
+function protectTotp(secret:string){const key=totpKey();if(!key)return secret;const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',key,iv);const enc=Buffer.concat([cipher.update(secret,'utf8'),cipher.final()]),tag=cipher.getAuthTag();return 'enc:v1:'+iv.toString('base64')+':'+tag.toString('base64')+':'+enc.toString('base64')}
+function revealTotp(value:string){if(!value.startsWith('enc:v1:'))return value;const key=totpKey();if(!key)throw new Error('TOTP_ENCRYPTION_KEY is required to decrypt enrolled authenticators');const p=value.split(':');if(p.length!==5)throw new Error('Invalid encrypted TOTP secret');const decipher=crypto.createDecipheriv('aes-256-gcm',key,Buffer.from(p[2],'base64'));decipher.setAuthTag(Buffer.from(p[3],'base64'));return Buffer.concat([decipher.update(Buffer.from(p[4],'base64')),decipher.final()]).toString('utf8')}
+
 export async function initUsers(){
  await pool.query('CREATE TABLE IF NOT EXISTS app_users(id uuid PRIMARY KEY,email text UNIQUE NOT NULL,password_hash text NOT NULL,password_salt text NOT NULL,totp_secret text NOT NULL,totp_verified boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now())');
  await pool.query('ALTER TABLE app_users ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()');
@@ -35,16 +39,16 @@ export async function beginRegistration(email:string,password:string,profile:{fu
  await pool.query("DELETE FROM app_users WHERE email=$1 AND totp_verified=false AND created_at < now()-interval '24 hours'",[email]);
  const existing=await pool.query('SELECT id FROM app_users WHERE email=$1',[email]);
  if(existing.rows[0])throw Error('Account already exists or registration is already pending; sign in or complete recovery instead');
- const secret=b32enc(crypto.randomBytes(20)),h=hashPassword(password),id=crypto.randomUUID();
- await pool.query('INSERT INTO app_users(id,email,password_hash,password_salt,totp_secret,totp_verified,full_name,designation,company_name) VALUES($1,$2,$3,$4,$5,false,$6,$7,$8)',[id,email,h.hash,h.salt,secret,fullName,designation,companyName]);
+ const secret=b32enc(crypto.randomBytes(20)),storedSecret=protectTotp(secret),h=hashPassword(password),id=crypto.randomUUID();
+ await pool.query('INSERT INTO app_users(id,email,password_hash,password_salt,totp_secret,totp_verified,full_name,designation,company_name) VALUES($1,$2,$3,$4,$5,false,$6,$7,$8)',[id,email,h.hash,h.salt,storedSecret,fullName,designation,companyName]);
  const otpauth='otpauth://totp/'+encodeURIComponent('AegisGRC:'+email)+'?secret='+secret+'&issuer='+encodeURIComponent('AegisGRC');const qrDataUrl=await QRCode.toDataURL(otpauth,{errorCorrectionLevel:'M',margin:2,width:220});return {userId:id,email,secret,qrDataUrl};
 }
-export async function confirmRegistration(userId:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE id=$1',[userId]),u=r.rows[0];if(!u||!verify(u.totp_secret,code))return null;await pool.query('UPDATE app_users SET totp_verified=true,updated_at=now() WHERE id=$1',[userId]);const token=crypto.randomBytes(32).toString('base64url'),expires=new Date(Date.now()+TTL);await pool.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[tokenHash(token),u.id,expires]);return token}
+export async function confirmRegistration(userId:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE id=$1',[userId]),u=r.rows[0];if(!u||!verify(revealTotp(u.totp_secret),code))return null;await pool.query('UPDATE app_users SET totp_verified=true,updated_at=now() WHERE id=$1',[userId]);const token=crypto.randomBytes(32).toString('base64url'),expires=new Date(Date.now()+TTL);await pool.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[tokenHash(token),u.id,expires]);return token}
 export async function resetPasswordWithTotp(email:string,code:string,newPassword:string){
  email=email.trim().toLowerCase();if(newPassword.length<10)throw Error('New password must be at least 10 characters');
  const r=await pool.query('SELECT id,totp_secret,totp_verified FROM app_users WHERE email=$1',[email]),u=r.rows[0];
  // Keep the public failure generic to avoid account enumeration.
- if(!u||!u.totp_verified||!verify(u.totp_secret,code))return false;
+ if(!u||!u.totp_verified||!verify(revealTotp(u.totp_secret),code))return false;
  const h=hashPassword(newPassword);
  const client=await pool.connect();try{await client.query('BEGIN');
   await client.query('UPDATE app_users SET password_hash=$2,password_salt=$3,updated_at=now() WHERE id=$1',[u.id,h.hash,h.salt]);
@@ -52,13 +56,13 @@ export async function resetPasswordWithTotp(email:string,code:string,newPassword
   await client.query('COMMIT');return true;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
-export async function userLogin(email:string,password:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE email=$1',[email.trim().toLowerCase()]),u=r.rows[0];if(!u||!u.totp_verified||!pass(password,u.password_salt,u.password_hash)||!verify(u.totp_secret,code))return null;const token=crypto.randomBytes(32).toString('base64url'),expires=new Date(Date.now()+TTL);await pool.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[tokenHash(token),u.id,expires]);return token}
+export async function userLogin(email:string,password:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE email=$1',[email.trim().toLowerCase()]),u=r.rows[0];if(!u||!u.totp_verified||!pass(password,u.password_salt,u.password_hash)||!verify(revealTotp(u.totp_secret),code))return null;const token=crypto.randomBytes(32).toString('base64url'),expires=new Date(Date.now()+TTL);await pool.query('INSERT INTO app_sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)',[tokenHash(token),u.id,expires]);return token}
 export async function userSession(token:string){if(!token)return null;const r=await pool.query('SELECT s.user_id AS "userId",u.email,u.full_name AS "fullName",u.designation,u.company_name AS "companyName",s.expires_at AS exp FROM app_sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',[tokenHash(token)]);return r.rows[0]||null}
 export async function userLogout(token:string){if(token)await pool.query('DELETE FROM app_sessions WHERE token_hash=$1',[tokenHash(token)])}
 
 export async function userRole(userId:string){const r=await pool.query('SELECT role,email FROM app_users WHERE id=$1',[userId]);if(!r.rows[0])return null;const configured=(process.env.GRC_REVIEWER_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);const role=configured.includes(String(r.rows[0].email).toLowerCase())?'grc_reviewer':r.rows[0].role;if(role!==r.rows[0].role)await pool.query('UPDATE app_users SET role=$2,updated_at=now() WHERE id=$1',[userId,role]);return role}
 
-export async function verifyUserStepUp(userId:string,password:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE id=$1',[userId]),u=r.rows[0];if(!u)return {ok:false,reason:'USER_NOT_FOUND'};if(!u.totp_verified)return {ok:false,reason:'MFA_NOT_ENROLLED'};if(!pass(password,u.password_salt,u.password_hash))return {ok:false,reason:'PASSWORD_INVALID'};if(!verify(u.totp_secret,code))return {ok:false,reason:'TOTP_INVALID'};return {ok:true,reason:'OK'}}
+export async function verifyUserStepUp(userId:string,password:string,code:string){const r=await pool.query('SELECT * FROM app_users WHERE id=$1',[userId]),u=r.rows[0];if(!u)return {ok:false,reason:'USER_NOT_FOUND'};if(!u.totp_verified)return {ok:false,reason:'MFA_NOT_ENROLLED'};if(!pass(password,u.password_salt,u.password_hash))return {ok:false,reason:'PASSWORD_INVALID'};if(!verify(revealTotp(u.totp_secret),code))return {ok:false,reason:'TOTP_INVALID'};return {ok:true,reason:'OK'}}
 
 export async function authAttemptAllowed(key:string,limit=10,windowMinutes=15){
  const r=await pool.query('SELECT failures,window_started_at,blocked_until FROM app_auth_attempts WHERE attempt_key=$1',[key]),x=r.rows[0],now=Date.now();

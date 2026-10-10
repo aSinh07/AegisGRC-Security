@@ -41,30 +41,23 @@ export async function setSlaPolicy(user:string,org:string,input:any){
 }
 export async function promoteFindingToIssue(user:string,org:string,assessmentId:string,findingId:string,input:any={}){
  await requireOrgPermission(user,org,'manageRisk');await requireAssessmentAccess(user,assessmentId);
- const a=(await pool.query('SELECT organization_id FROM assessments WHERE id=$1',[assessmentId])).rows[0];
- if(!a||a.organization_id!==org)throw Object.assign(new Error('Assessment does not belong to organization'),{statusCode:403});
- const f=(await pool.query('SELECT payload FROM findings WHERE id=$1 AND assessment_id=$2',[findingId,assessmentId])).rows[0]?.payload;
- if(!f)throw Object.assign(new Error('Finding not found'),{statusCode:404});
- const latest=(await pool.query('SELECT decision FROM finding_reviews WHERE finding_id=$1 AND assessment_id=$2 ORDER BY created_at DESC LIMIT 1',[findingId,assessmentId])).rows[0];
- if(!latest||latest.decision!=='CONFIRMED')throw Object.assign(new Error('Only analyst-confirmed findings can become GRC issues'),{statusCode:409});
- const existing=(await pool.query('SELECT * FROM grc_issues WHERE organization_id=$1 AND finding_id=$2',[org,findingId])).rows[0];if(existing)return existing;
- if(input.ownerUserId){
-  const owner=(await pool.query(`SELECT 1 FROM grc_organization_members m JOIN grc_organizations o ON o.id=m.organization_id
-   WHERE m.organization_id=$1 AND m.user_id=$2 AND m.status='ACTIVE' AND o.status='ACTIVE'`,[org,input.ownerUserId])).rows[0];
-  if(!owner)throw Object.assign(new Error('Issue owner must be an active organization member'),{statusCode:400});
- }
- const policy=await slaPolicy(user,org),due=remediationDueAt(f.severity,policy),id=crypto.randomUUID();
- const priority=f.severity==='CRITICAL'?'P0':f.severity==='HIGH'?'P1':f.severity==='MEDIUM'?'P2':'P3';
- const issueKey='ISSUE-'+new Date().getUTCFullYear()+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
+ const policy=await slaPolicy(user,org),id=crypto.randomUUID();
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
-  const row=(await client.query(`INSERT INTO grc_issues(id,organization_id,issue_key,title,description,source_type,source_id,priority,status,owner_user_id,due_at,created_by,assessment_id,finding_id)
-   VALUES($1,$2,$3,$4,$5,'CONFIRMED_FINDING',$6,$7,'OPEN',$8,$9,$10,$11,$12) RETURNING *`,
-   [id,org,issueKey,String(input.title||f.title),String(input.description||f.description||''),findingId,priority,input.ownerUserId||null,due,user,assessmentId,findingId])).rows[0];
-  await client.query(`INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,snapshot)
-   VALUES($1,$2,'ISSUE',$3,'CREATED_FROM_CONFIRMED_FINDING',$4,$5)`,
-   [crypto.randomUUID(),org,id,user,{assessmentId,findingId,priority,dueAt:due.toISOString()}]);
+  const a=(await client.query('SELECT organization_id FROM assessments WHERE id=$1 FOR UPDATE',[assessmentId])).rows[0];
+  if(!a||a.organization_id!==org)throw Object.assign(new Error('Assessment does not belong to organization'),{statusCode:403});
+  const f=(await client.query('SELECT payload FROM findings WHERE id=$1 AND assessment_id=$2 FOR UPDATE',[findingId,assessmentId])).rows[0]?.payload;
+  if(!f)throw Object.assign(new Error('Finding not found'),{statusCode:404});
+  const latest=(await client.query('SELECT decision FROM finding_reviews WHERE finding_id=$1 AND assessment_id=$2 ORDER BY created_at DESC LIMIT 1 FOR UPDATE',[findingId,assessmentId])).rows[0];
+  if(!latest||latest.decision!=='CONFIRMED')throw Object.assign(new Error('Only analyst-confirmed findings can become GRC issues'),{statusCode:409});
+  const existing=(await client.query('SELECT * FROM grc_issues WHERE organization_id=$1 AND finding_id=$2',[org,findingId])).rows[0];if(existing){await client.query('COMMIT');return existing}
+  if(input.ownerUserId){const owner=(await client.query(`SELECT 1 FROM grc_organization_members m JOIN grc_organizations o ON o.id=m.organization_id WHERE m.organization_id=$1 AND m.user_id=$2 AND m.status='ACTIVE' AND o.status='ACTIVE'`,[org,input.ownerUserId])).rows[0];if(!owner)throw Object.assign(new Error('Issue owner must be an active organization member'),{statusCode:400})}
+  const due=remediationDueAt(f.severity,policy),priority=f.severity==='CRITICAL'?'P0':f.severity==='HIGH'?'P1':f.severity==='MEDIUM'?'P2':'P3';
+  const issueKey='ISSUE-'+new Date().getUTCFullYear()+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
+  const row=(await client.query(`INSERT INTO grc_issues(id,organization_id,issue_key,title,description,source_type,source_id,priority,status,owner_user_id,due_at,created_by,assessment_id,finding_id) VALUES($1,$2,$3,$4,$5,'CONFIRMED_FINDING',$6,$7,'OPEN',$8,$9,$10,$11,$12) ON CONFLICT (organization_id,finding_id) WHERE finding_id IS NOT NULL DO NOTHING RETURNING *`,[id,org,issueKey,String(input.title||f.title),String(input.description||f.description||''),findingId,priority,input.ownerUserId||null,due,user,assessmentId,findingId])).rows[0];
+  if(!row){const winner=(await client.query('SELECT * FROM grc_issues WHERE organization_id=$1 AND finding_id=$2',[org,findingId])).rows[0];await client.query('COMMIT');return winner}
+  await client.query(`INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,snapshot) VALUES($1,$2,'ISSUE',$3,'CREATED_FROM_CONFIRMED_FINDING',$4,$5)`,[crypto.randomUUID(),org,id,user,{assessmentId,findingId,priority,dueAt:due.toISOString()}]);
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }

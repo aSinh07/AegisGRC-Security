@@ -137,6 +137,11 @@ app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/findings/:find
 app.get('/api/grc/assessments/:assessmentId/audit-package.:format',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
  const model=auditPackageModel(await assessmentTrace(u.userId,req.params.assessmentId));
+ const reviewId=String(req.query.reviewId||'');
+ if(!reviewId)return res.status(409).json({error:'Approved GRC review is required for authenticated audit export'});
+ const verification=await verifyGrcReview(reviewId,reportSnapshotDigest(model));
+ if(verification.assessmentId&&verification.assessmentId!==req.params.assessmentId)return res.status(404).json({error:'Review not found for assessment'});
+ if(!verification.valid)return res.status(409).json({error:'Approved report snapshot is missing, invalid, or stale',verification});
  const format=String(req.params.format||'').toLowerCase();
  let body:Buffer,contentType:string,ext:string;
  if(format==='docx'){body=await auditDocx(model);contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document';ext='docx'}
@@ -426,6 +431,11 @@ app.get('/api/assessments/:id/grc-reviews/:reviewId/verify',async(req,res)=>{try
  if(verification.assessmentId&&verification.assessmentId!==req.params.id)return res.status(404).json({error:'Review not found for assessment'});
  res.json({...verification,meaning:verification.valid?'Approval signature is valid and the current report content matches the approved snapshot.':'The report is not currently authenticated; inspect reason/signature/snapshot state.'});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/report-verification/:reviewId',async(req,res)=>{try{
+ const verification=await verifyGrcReview(req.params.reviewId);
+ if(verification.reason==='REVIEW_NOT_FOUND')return res.status(404).json({valid:false,reason:'REVIEW_NOT_FOUND'});
+ res.json({...verification,verificationScope:'Cryptographic AegisGRC issuance/approval verification only. This is not external certification or a compliance opinion.'});
+ }catch(e:any){res.status(400).json({error:e.message})}});
 app.get('/api/grc-review-queue',async(req,res)=>{try{const u=await currentUser(req);if(!u||!['grc_reviewer','admin'].includes(String(await userRole(u.userId))))return res.status(403).json({error:'GRC reviewer role required'});res.json({reviews:await listGrcReviews()})}catch(e:any){res.status(400).json({error:e.message})}});
 app.post('/api/grc-reviews/:reviewId/decision',async(req,res)=>{try{const u=await currentUser(req);if(!u||!['grc_reviewer','admin'].includes(String(await userRole(u.userId))))return res.status(403).json({error:'GRC reviewer role required'});const status=String(req.body?.status||'').toUpperCase() as any;const review=await reviewGrcReport(req.params.reviewId,u.userId,status,String(req.body?.notes||''));await db.saveAudit({id:crypto.randomUUID(),assessmentId:review.assessment_id,action:'GRC_REVIEW_'+status,actor:u.email,createdAt:new Date().toISOString(),metadata:{framework:review.framework,reviewId:review.id,approvalHash:review.approval_hash||null}});res.json({review,disclaimer:status==='APPROVED'?'Approved by an authorized AegisGRC reviewer for the recorded assessment evidence; this does not equal external certification.':'Review decision recorded.'})}catch(e:any){res.status(400).json({error:e.message})}});
 

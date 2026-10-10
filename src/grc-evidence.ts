@@ -44,19 +44,41 @@ export async function createEvidenceRequest(userId:string,orgId:string,input:any
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[crypto.randomUUID(),orgId,sc.id,title,String(input.description||''),input.ownerUserId||null,input.dueAt||null,Number(input.validityDays||90),userId])).rows[0]
 }
 export async function submitEvidence(userId:string,orgId:string,requestId:string,input:any){
- await requireOrgPermission(userId,orgId,'manageControl');const req=(await pool.query('SELECT * FROM grc_evidence_requests WHERE id=$1 AND organization_id=$2',[requestId,orgId])).rows[0];if(!req)throw Object.assign(new Error('Evidence request not found'),{statusCode:404});
- if(req.owner_user_id&&req.owner_user_id!==userId){const m=await requireOrgPermission(userId,orgId,'manageControl');if(!['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST'].includes(m.role))throw Object.assign(new Error('Evidence owner or GRC manager required'),{statusCode:403})}
+ await requireOrgPermission(userId,orgId,'manageControl');
  const sha=String(input.sha256||'').toLowerCase();if(!/^[a-f0-9]{64}$/.test(sha))throw new Error('Valid SHA-256 is required');
- const v=Number((await pool.query('SELECT COALESCE(max(version),0)+1 v FROM grc_evidence_versions WHERE evidence_request_id=$1',[requestId])).rows[0].v);
- const client=await pool.connect();try{await client.query('BEGIN');const row=(await client.query(`INSERT INTO grc_evidence_versions(id,evidence_request_id,version,source_type,source_ref,sha256,content_type,byte_size,metadata,submitted_by)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,[crypto.randomUUID(),requestId,v,String(input.sourceType||'MANUAL').toUpperCase(),input.sourceRef||null,sha,input.contentType||null,input.byteSize||null,input.metadata||{},userId])).rows[0];
- await client.query(`UPDATE grc_evidence_requests SET status='SUBMITTED',updated_at=now() WHERE id=$1`,[requestId]);await client.query('COMMIT');return row}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const req=(await client.query('SELECT * FROM grc_evidence_requests WHERE id=$1 AND organization_id=$2 FOR UPDATE',[requestId,orgId])).rows[0];
+  if(!req)throw Object.assign(new Error('Evidence request not found'),{statusCode:404});
+  if(req.owner_user_id&&req.owner_user_id!==userId){
+   const m=await requireOrgPermission(userId,orgId,'manageControl');
+   if(!['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST'].includes(m.role))throw Object.assign(new Error('Evidence owner or GRC manager required'),{statusCode:403});
+  }
+  const v=Number((await client.query('SELECT COALESCE(max(version),0)+1 v FROM grc_evidence_versions WHERE evidence_request_id=$1',[requestId])).rows[0].v);
+  const row=(await client.query(`INSERT INTO grc_evidence_versions(id,evidence_request_id,version,source_type,source_ref,sha256,content_type,byte_size,metadata,submitted_by)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,[crypto.randomUUID(),requestId,v,String(input.sourceType||'MANUAL').toUpperCase(),input.sourceRef||null,sha,input.contentType||null,input.byteSize||null,input.metadata||{},userId])).rows[0];
+  await client.query(`UPDATE grc_evidence_requests SET status='SUBMITTED',updated_at=now() WHERE id=$1`,[requestId]);
+  await client.query('COMMIT');return row;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 export async function validateEvidence(userId:string,orgId:string,requestId:string,versionId:string,input:any){
- await requireOrgPermission(userId,orgId,'review');const q=(await pool.query(`SELECT r.*,v.submitted_by FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.id=$1 AND r.organization_id=$2 AND v.id=$3`,[requestId,orgId,versionId])).rows[0];if(!q)throw Object.assign(new Error('Evidence version not found'),{statusCode:404});
- if(q.submitted_by===userId)throw Object.assign(new Error('Evidence submitter cannot validate own evidence'),{statusCode:409});
+ await requireOrgPermission(userId,orgId,'review');
  const approved=Boolean(input.approved),note=String(input.note||'').trim();if(!approved&&note.length<5)throw new Error('Change request requires a reason');
- const client=await pool.connect();try{await client.query('BEGIN');if(approved){await client.query(`UPDATE grc_evidence_versions SET validated_by=$2,validated_at=now(),valid_until=now()+($3::text||' days')::interval,validation_note=$4 WHERE id=$1`,[versionId,userId,q.validity_days,note||null]);await client.query(`UPDATE grc_evidence_requests SET status='VALID',updated_at=now() WHERE id=$1`,[requestId])}else await client.query(`UPDATE grc_evidence_requests SET status='CHANGES_REQUESTED',updated_at=now() WHERE id=$1`,[requestId]);await client.query('COMMIT');return {requestId,versionId,status:approved?'VALID':'CHANGES_REQUESTED'}}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const q=(await client.query(`SELECT r.*,v.submitted_by FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.id=$1 AND r.organization_id=$2 AND v.id=$3 FOR UPDATE OF r,v`,[requestId,orgId,versionId])).rows[0];
+  if(!q)throw Object.assign(new Error('Evidence version not found'),{statusCode:404});
+  if(q.submitted_by===userId)throw Object.assign(new Error('Evidence submitter cannot validate own evidence'),{statusCode:409});
+  if(approved){
+   await client.query(`UPDATE grc_evidence_versions SET validated_by=$2,validated_at=now(),valid_until=now()+($3::text||' days')::interval,validation_note=$4 WHERE id=$1`,[versionId,userId,q.validity_days,note||null]);
+   await client.query(`UPDATE grc_evidence_requests SET status='VALID',updated_at=now() WHERE id=$1`,[requestId]);
+  }else{
+   await client.query(`UPDATE grc_evidence_requests SET status='CHANGES_REQUESTED',updated_at=now() WHERE id=$1`,[requestId]);
+  }
+  await client.query('COMMIT');return {requestId,versionId,status:approved?'VALID':'CHANGES_REQUESTED'};
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 export async function createTestDefinition(userId:string,orgId:string,input:any){
  await requireOrgPermission(userId,orgId,'manageControl');const sc=await scopeControl(orgId,String(input.scopeControlId||''));if(!sc)throw Object.assign(new Error('Scope control not found'),{statusCode:404});

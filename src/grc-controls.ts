@@ -83,12 +83,20 @@ export async function setScopeControl(userId:string,orgId:string,scopeId:string,
  [crypto.randomUUID(),orgId,scopeId,input.controlId,applicability,justification||null,implementation,input.ownerUserId||null])).rows[0];
 }
 export async function approveScopeControl(userId:string,orgId:string,scopeId:string,scopeControlId:string){
- const reviewer=await requireOrgPermission(userId,orgId,'review');await assertScope(orgId,scopeId);
- const row=(await pool.query('SELECT * FROM grc_scope_controls WHERE id=$1 AND organization_id=$2 AND scope_id=$3',[scopeControlId,orgId,scopeId])).rows[0];
- if(!row)throw Object.assign(new Error('Scope control not found'),{statusCode:404});
- if(row.owner_user_id===userId)throw Object.assign(new Error('Control owner cannot approve own applicability decision'),{statusCode:409});
- if(row.applicability==='PENDING')throw Object.assign(new Error('Pending applicability cannot be approved'),{statusCode:409});
- return (await pool.query('UPDATE grc_scope_controls SET approved_by=$2,approved_at=now(),updated_at=now() WHERE id=$1 RETURNING *',[scopeControlId,userId])).rows[0];
+ await requireOrgPermission(userId,orgId,'review');await assertScope(orgId,scopeId);
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const row=(await client.query('SELECT * FROM grc_scope_controls WHERE id=$1 AND organization_id=$2 AND scope_id=$3 FOR UPDATE',[scopeControlId,orgId,scopeId])).rows[0];
+  if(!row)throw Object.assign(new Error('Scope control not found'),{statusCode:404});
+  if(row.owner_user_id===userId)throw Object.assign(new Error('Control owner cannot approve own applicability decision'),{statusCode:409});
+  if(row.applicability==='PENDING')throw Object.assign(new Error('Pending applicability cannot be approved'),{statusCode:409});
+  const out=(await client.query(`UPDATE grc_scope_controls SET approved_by=$2,approved_at=now(),updated_at=now()
+   WHERE id=$1 AND organization_id=$3 AND scope_id=$4 AND applicability=$5 AND owner_user_id IS NOT DISTINCT FROM $6 RETURNING *`,
+   [scopeControlId,userId,orgId,scopeId,row.applicability,row.owner_user_id])).rows[0];
+  if(!out)throw Object.assign(new Error('Scope control state changed before approval'),{statusCode:409});
+  await client.query('COMMIT');return out;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 export async function statementOfApplicability(userId:string,orgId:string,scopeId:string){
  await requireOrgPermission(userId,orgId,'read');await assertScope(orgId,scopeId);

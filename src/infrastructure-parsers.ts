@@ -37,7 +37,7 @@ export function trivyJsonFindings(assessmentId:string,asset:string,evidenceHash:
     description:String(v.Description||('Affected package '+String(v.PkgName||'unknown')+' '+String(v.InstalledVersion||''))),
     severity:severity(v.Severity),cvss:undefined,asset:String(result.Target||asset),evidenceHash,createdAt:new Date().toISOString(),mappings:{},
     remediation:v.FixedVersion?'Upgrade '+String(v.PkgName||'package')+' to '+String(v.FixedVersion)+' or later.':'Review vendor advisory and available remediation.',
-    status:'OPEN',confidence:'SCANNER_REPORTED',externalIds:{cve:ids.length?ids:undefined,scannerId:id||String(v.PkgIdentifier?.PURL||'trivy')}
+    status:'OPEN',confidence:'SCANNER_REPORTED',externalIds:{cve:ids.length?ids:undefined,scannerId:[id,String(v.PkgIdentifier?.PURL||v.PkgName||''),String(v.InstalledVersion||'')].filter(Boolean).join('|')||'trivy'}
    }));
   }
  }

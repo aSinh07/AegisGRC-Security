@@ -21,3 +21,6 @@ test('web coverage requires successful ZAP and Nuclei evidence',async()=>{const 
 test('server exposes authoritative web reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/web\/reconcile/);assert.match(s,/reconcileWebCoverage/)});
 
 test('infrastructure evidence count evaluates each evidence row independently',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/const validEvidence=/);assert.match(s,/count=ev\.filter\(validEvidence\)\.length/)});
+
+test('API coverage requires successful ZAP and Nuclei evidence',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/reconcileApiCoverage/);assert.match(s,/ZAP successful API evidence missing/);assert.match(s,/Nuclei successful API evidence missing/);assert.match(s,/API layer is not initialized/)});
+test('server exposes authoritative API reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/api\/reconcile/);assert.match(s,/reconcileApiCoverage/)});

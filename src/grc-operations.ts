@@ -2,6 +2,16 @@ import pg from 'pg';import {requireOrgPermission} from './grc-organizations.js';
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
 export async function initGrcOperations(){await pool.query(`
 CREATE INDEX IF NOT EXISTS grc_record_events_lookup_idx ON grc_record_events(organization_id,record_type,record_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS grc_notifications(
+ id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+ user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+ severity text NOT NULL CHECK(severity IN ('INFO','WARNING','HIGH','CRITICAL')),
+ title text NOT NULL,message text NOT NULL,record_type text,record_id uuid,dedupe_key text NOT NULL,
+ status text NOT NULL DEFAULT 'UNREAD' CHECK(status IN ('UNREAD','READ','DISMISSED')),
+ created_at timestamptz NOT NULL DEFAULT now(),read_at timestamptz,
+ UNIQUE(organization_id,user_id,dedupe_key)
+);
+CREATE INDEX IF NOT EXISTS grc_notifications_user_idx ON grc_notifications(organization_id,user_id,status,created_at DESC);
 `)}
 export async function myWork(user:string,org:string){
  await requireOrgPermission(user,org,'read');
@@ -50,4 +60,15 @@ export async function sla(user:string,org:string){
  FROM grc_evidence_requests WHERE organization_id=$1 AND status NOT IN ('VALID','EXPIRED')
  ORDER BY due_at NULLS LAST`,[org])).rows;
  return {items:rows,summary:{breached:rows.filter((x:any)=>x.sla==='BREACHED').length,atRisk:rows.filter((x:any)=>x.sla==='AT_RISK').length,onTrack:rows.filter((x:any)=>x.sla==='ON_TRACK').length}};
+}
+
+export async function notifications(user:string,org:string){
+ await requireOrgPermission(user,org,'read');
+ const rows=(await pool.query('SELECT * FROM grc_notifications WHERE organization_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 200',[org,user])).rows;
+ return {items:rows,unread:rows.filter((x:any)=>x.status==='UNREAD').length};
+}
+export async function markNotification(user:string,org:string,id:string,status:string){
+ await requireOrgPermission(user,org,'read');if(!['READ','DISMISSED'].includes(status))throw new Error('Invalid notification status');
+ const row=(await pool.query("UPDATE grc_notifications SET status=$4,read_at=CASE WHEN $4='READ' THEN now() ELSE read_at END WHERE id=$1 AND organization_id=$2 AND user_id=$3 RETURNING *",[id,org,user,status])).rows[0];
+ if(!row)throw Object.assign(new Error('Notification not found'),{statusCode:404});return row;
 }

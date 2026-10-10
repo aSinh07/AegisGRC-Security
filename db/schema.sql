@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS app_users (
  email text UNIQUE NOT NULL,
  password_hash text NOT NULL,
  password_salt text NOT NULL,
- totp_secret text NOT NULL,
+ totp_secret text NOT NULL, -- plaintext legacy rows remain readable; new rows are AES-256-GCM encrypted when TOTP_ENCRYPTION_KEY is configured
  totp_verified boolean NOT NULL DEFAULT false,
  full_name text,
  designation text,

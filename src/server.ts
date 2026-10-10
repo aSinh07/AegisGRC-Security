@@ -130,6 +130,7 @@ app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file
  await db.saveFindingImport(ev,parsed.findings,audit);
  res.status(201).json({imported:true,evidence:{id:evidenceId,sha256,hashComputedByServer:true,integrityStatus:'HASHED_AT_INGEST'},format:parsed.format,count:parsed.findings.length,warnings:parsed.warnings,findings:parsed.findings});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/endpoint/reconcile',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reconcileEndpointCoverage(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/infrastructure/reconcile',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reconcileInfrastructureCoverage(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/assessments/:assessmentId/openvas-report',upload.single('file'),async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');

@@ -363,8 +363,7 @@ app.post('/api/findings/:findingId/retest',async(req,res)=>{try{
  const rr:any=await executeRealTool(original.source as 'nmap'|'wapiti'|'zap'|'nuclei',assessmentId,t);
  const records=await db.evidenceForAssessment(assessmentId),ev=records.find(x=>x.sha256===rr.evidence.sha256);
  if(!ev)throw new Error('Retest evidence persistence failed');
- ev.metadata={...(ev.metadata||{}),retestMode:'TARGETED',retestOfFindingId:original.id,retestOfFingerprint:fingerprint,retestScannerId:original.externalIds?.scannerId||null};
- await db.updateEvidence(ev);
+ await db.saveFindingRetest({id:crypto.randomUUID(),findingId:original.id,assessmentId,evidenceId:ev.id,fingerprint,scannerSource:original.source,scannerId:original.externalIds?.scannerId||null,createdBy:u.userId});
  await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'TARGETED_RETEST_COMPLETED',actor:u.userId,createdAt:new Date().toISOString(),metadata:{findingId:original.id,fingerprint,source:original.source,evidenceId:ev.id,evidenceHash:ev.sha256,exitCode:rr.exitCode}});
  return res.status(rr.exitCode===0?200:502).json({execution:'TARGETED_RETEST',findingId:original.id,fingerprint,source:original.source,evidenceId:ev.id,evidence:{sha256:ev.sha256},exitCode:rr.exitCode,findings:rr.findings});
 }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

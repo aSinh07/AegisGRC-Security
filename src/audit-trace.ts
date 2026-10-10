@@ -16,6 +16,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
     'SELECT id,severity,source,payload FROM findings WHERE assessment_id=$1 ORDER BY created_at',
     [assessmentId]
   )).rows;
+  const layerCoverage = (await pool.query('SELECT layer,status,required,engines,evidence_count,failure_reasons,completed_at FROM assessment_layer_runs WHERE assessment_id=$1 ORDER BY layer',[assessmentId])).rows;
   const reviews = (await pool.query(
     'SELECT finding_id,decision,rationale,created_at FROM finding_reviews WHERE assessment_id=$1 ORDER BY created_at',
     [assessmentId]
@@ -96,6 +97,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       controlsWithDeterministicTests: controlAssurance.filter((x:any)=>['PASS','FAIL'].includes(x.test_result)).length,
       controlsNotTested: controlAssurance.filter((x:any)=>!['PASS','FAIL'].includes(x.test_result)).length
     },
+    infrastructureAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='INFRASTRUCTURE');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}: {status:'NOT_STARTED',required:true,engines:['NMAP','OPENVAS'],evidenceCount:0,failureReasons:['Infrastructure coverage has not been reconciled'],completedAt:null}})(),
     evidence,
     chains
   };
@@ -116,6 +118,7 @@ export function auditPackageModel(trace:any){
    openIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED').length,
    overdueIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED'&&x.issue.due_at&&new Date(x.issue.due_at)<new Date()).length
   },
+  infrastructureAssurance:trace?.infrastructureAssurance||{status:'NOT_STARTED',required:true,engines:['NMAP','OPENVAS'],evidenceCount:0,failureReasons:['Infrastructure coverage unavailable']},
   evidenceRegister:(trace?.evidence||[]).map((e:any)=>({...e,hash_recorded_at:e.integrity_verified_at||e.created_at,integrity_status:'HASH_RECORDED_AT_INGEST'})),
   findingLifecycle:chains.map((x:any)=>({
    findingId:x.findingId,title:x.title,severity:x.severity,source:x.source,evidenceHash:x.evidenceHash,

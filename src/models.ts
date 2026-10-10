@@ -1,14 +1,16 @@
 export type Severity='INFO'|'LOW'|'MEDIUM'|'HIGH'|'CRITICAL';
 export interface Finding {
- id:string; assessmentId:string; source:'nmap'|'wapiti'|'semgrep'|'http'|'zap'|'sqlmap'|'document';
+ id:string; assessmentId:string; source:'nmap'|'wapiti'|'semgrep'|'http'|'zap'|'sqlmap'|'nuclei'|'trivy'|'openvas'|'document';
  title:string; description:string; severity:Severity; cwe?:string; cvss?:number;
  asset:string; evidenceHash:string; createdAt:string;
  mappings:{owasp?:string[];iso27001?:string[];iso42001?:string[];nist?:string[];nistCsf?:string[];nistAiRmf?:string[];cis?:string[];soc2?:string[];pci?:string[];gdpr?:string[];dpdp?:string[];hipaa?:string[]};
  remediation?:string; status?:'OPEN'|'ACCEPTED'|'REMEDIATED'|'FALSE_POSITIVE'; owner?:string;
+ confidence?:'OBSERVED'|'SCANNER_REPORTED'|'VALIDATED'|'CONFIRMED'; externalIds?:{cve?:string[];cwe?:string[];scannerId?:string};
 }
 export interface Assessment {
- id:string; target:string; authorizedAt:string; status:'AUTHORIZED'|'RUNNING'|'COMPLETED'|'FAILED';
+ id:string; target:string; authorizedAt:string; status:'AUTHORIZED'|'RUNNING'|'COMPLETED'|'PARTIAL'|'FAILED';
  findings:Finding[]; evidenceIds:string[];
+ scanCoverage?:{required:string[];succeeded:string[];failed:string[];notRun:string[];complete:boolean};
 }
 export interface Evidence {
  id:string; assessmentId:string; source:string; sha256:string; createdAt:string;

@@ -103,10 +103,13 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
 
 export function auditPackageModel(trace:any){
  const chains=Array.isArray(trace?.chains)?trace.chains:[];
+ const generatedAt=trace?.generatedAt||new Date().toISOString();
+ const assessmentId=trace?.assessmentId||'';
  return {
+  documentControl:{documentId:'AEGIS-AUDIT-'+assessmentId,version:'1.0',classification:'CONFIDENTIAL',generatedAt,assessmentId,status:'UNAPPROVED_SNAPSHOT'},
   reportType:'AEGIS_GRC_AUDIT_PACKAGE',
-  generatedAt:trace?.generatedAt||new Date().toISOString(),
-  assessmentId:trace?.assessmentId||'',
+  generatedAt,
+  assessmentId,
   organizationId:trace?.organizationId||'',
   assuranceBoundary:trace?.assuranceBoundary||'Traceability is not certification.',
   executiveSummary:{...trace?.summary,

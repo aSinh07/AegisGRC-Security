@@ -368,6 +368,17 @@ async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei',asse
  if(result.stderr)console.log('[AEGIS STDERR] '+result.stderr.slice(0,4000));
  return {tool,startedAt,completedAt,...result,evidence:{sha256},findings};
 }
+app.post('/api/grc/assessments/:assessmentId/findings/:findingId/openvas-retest',upload.single('file'),async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');
+ const original=(await db.findingsForAssessment(req.params.assessmentId)).find(x=>x.id===req.params.findingId);if(!original)return res.status(404).json({error:'Finding not found'});if(original.source!=='openvas')return res.status(409).json({error:'OpenVAS retest endpoint only accepts OpenVAS findings'});
+ const file=req.file;if(!file)return res.status(400).json({error:'Greenbone/OpenVAS retest JSON report required'});const raw=file.buffer.toString('utf8'),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();
+ const findings=openvasJsonFindings(req.params.assessmentId,original.asset,sha256,raw);const fingerprint=original.fingerprint||findingFingerprint(original),stillPresent=findings.some(x=>(x.fingerprint||findingFingerprint(x))===fingerprint);
+ const ev:Evidence={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,source:'openvas',sha256,createdAt,exitCode:0,stdout:raw,stderr:'',metadata:{filename:file.originalname.replace(/[\\/\0]/g,'_'),size:file.size,format:'GREENBONE_JSON_RETEST',findingCount:findings.length,originalFindingId:original.id,originalFingerprint:fingerprint,stillPresent}};
+ await db.saveEvidence(ev);if(findings.length)await db.saveFindings(findings);
+ const audit={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'TARGETED_RETEST_COMPLETED',actor:u.userId,createdAt,metadata:{findingId:original.id,fingerprint,source:'openvas',evidenceId:ev.id,evidenceHash:sha256,stillPresent,findingCount:findings.length}};
+ await db.saveFindingRetest({id:crypto.randomUUID(),findingId:original.id,assessmentId:req.params.assessmentId,evidenceId:ev.id,fingerprint,scannerSource:'openvas',scannerId:original.externalIds?.scannerId||null,createdBy:u.userId},audit);
+ res.status(stillPresent?409:200).json({execution:'IMPORTED_OPENVAS_TARGETED_RETEST',findingId:original.id,fingerprint,evidenceId:ev.id,evidence:{sha256},stillPresent,findings});
+}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/findings/:findingId/retest',async(req,res)=>{try{
  const session=verifySession(String(req.headers['x-assessment-session']||'')),assessmentId=session.assessmentId;
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});

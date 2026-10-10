@@ -39,7 +39,7 @@ Metasploit exploitation, credential attacks, persistence, evasion and arbitrary 
 Set `DATABASE_URL` to enable PostgreSQL. The container runs the idempotent schema initializer before starting the API. Without `DATABASE_URL`, local development falls back to the file store.
 
 ## Deployment
-A `render.yaml` Docker blueprint is included. Configure `DATABASE_URL` and optional `GEMINI_API_KEY`; session and evidence secrets must remain server-side. The readiness endpoint is `/api/ready`.
+`docker-compose.production.yml` and `scripts/deploy-gce.sh` are the supported production path for the Google Cloud Compute Engine VM. Create `.env.production` from `.env.production.example`, use strong server-side secrets, and preserve the named `aegis-db` PostgreSQL volume. The deployment script rebuilds the application container without deleting the database volume and verifies `/api/ready` before declaring the release healthy.
 
 ## Data trust model
 Scanner stdout/stderr is evidence. Parsed findings reference its SHA-256. Deterministic framework mappings and optional AI remediation are downstream interpretations and never replace raw evidence.

@@ -330,8 +330,8 @@ app.post('/api/scans/trivy',async(req,res)=>{try{
  const sourcePath=String(req.body?.sourcePath||'/workspace/source');const result=await scanFilesystemWithTrivy(sourcePath);
  const completedAt=new Date().toISOString();const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'trivy',sha256:result.evidence.sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{sourcePath,durationMs:result.durationMs,mode:'filesystem-vulnerability-misconfiguration'}};
  await db.saveEvidence(ev);const findings=result.exitCode===0?trivyJsonFindings(assessmentId,sourcePath,ev.sha256,result.stdout):[];if(findings.length)await db.saveFindings(findings);
- const status=result.exitCode===0?'COMPLETED':'FAILED';await db.saveAssessment({...assessment,status,evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
- res.status(result.exitCode===0?200:502).json({execution:'REAL_TRIVY_FILESYSTEM_SCAN',status,assessmentId,sourcePath,evidence:{sha256:ev.sha256},findings});
+ const scanStatus=result.exitCode===0?'SUCCEEDED':'FAILED';await db.saveAssessment({...assessment,evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
+ res.status(result.exitCode===0?200:502).json({execution:'REAL_TRIVY_FILESYSTEM_SCAN',scanStatus,assessmentId,sourcePath,evidence:{sha256:ev.sha256},findings});
 }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
 async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei',assessmentId:string,t:{url:URL,addresses:string[]}){

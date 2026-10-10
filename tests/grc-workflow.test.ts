@@ -324,3 +324,20 @@ test('GRC notifications are persistent tenant-safe and deduplicated',async()=>{
  assert.match(automation,/RISK_ACCEPTANCE_EXPIRED:/);
  assert.match(automation,/ON CONFLICT\(organization_id,user_id,dedupe_key\) DO NOTHING/);
 });
+
+
+test('automation only auto-runs deterministic evidence-present tests',async()=>{
+ const automation=await readFile(new URL('../src/grc-automation.ts',import.meta.url),'utf8');
+ const start=automation.indexOf("}else if(kind==='CONTROL_TEST_DUE')");
+ const end=automation.indexOf("}else if(kind==='CAPA_SLA')",start);
+ const fn=automation.slice(start,end);
+ assert.match(fn,/t\.test_type!=='EVIDENCE_PRESENT'/);
+ assert.match(fn,/requires human execution or review/);
+ assert.match(fn,/grc_control_test_runs/);
+ assert.match(fn,/executed_by\) VALUES\(\$1,\$2,\$3,\$4,\$5,\$6,NULL\)/);
+ assert.match(fn,/No current independently validated evidence is present/);
+ assert.match(fn,/source_type='CONTROL_TEST'/);
+ assert.match(fn,/scope_control_id,priority,status/);
+ assert.match(fn,/CONTROL_TEST_FAIL:/);
+ assert.match(fn,/manualDue:due\.length-autoRun/);
+});

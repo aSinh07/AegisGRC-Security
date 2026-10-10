@@ -47,3 +47,16 @@ test('CAPA evidence and retest preconditions are locked inside their transaction
  assert.match(retest,/grc_control_test_runs WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
  assert.match(retest,/client\.query\('ROLLBACK'\)/);
 });
+
+
+test('finding promotion is concurrency safe and idempotent',async()=>{
+ const risk=await readFile(new URL('../src/finding-risk.ts',import.meta.url),'utf8');
+ const start=risk.indexOf('export async function promoteFindingToIssue');
+ const fn=risk.slice(start);
+ assert.ok(fn.indexOf("client.query('BEGIN')")<fn.indexOf('SELECT organization_id FROM assessments'));
+ assert.match(fn,/findings WHERE id=\$1 AND assessment_id=\$2 FOR UPDATE/);
+ assert.match(fn,/finding_reviews[\s\S]*LIMIT 1 FOR UPDATE/);
+ assert.match(fn,/ON CONFLICT \(organization_id,finding_id\) WHERE finding_id IS NOT NULL DO NOTHING RETURNING \*/);
+ assert.match(fn,/const winner=.*SELECT \* FROM grc_issues/s);
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});

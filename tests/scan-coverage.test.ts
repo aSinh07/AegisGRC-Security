@@ -20,3 +20,7 @@ test('all failed or absent is FAILED',()=>{
 test('nonzero or missing exit is failed',()=>{
  assert.equal(scannerRunStatus(0),'SUCCEEDED');assert.equal(scannerRunStatus(2),'FAILED');assert.equal(scannerRunStatus(null),'FAILED');
 });
+
+test('timeout or truncated evidence cannot count as successful coverage',()=>{
+ assert.equal(scannerRunStatus(0,undefined,true),'FAILED');
+});

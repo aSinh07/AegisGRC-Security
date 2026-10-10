@@ -64,13 +64,29 @@ export async function createTestDefinition(userId:string,orgId:string,input:any)
  return (await pool.query(`INSERT INTO grc_control_test_definitions(id,organization_id,scope_control_id,name,test_type,expected,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[crypto.randomUUID(),orgId,sc.id,String(input.name||'Evidence test'),type,input.expected||{},userId])).rows[0]
 }
 export async function runControlTest(userId:string,orgId:string,testId:string){
- await requireOrgPermission(userId,orgId,'manageControl');const t=(await pool.query('SELECT * FROM grc_control_test_definitions WHERE id=$1 AND organization_id=$2 AND active=true',[testId,orgId])).rows[0];if(!t)throw Object.assign(new Error('Control test not found'),{statusCode:404});
- let result:'PASS'|'FAIL'|'NOT_TESTED'='NOT_TESTED',rationale='No deterministic result';
- let ev:any=null;
- if(t.test_type==='EVIDENCE_PRESENT'){ev=(await pool.query(`SELECT v.* FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.organization_id=$1 AND r.scope_control_id=$2 AND r.status='VALID' AND v.validated_at IS NOT NULL AND v.valid_until>now() ORDER BY v.validated_at DESC LIMIT 1`,[orgId,t.scope_control_id])).rows[0];result=ev?'PASS':'FAIL';rationale=ev?'Current independently validated evidence is present':'No current independently validated evidence is present'}
- const run=(await pool.query(`INSERT INTO grc_control_test_runs(id,organization_id,test_definition_id,result,rationale,evidence_version_id,executed_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[crypto.randomUUID(),orgId,testId,result,rationale,ev?.id||null,userId])).rows[0];
- if(result==='FAIL'){const key='ISS-'+new Date().getUTCFullYear()+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();await pool.query(`INSERT INTO grc_issues(id,organization_id,issue_key,title,description,source_type,source_id,priority,status) SELECT $1,$2,$3,$4,$5,'CONTROL_TEST',$6,'P2','OPEN' WHERE NOT EXISTS(SELECT 1 FROM grc_issues WHERE organization_id=$2 AND source_type='CONTROL_TEST' AND source_id=$6 AND status<>'CLOSED')`,[crypto.randomUUID(),orgId,key,'Failed control test: '+t.name,rationale,testId])}
- return run
+ await requireOrgPermission(userId,orgId,'manageControl');
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const t=(await client.query('SELECT * FROM grc_control_test_definitions WHERE id=$1 AND organization_id=$2 AND active=true FOR UPDATE',[testId,orgId])).rows[0];
+  if(!t)throw Object.assign(new Error('Control test not found'),{statusCode:404});
+  let result:'PASS'|'FAIL'|'NOT_TESTED'='NOT_TESTED',rationale='No deterministic result';
+  let ev:any=null;
+  if(t.test_type==='EVIDENCE_PRESENT'){
+   ev=(await client.query(`SELECT v.* FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.organization_id=$1 AND r.scope_control_id=$2 AND r.status='VALID' AND v.validated_at IS NOT NULL AND v.valid_until>now() ORDER BY v.validated_at DESC LIMIT 1 FOR UPDATE OF v`,[orgId,t.scope_control_id])).rows[0];
+   result=ev?'PASS':'FAIL';rationale=ev?'Current independently validated evidence is present':'No current independently validated evidence is present';
+  }
+  const run=(await client.query(`INSERT INTO grc_control_test_runs(id,organization_id,test_definition_id,result,rationale,evidence_version_id,executed_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[crypto.randomUUID(),orgId,testId,result,rationale,ev?.id||null,userId])).rows[0];
+  if(result==='FAIL'){
+   const issueId=crypto.randomUUID(),issueKey='ISS-'+new Date().getUTCFullYear()+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
+   await client.query(`INSERT INTO grc_issues(id,organization_id,issue_key,title,description,source_type,source_id,priority,status,created_by)
+    SELECT $1,$2,$3,$4,$5,'CONTROL_TEST',$6,'P2','OPEN',$7
+    WHERE NOT EXISTS(SELECT 1 FROM grc_issues WHERE organization_id=$2 AND source_type='CONTROL_TEST' AND source_id=$6 AND status<>'CLOSED')`,
+    [issueId,orgId,issueKey,'Failed control test: '+t.name,rationale,testId,userId]);
+  }
+  await client.query('COMMIT');
+  return run;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 export async function listEvidence(userId:string,orgId:string){await requireOrgPermission(userId,orgId,'read');return (await pool.query(`SELECT r.*,v.id latest_version_id,v.version,v.sha256,v.validated_at,v.valid_until FROM grc_evidence_requests r LEFT JOIN LATERAL(SELECT * FROM grc_evidence_versions WHERE evidence_request_id=r.id ORDER BY version DESC LIMIT 1)v ON true WHERE r.organization_id=$1 ORDER BY r.created_at DESC`,[orgId])).rows}
 

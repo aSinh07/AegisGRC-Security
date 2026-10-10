@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { db } from './store.js';
 import { scanSource } from './semgrep.js';
 import { semgrepFindings, wapitiFindings, nmapFindings } from './parsers.js';
-import {nucleiJsonlFindings,trivyJsonFindings} from './infrastructure-parsers.js';
+import {nucleiJsonlFindings,trivyJsonFindings,openvasJsonFindings} from './infrastructure-parsers.js';
 import {scanFilesystemWithTrivy} from './trivy.js';
 import { assessmentReport } from './reports.js';
 import type { Assessment,Evidence } from './models.js';
@@ -129,6 +129,14 @@ app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file
  await db.saveFindingImport(ev,parsed.findings,audit);
  res.status(201).json({imported:true,evidence:{id:evidenceId,sha256,hashComputedByServer:true,integrityStatus:'HASHED_AT_INGEST'},format:parsed.format,count:parsed.findings.length,warnings:parsed.warnings,findings:parsed.findings});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/assessments/:assessmentId/openvas-report',upload.single('file'),async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');
+ const file=req.file;if(!file)return res.status(400).json({error:'Greenbone/OpenVAS JSON report required'});const raw=file.buffer.toString('utf8');const sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();
+ const findings=openvasJsonFindings(req.params.assessmentId,access.target,sha256,raw);if(!findings.length)return res.status(422).json({error:'Report contained no parseable OpenVAS vulnerability results; assessment coverage was not advanced'});
+ const ev:Evidence={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,source:'openvas',sha256,createdAt,exitCode:0,stdout:raw,stderr:'',metadata:{filename:file.originalname.replace(/[\\/\0]/g,'_'),size:file.size,format:'GREENBONE_JSON',findingCount:findings.length}};
+ const audit={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'OPENVAS_REPORT_INGESTED',actor:u.userId,createdAt,metadata:{evidenceId:ev.id,sha256,findingCount:findings.length}};
+ await db.saveFindingImport(ev,findings,audit);res.status(201).json({ingested:true,assessmentId:req.params.assessmentId,evidence:{id:ev.id,sha256},findingCount:findings.length,findings});
+}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
  const result=await reviewFinding(u.userId,req.params.assessmentId,req.params.findingId,req.body||{});

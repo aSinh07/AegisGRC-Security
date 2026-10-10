@@ -65,3 +65,14 @@ test('server has no legacy global assessment finding evidence or audit reads',as
  assert.match(server,/db\.findingsForAssessment\(assessmentId\)/);
  assert.match(server,/db\.evidenceForAssessment\(assessmentId\)/);
 });
+
+
+test('finding import requires mutation role in the assessment organization',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const start=server.indexOf("app.post('/api/grc/assessments/:assessmentId/finding-import'");
+ const end=server.indexOf("app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review'",start);
+ const route=server.slice(start,end);
+ assert.match(route,/const access=await requireAssessmentAccess\(u\.userId,req\.params\.assessmentId\)/);
+ assert.match(route,/requireOrgPermission\(u\.userId,access\.organization_id,'findingReview'\)/);
+});

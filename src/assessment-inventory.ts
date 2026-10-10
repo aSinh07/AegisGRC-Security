@@ -108,3 +108,11 @@ export async function reconcileSourceCodeCoverage(userId:string,organizationId:s
  const updated=(await pool.query('UPDATE assessment_layer_runs SET status=$4,required=true,engines=$5,evidence_count=$6,failure_reasons=$7,started_at=COALESCE(started_at,now()),completed_at=CASE WHEN $4=\'COMPLETE\' THEN now() ELSE NULL END,updated_at=now() WHERE assessment_id=$1 AND organization_id=$2 AND layer=$3 RETURNING *',[assessmentId,organizationId,'SOURCE_CODE',status,['SEMGREP'],valid.length,reasons])).rows[0];if(!updated)throw Object.assign(new Error('SOURCE_CODE layer is not initialized'),{statusCode:409});
  return {layer:'SOURCE_CODE',status,requiredEngines:['SEMGREP'],evidenceCount:valid.length,reasons,semgrep:{complete}};
 }
+
+export async function reconcileDependencyCoverage(userId:string,organizationId:string,assessmentId:string){
+ await requireOrgPermission(userId,organizationId,'manageAssessment');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});
+ const ev=(await pool.query('SELECT source,payload FROM evidence WHERE assessment_id=$1 AND source=$2',[assessmentId,'trivy'])).rows;
+ const valid=ev.filter((x:any)=>Number(x.payload?.exitCode)===0&&String(x.payload?.stdout||'').length>0);const complete=valid.length>0,reasons=complete?[]:['Trivy successful dependency evidence missing'];const status:LayerStatus=complete?'COMPLETE':'PARTIAL';
+ const updated=(await pool.query('UPDATE assessment_layer_runs SET status=$4,required=true,engines=$5,evidence_count=$6,failure_reasons=$7,started_at=COALESCE(started_at,now()),completed_at=CASE WHEN $4=\'COMPLETE\' THEN now() ELSE NULL END,updated_at=now() WHERE assessment_id=$1 AND organization_id=$2 AND layer=$3 RETURNING *',[assessmentId,organizationId,'DEPENDENCIES',status,['TRIVY'],valid.length,reasons])).rows[0];if(!updated)throw Object.assign(new Error('DEPENDENCIES layer is not initialized'),{statusCode:409});
+ return {layer:'DEPENDENCIES',status,requiredEngines:['TRIVY'],evidenceCount:valid.length,reasons,trivy:{complete}};
+}

@@ -60,3 +60,18 @@ test('finding promotion is concurrency safe and idempotent',async()=>{
  assert.match(fn,/const winner=.*SELECT \* FROM grc_issues/s);
  assert.match(fn,/client\.query\('ROLLBACK'\)/);
 });
+
+
+test('finding review route relies on the transactional audit event only',async()=>{
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const start=server.indexOf("app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review'");
+ const end=server.indexOf("app.get('/api/grc/assessments/:assessmentId/findings/:findingId/reviews'",start);
+ const route=server.slice(start,end);
+ assert.match(route,/reviewFinding\(u\.userId,req\.params\.assessmentId,req\.params\.findingId/);
+ assert.doesNotMatch(route,/db\.saveAudit/);
+ const review=await readFile(new URL('../src/finding-review.ts',import.meta.url),'utf8');
+ const fn=review.slice(review.indexOf('export async function reviewFinding'),review.indexOf('export async function findingReviewHistory'));
+ assert.match(fn,/INSERT INTO audit_events/);
+ assert.match(fn,/client\.query\('COMMIT'\)/);
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});

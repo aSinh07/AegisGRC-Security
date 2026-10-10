@@ -70,3 +70,13 @@ export async function reconcileInfrastructureCoverage(userId:string,organization
  ON CONFLICT(assessment_id,layer) DO UPDATE SET status=EXCLUDED.status,required=true,engines=EXCLUDED.engines,evidence_count=EXCLUDED.evidence_count,failure_reasons=EXCLUDED.failure_reasons,started_at=COALESCE(assessment_layer_runs.started_at,now()),completed_at=EXCLUDED.completed_at,updated_at=now()`,[crypto.randomUUID(),assessmentId,organizationId,status,engines,count,reasons]);
  return {layer:'INFRASTRUCTURE',status,requiredEngines:engines,evidenceCount:count,reasons,nmap:{complete:nmap},openvas:{complete:openvas}};
 }
+
+export async function reconcileEndpointCoverage(userId:string,organizationId:string,assessmentId:string){
+ await requireOrgPermission(userId,organizationId,'manageAssessment');
+ const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});
+ const ev=(await pool.query('SELECT source,payload FROM evidence WHERE assessment_id=$1 AND source=$2',[assessmentId,'wazuh'])).rows;
+ const valid=ev.some((x:any)=>Number(x.payload?.exitCode)===0&&String(x.payload?.stdout||'').length>0);
+ const reasons=valid?[]:['Wazuh endpoint evidence missing'];const status:LayerStatus=valid?'COMPLETE':'PARTIAL';
+ await pool.query('UPDATE assessment_layer_runs SET status=$4,required=true,engines=$5,evidence_count=$6,failure_reasons=$7,started_at=COALESCE(started_at,now()),completed_at=CASE WHEN $4=\'COMPLETE\' THEN now() ELSE NULL END,updated_at=now() WHERE assessment_id=$1 AND organization_id=$2 AND layer=$3',[assessmentId,organizationId,'ENDPOINT',status,['WAZUH'],valid?ev.length:0,reasons]);
+ return {layer:'ENDPOINT',status,requiredEngines:['WAZUH'],evidenceCount:valid?ev.length:0,reasons,wazuh:{complete:valid}};
+}

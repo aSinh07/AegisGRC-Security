@@ -226,3 +226,19 @@ test('scope control approval locks reviewed state and compare-and-set protects d
  assert.match(fn,/Scope control state changed before approval/);
  assert.match(fn,/client\.query\('ROLLBACK'\)/);
 });
+
+
+test('GRC automation is persisted and tenant-scoped',async()=>{
+ const automation=await readFile(new URL('../src/grc-automation.ts',import.meta.url),'utf8');
+ assert.match(automation,/CREATE TABLE IF NOT EXISTS grc_automation_rules/);
+ assert.match(automation,/CREATE TABLE IF NOT EXISTS grc_automation_runs/);
+ assert.match(automation,/requireOrgPermission\(user,org,'manageOrg'\)/);
+ assert.match(automation,/organization_id=\$2 AND enabled=true FOR UPDATE/);
+ assert.match(automation,/EVIDENCE_EXPIRY/);
+ assert.match(automation,/CONTROL_TEST_DUE/);
+ assert.match(automation,/CAPA_SLA/);
+ assert.match(automation,/RISK_ACCEPTANCE_EXPIRY/);
+ assert.match(automation,/status='EXPIRED'/);
+ assert.match(automation,/status='OVERDUE'/);
+ assert.match(automation,/status='ACCEPTANCE_PENDING'/);
+});

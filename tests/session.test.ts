@@ -50,3 +50,15 @@ test('registration abuse controls and legacy login retirement are enforced',asyn
  assert.match(auth,/totp_verified=false AND created_at < now\(\)-interval '24 hours'/);
  assert.match(auth,/app_auth_attempts WHERE updated_at < now\(\)-interval '2 days'/);
 });
+
+
+test('report step-up authentication is PostgreSQL rate limited',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const step=server.slice(server.indexOf('async function reportAuthorized'),server.indexOf("type Tool=",server.indexOf('async function reportAuthorized')));
+ assert.match(step,/authAttemptKey\(req,'report-step-up',u\.userId\)/);
+ assert.match(step,/authAttemptAllowed\(attemptKey,6,15\)/);
+ assert.match(step,/recordAuthFailure\(attemptKey,6,15\)/);
+ assert.match(step,/clearAuthFailures\(attemptKey\)/);
+ assert.match(step,/STEP_UP_RATE_LIMITED/);
+});

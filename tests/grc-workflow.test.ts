@@ -341,3 +341,5 @@ test('automation only auto-runs deterministic evidence-present tests',async()=>{
  assert.match(fn,/CONTROL_TEST_FAIL:/);
  assert.match(fn,/manualDue:due\.length-autoRun/);
 });
+
+test('Semgrep findings retain stable scanner identity for targeted remediation',async()=>{const s=await readFile(new URL('../src/parsers.ts',import.meta.url),'utf8');assert.match(s,/scannerId:String\(r\.check_id\|\|'semgrep'\)/);assert.match(s,/confidence:'SCANNER_REPORTED'/)});

@@ -80,3 +80,12 @@ export async function reconcileEndpointCoverage(userId:string,organizationId:str
  await pool.query('UPDATE assessment_layer_runs SET status=$4,required=true,engines=$5,evidence_count=$6,failure_reasons=$7,started_at=COALESCE(started_at,now()),completed_at=CASE WHEN $4=\'COMPLETE\' THEN now() ELSE NULL END,updated_at=now() WHERE assessment_id=$1 AND organization_id=$2 AND layer=$3',[assessmentId,organizationId,'ENDPOINT',status,['WAZUH'],valid?ev.length:0,reasons]);
  return {layer:'ENDPOINT',status,requiredEngines:['WAZUH'],evidenceCount:valid?ev.length:0,reasons,wazuh:{complete:valid}};
 }
+
+export async function reconcileWebCoverage(userId:string,organizationId:string,assessmentId:string){
+ await requireOrgPermission(userId,organizationId,'manageAssessment');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});
+ const ev=(await pool.query('SELECT source,payload FROM evidence WHERE assessment_id=$1 AND source = ANY($2::text[])',[assessmentId,['zap','nuclei']])).rows;
+ const valid=(source:string)=>ev.some((x:any)=>x.source===source&&Number(x.payload?.exitCode)===0&&!x.payload?.metadata?.timedOut&&!x.payload?.metadata?.stdoutTruncated&&!x.payload?.metadata?.stderrTruncated&&String(x.payload?.stdout||'').length>0);
+ const zap=valid('zap'),nuclei=valid('nuclei'),reasons:string[]=[];if(!zap)reasons.push('ZAP successful web evidence missing');if(!nuclei)reasons.push('Nuclei successful web evidence missing');const status:LayerStatus=zap&&nuclei?'COMPLETE':'PARTIAL';
+ const updated=(await pool.query('UPDATE assessment_layer_runs SET status=$4,required=true,engines=$5,evidence_count=$6,failure_reasons=$7,started_at=COALESCE(started_at,now()),completed_at=CASE WHEN $4=\'COMPLETE\' THEN now() ELSE NULL END,updated_at=now() WHERE assessment_id=$1 AND organization_id=$2 AND layer=$3 RETURNING *',[assessmentId,organizationId,'WEB',status,['ZAP','NUCLEI'],ev.filter((x:any)=>Number(x.payload?.exitCode)===0&&String(x.payload?.stdout||'').length>0).length,reasons])).rows[0];if(!updated)throw Object.assign(new Error('WEB layer is not initialized'),{statusCode:409});
+ return {layer:'WEB',status,requiredEngines:['ZAP','NUCLEI'],evidenceCount:Number(updated.evidence_count),reasons,zap:{complete:zap},nuclei:{complete:nuclei}};
+}

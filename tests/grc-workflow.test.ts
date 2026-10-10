@@ -31,3 +31,19 @@ test('CAPA evidence retest and finding review audit writes are atomic',async()=>
  const commit=review.indexOf("await client.query('COMMIT')",reviewInsert);
  assert.ok(reviewInsert>=0&&commit>reviewInsert);
 });
+
+
+test('CAPA evidence and retest preconditions are locked inside their transactions',async()=>{
+ const remediation=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ const evidenceStart=remediation.indexOf('export async function submitCapaEvidence');
+ const retestStart=remediation.indexOf('export async function attachRetest',evidenceStart);
+ const closeStart=remediation.indexOf('export async function closeCapa',retestStart);
+ const evidence=remediation.slice(evidenceStart,retestStart),retest=remediation.slice(retestStart,closeStart);
+ assert.ok(evidence.indexOf("client.query('BEGIN')")<evidence.indexOf('FOR UPDATE'));
+ assert.match(evidence,/FOR UPDATE OF v,r/);
+ assert.match(evidence,/client\.query\('ROLLBACK'\)/);
+ assert.ok(retest.indexOf("client.query('BEGIN')")<retest.indexOf('FOR UPDATE'));
+ assert.match(retest,/CAPA is not ready for retest/);
+ assert.match(retest,/grc_control_test_runs WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.match(retest,/client\.query\('ROLLBACK'\)/);
+});

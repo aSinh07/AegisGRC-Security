@@ -9,3 +9,5 @@ test('infrastructure completion requires successful Nmap and OpenVAS evidence',a
 test('server exposes authoritative infrastructure reconciliation endpoint',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/infrastructure\/reconcile/);assert.match(s,/reconcileInfrastructureCoverage/)});
 
 test('OpenVAS targeted retest is server-bound to original infrastructure finding',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/openvas-retest/);assert.match(s,/original\.source!=='openvas'/);assert.match(s,/originalFingerprint:fingerprint/);assert.match(s,/scannerSource:'openvas'/);assert.match(s,/stillPresent\?409:200/);assert.match(s,/TARGETED_RETEST_COMPLETED/)});
+
+test('assessment coverage lifecycle enforces assessment organization ownership',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/requireAssessmentAccess/);assert.match(s,/Assessment does not belong to this organization/);});

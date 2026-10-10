@@ -62,3 +62,17 @@ test('report step-up authentication is PostgreSQL rate limited',async()=>{
  assert.match(step,/clearAuthFailures\(attemptKey\)/);
  assert.match(step,/STEP_UP_RATE_LIMITED/);
 });
+
+
+test('scan targets are revalidated against DNS rebinding and unsafe ports',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(server,/Only standard HTTP\(S\) target ports are allowed/);
+ assert.match(server,/async function revalidateTarget/);
+ assert.match(server,/Target DNS changed to a blocked address/);
+ assert.match(server,/Target DNS changed after authorization; scan refused/);
+ const quick=server.slice(server.indexOf('async function quickPosture'),server.indexOf('function documentSecurityScan'));
+ assert.match(quick,/t=await revalidateTarget\(t\)/);
+ const real=server.slice(server.indexOf('async function executeRealTool'),server.indexOf("app.post('/api/scans/run'"));
+ assert.match(real,/t=await revalidateTarget\(t\)/);
+});

@@ -266,3 +266,31 @@ test('scheduler ingress requires dedicated timing-safe secret',async()=>{
  assert.match(fn,/crypto\.timingSafeEqual/);
  assert.match(fn,/runDueAutomations/);
 });
+
+
+test('evidence validation accepts only latest submitted version with compare-and-set state',async()=>{
+ const evidence=await readFile(new URL('../src/grc-evidence.ts',import.meta.url),'utf8');
+ const start=evidence.indexOf('export async function validateEvidence');
+ const end=evidence.indexOf('export async function createTestDefinition',start);
+ const fn=evidence.slice(start,end);
+ assert.match(fn,/q\.status!=='SUBMITTED'/);
+ assert.match(fn,/ORDER BY version DESC LIMIT 1 FOR UPDATE/);
+ assert.match(fn,/Only the latest evidence version can be validated/);
+ assert.match(fn,/WHERE id=\$1 AND status='SUBMITTED' RETURNING id/);
+ assert.match(fn,/UPDATE grc_evidence_versions SET validated_by=.*validation_note/);
+});
+
+test('CAPA evidence and retest are semantically bound to affected control',async()=>{
+ const remediation=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ const evidenceStart=remediation.indexOf('export async function submitCapaEvidence');
+ const retestStart=remediation.indexOf('export async function attachRetest');
+ const closeStart=remediation.indexOf('export async function closeCapa');
+ const evidenceFn=remediation.slice(evidenceStart,retestStart);
+ const retestFn=remediation.slice(retestStart,closeStart);
+ assert.match(evidenceFn,/SELECT scope_control_id FROM grc_issues/);
+ assert.match(evidenceFn,/ev\.scope_control_id!==issue\.scope_control_id/);
+ assert.match(evidenceFn,/CAPA evidence must belong to the affected control/);
+ assert.match(retestFn,/JOIN grc_control_test_definitions d ON d\.id=r\.test_definition_id/);
+ assert.match(retestFn,/run\.scope_control_id!==issue\.scope_control_id/);
+ assert.match(retestFn,/CAPA retest must test the affected control/);
+});

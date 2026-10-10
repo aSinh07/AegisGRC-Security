@@ -76,3 +76,22 @@ test('finding import requires mutation role in the assessment organization',asyn
  assert.match(route,/const access=await requireAssessmentAccess\(u\.userId,req\.params\.assessmentId\)/);
  assert.match(route,/requireOrgPermission\(u\.userId,access\.organization_id,'findingReview'\)/);
 });
+
+
+test('finding import evidence findings and audit persist atomically',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const store=await readFile(new URL('../src/store.ts',import.meta.url),'utf8');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const start=store.indexOf('saveFindingImport:async');
+ const end=store.indexOf('saveEvidence:async',start);
+ const tx=store.slice(start,end);
+ assert.match(tx,/client\.query\('BEGIN'\)/);
+ assert.match(tx,/INSERT INTO evidence/);
+ assert.match(tx,/INSERT INTO findings/);
+ assert.match(tx,/INSERT INTO audit_events/);
+ assert.match(tx,/client\.query\('COMMIT'\)/);
+ assert.match(tx,/client\.query\('ROLLBACK'\)/);
+ const route=server.slice(server.indexOf("app.post('/api/grc/assessments/:assessmentId/finding-import'"),server.indexOf("app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review'"));
+ assert.match(route,/db\.saveFindingImport\(ev,parsed\.findings,audit\)/);
+ assert.doesNotMatch(route,/db\.saveEvidence\(ev\)/);
+});

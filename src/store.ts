@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';import path from 'node:path';import pg from 'pg';
 import type { Assessment,Evidence,Finding,AuditEvent } from './models.js';
+import {findingFingerprint} from './finding-correlation.js';
 const dir=process.env.DATA_DIR||'/tmp/aegis-data'; const url=process.env.DATABASE_URL;
 const production=process.env.NODE_ENV==='production';
 if(production&&!url) throw new Error('DATABASE_URL is required in production');
@@ -36,7 +37,7 @@ export const db={
   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
  },
  saveEvidence:async(x:Evidence)=>{if(!pool)return rw<Evidence>('evidence.json',a=>[...a,x]);if(!/^[0-9a-f]{64}$/.test(x.sha256))throw new Error('Evidence SHA-256 must be a server-computed lowercase 64-character digest');const byteLength=Buffer.byteLength(JSON.stringify({stdout:x.stdout||'',stderr:x.stderr||'',metadata:x.metadata||{}}));await pool.query(`INSERT INTO evidence(id,assessment_id,source,sha256,created_at,payload,byte_length,integrity_verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,now()) ON CONFLICT(id) DO NOTHING`,[x.id,x.assessmentId,x.source,x.sha256,x.createdAt,x,byteLength]);return []},
- saveFindings:async(xs:Finding[])=>{if(!pool)return rw<Finding>('findings.json',a=>[...a,...xs.filter(x=>!a.some(v=>v.id===x.id))]);for(const x of xs)await insert('findings',x,['id','assessment_id','severity','source','created_at','payload'],[x.id,x.assessmentId,x.severity,x.source,x.createdAt,x]);return []},
+ saveFindings:async(xs:Finding[])=>{xs=xs.map(x=>({...x,fingerprint:x.fingerprint||findingFingerprint(x)}));if(!pool)return rw<Finding>('findings.json',a=>[...a,...xs.filter(x=>!a.some(v=>v.id===x.id))]);for(const x of xs)await insert('findings',x,['id','assessment_id','severity','source','created_at','payload'],[x.id,x.assessmentId,x.severity,x.source,x.createdAt,x]);return []},
  saveAudit:async(x:AuditEvent)=>{if(!pool)return rw<AuditEvent>('audit.json',a=>[...a,x]);await insert('audit_events',x,['id','assessment_id','action','created_at','payload'],[x.id,x.assessmentId||null,x.action,x.createdAt,x]);return []},
  saveDocument:async(x:{id:string,assessmentId:string,filename:string,mimeType:string,size:number,sha256:string,createdAt:string,content:Buffer})=>{if(!pool)throw new Error('Document vault requires PostgreSQL');await pool.query('INSERT INTO documents(id,assessment_id,filename,mime_type,size_bytes,sha256,created_at,content) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[x.id,x.assessmentId,x.filename,x.mimeType,x.size,x.sha256,x.createdAt,x.content])},
  documents:async(assessmentId:string)=>{if(!pool)return [];const r=await pool.query('SELECT id,assessment_id as "assessmentId",filename,mime_type as "mimeType",size_bytes as size,sha256,created_at as "createdAt" FROM documents WHERE assessment_id=$1 ORDER BY created_at DESC',[assessmentId]);return r.rows},

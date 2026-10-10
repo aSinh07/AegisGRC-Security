@@ -19,3 +19,5 @@ test('endpoint routes bind Wazuh ingest and retest to assessment and fingerprint
 
 test('web coverage requires successful ZAP and Nuclei evidence',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/reconcileWebCoverage/);assert.match(s,/ZAP successful web evidence missing/);assert.match(s,/Nuclei successful web evidence missing/);assert.match(s,/zap&&nuclei\?'COMPLETE':'PARTIAL'/)});
 test('server exposes authoritative web reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/web\/reconcile/);assert.match(s,/reconcileWebCoverage/)});
+
+test('infrastructure evidence count evaluates each evidence row independently',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/const validEvidence=/);assert.match(s,/count=ev\.filter\(validEvidence\)\.length/)});

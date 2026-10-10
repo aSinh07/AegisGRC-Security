@@ -23,6 +23,8 @@ export async function initUsers(){
  )`);
  await pool.query('CREATE INDEX IF NOT EXISTS app_auth_attempts_blocked_idx ON app_auth_attempts(blocked_until)');
  await pool.query('DELETE FROM app_sessions WHERE expires_at<=now()');
+ await pool.query("DELETE FROM app_auth_attempts WHERE updated_at < now()-interval '2 days' AND (blocked_until IS NULL OR blocked_until<=now())");
+ await pool.query("DELETE FROM app_users WHERE totp_verified=false AND created_at < now()-interval '24 hours'");
 }
 export async function beginRegistration(email:string,password:string,profile:{fullName?:string;designation?:string;companyName?:string}={}){
  email=email.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||password.length<10)throw Error('Valid email and password of at least 10 characters required');
@@ -30,6 +32,7 @@ export async function beginRegistration(email:string,password:string,profile:{fu
  if(fullName.length<2||fullName.length>120)throw Error('Full name must be 2-120 characters');
  if(designation.length<2||designation.length>120)throw Error('Designation must be 2-120 characters');
  if(companyName.length<2||companyName.length>160)throw Error('Company name must be 2-160 characters');
+ await pool.query("DELETE FROM app_users WHERE email=$1 AND totp_verified=false AND created_at < now()-interval '24 hours'",[email]);
  const existing=await pool.query('SELECT id FROM app_users WHERE email=$1',[email]);
  if(existing.rows[0])throw Error('Account already exists or registration is already pending; sign in or complete recovery instead');
  const secret=b32enc(crypto.randomBytes(20)),h=hashPassword(password),id=crypto.randomUUID();

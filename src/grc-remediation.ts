@@ -89,8 +89,10 @@ export async function submitCapaEvidence(user:string,org:string,capaId:string,ev
   if(!c)throw Object.assign(new Error('CAPA not found'),{statusCode:404});
   if(!['OPEN','IN_PROGRESS','EVIDENCE_SUBMITTED','CHANGES_REQUESTED'].includes(c.status))throw Object.assign(new Error('CAPA is not accepting evidence in its current state'),{statusCode:409});
   if(c.owner_user_id&&c.owner_user_id!==user&&!['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST'].includes(m.role))throw Object.assign(new Error('CAPA owner required'),{statusCode:403});
-  const ev=(await client.query(`SELECT v.id FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE v.id=$1 AND r.organization_id=$2 AND r.status='VALID' AND v.validated_at IS NOT NULL AND v.valid_until>now() FOR UPDATE OF v,r`,[evidenceVersionId,org])).rows[0];
+  const issue=(await client.query('SELECT scope_control_id FROM grc_issues WHERE id=$1 AND organization_id=$2 FOR UPDATE',[c.issue_id,org])).rows[0];
+  const ev=(await client.query(`SELECT v.id,r.scope_control_id FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE v.id=$1 AND r.organization_id=$2 AND r.status='VALID' AND v.validated_at IS NOT NULL AND v.valid_until>now() FOR UPDATE OF v,r`,[evidenceVersionId,org])).rows[0];
   if(!ev)throw new Error('Current validated evidence version required');
+  if(issue?.scope_control_id&&ev.scope_control_id!==issue.scope_control_id)throw Object.assign(new Error('CAPA evidence must belong to the affected control'),{statusCode:409});
   await client.query('INSERT INTO grc_capa_evidence(capa_id,evidence_version_id,linked_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[capaId,evidenceVersionId,user]);
   const out=(await client.query(`UPDATE grc_capa SET status='RETEST_PENDING',submitted_by=$2,updated_at=now() WHERE id=$1 AND status = ANY($3::text[]) RETURNING *`,[capaId,user,['OPEN','IN_PROGRESS','EVIDENCE_SUBMITTED','CHANGES_REQUESTED']])).rows[0];
   if(!out)throw Object.assign(new Error('CAPA state changed before evidence submission'),{statusCode:409});
@@ -105,8 +107,10 @@ export async function attachRetest(user:string,org:string,capaId:string,testRunI
   const c=(await client.query('SELECT * FROM grc_capa WHERE id=$1 AND organization_id=$2 FOR UPDATE',[capaId,org])).rows[0];
   if(!c)throw Object.assign(new Error('CAPA not found'),{statusCode:404});
   if(c.status!=='RETEST_PENDING'&&c.status!=='CHANGES_REQUESTED')throw Object.assign(new Error('CAPA is not ready for retest'),{statusCode:409});
-  const run=(await client.query('SELECT * FROM grc_control_test_runs WHERE id=$1 AND organization_id=$2 FOR UPDATE',[testRunId,org])).rows[0];
+  const run=(await client.query(`SELECT r.*,d.scope_control_id FROM grc_control_test_runs r JOIN grc_control_test_definitions d ON d.id=r.test_definition_id WHERE r.id=$1 AND r.organization_id=$2 FOR UPDATE OF r,d`,[testRunId,org])).rows[0];
   if(!run)throw new Error('Retest run not found');
+  const issue=(await client.query('SELECT scope_control_id FROM grc_issues WHERE id=$1 AND organization_id=$2 FOR UPDATE',[c.issue_id,org])).rows[0];
+  if(issue?.scope_control_id&&run.scope_control_id!==issue.scope_control_id)throw Object.assign(new Error('CAPA retest must test the affected control'),{statusCode:409});
   if(run.result!=='PASS'&&run.result!=='FAIL')throw Object.assign(new Error('Retest must have a deterministic PASS or FAIL result'),{statusCode:409});
   const status=run.result==='PASS'?'VALIDATION':'CHANGES_REQUESTED';
   const out=(await client.query(`UPDATE grc_capa SET retest_run_id=$2,status=$3,updated_at=now() WHERE id=$1 AND status = ANY($4::text[]) RETURNING *`,[capaId,testRunId,status,['RETEST_PENDING','CHANGES_REQUESTED']])).rows[0];

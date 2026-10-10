@@ -15,3 +15,8 @@ test('non-remediation review decisions remain available without retest closure',
  assert.match(s,/if\(decision==='REMEDIATED'\)/);
  assert.match(s,/CONFIRMED.*FALSE_POSITIVE.*ACCEPTED.*REMEDIATED/s);
 });
+
+test('remediation evidence must be explicitly bound to the finding fingerprint',async()=>{
+ const s=await readFile(new URL('../src/finding-review.ts',import.meta.url),'utf8');
+ assert.match(s,/retestMode/);assert.match(s,/TARGETED/);assert.match(s,/retestOfFindingId/);assert.match(s,/retestOfFingerprint/);
+});

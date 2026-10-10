@@ -17,6 +17,7 @@ import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,u
 import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport } from './grc-review.js';
 import { initGrcCore } from './grc-core.js';
 import { initOrganizations,createOrganization,memberships,createScope,listScopes,addMember,listMembers,assignAssessmentToOrganization,requireAssessmentAccess,requireOrgPermission } from './grc-organizations.js';
+import {organizationAuditReadiness} from './grc-readiness.js';
 import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,mapControl,setScopeControl,approveScopeControl,statementOfApplicability,listCanonicalControls,listFrameworkRequirements } from './grc-controls.js';
 import { initEvidenceEngine,createEvidenceRequest,submitEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence,listControlTests } from './grc-evidence.js';
 import { initIssueRiskCapa,listIssues,createRiskFromIssue,approveRiskAcceptance,createCapa,submitCapaEvidence,attachRetest,closeCapa,listCapa,listEnterpriseRisks } from './grc-remediation.js';
@@ -157,6 +158,10 @@ app.post('/api/grc/organizations/:orgId/capa/:capaId/evidence/:evidenceVersionId
 app.post('/api/grc/organizations/:orgId/capa/:capaId/retest/:testRunId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await attachRetest(u.userId,req.params.orgId,req.params.capaId,req.params.testRunId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/capa/:capaId/close',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await closeCapa(u.userId,req.params.orgId,req.params.capaId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/my-work',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await myWork(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ res.json(await organizationAuditReadiness(u.userId,req.params.orgId,req.params.scopeId));
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/dashboard',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await operationsDashboard(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/sla',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await sla(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/timeline/:type/:recordId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({events:await timeline(u.userId,req.params.orgId,req.params.type,req.params.recordId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

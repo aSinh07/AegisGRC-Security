@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {ASSESSMENT_LAYERS,assessmentCoverage,type AssessmentLayer,type LayerStatus} from './assessment-coverage.js';
-import {requireOrgPermission} from './grc-organizations.js';
+import {requireOrgPermission,requireAssessmentAccess} from './grc-organizations.js';
 
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
 const assetTypes=['DOMAIN','IP','HOST','SERVER','WORKSTATION','MOBILE','WEB_APP','API','CLOUD_ACCOUNT','CONTAINER','REPOSITORY','DATABASE','STORAGE','IDENTITY_PROVIDER','NETWORK_DEVICE'] as const;
@@ -37,25 +37,25 @@ export async function listAssessmentAssets(userId:string,organizationId:string){
  await requireOrgPermission(userId,organizationId,'read');return (await pool.query('SELECT * FROM assessment_assets WHERE organization_id=$1 ORDER BY created_at DESC',[organizationId])).rows
 }
 export async function initializeLayerCoverage(userId:string,organizationId:string,assessmentId:string,requirements:Partial<Record<AssessmentLayer,boolean>>={}){
- await requireOrgPermission(userId,organizationId,'manageAssessment');
+ await requireOrgPermission(userId,organizationId,'manageAssessment');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});
  for(const layer of ASSESSMENT_LAYERS)await pool.query(`INSERT INTO assessment_layer_runs(id,assessment_id,organization_id,layer,required) VALUES($1,$2,$3,$4,$5)
  ON CONFLICT(assessment_id,layer) DO UPDATE SET required=EXCLUDED.required,updated_at=now()`,[crypto.randomUUID(),assessmentId,organizationId,layer,requirements[layer]!==false]);
  return assessmentLayerCoverage(userId,organizationId,assessmentId)
 }
 export async function recordLayerResult(userId:string,organizationId:string,assessmentId:string,layer:AssessmentLayer,input:{status:LayerStatus;engines?:string[];evidenceCount?:number;failureReasons?:string[]}){
- await requireOrgPermission(userId,organizationId,'manageAssessment');if(!ASSESSMENT_LAYERS.includes(layer))throw new Error('Invalid assessment layer');
+ await requireOrgPermission(userId,organizationId,'manageAssessment');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});if(!ASSESSMENT_LAYERS.includes(layer))throw new Error('Invalid assessment layer');
  if(input.status==='COMPLETE'&&Number(input.evidenceCount||0)<1)throw new Error('Complete assessment layer requires persisted evidence');
  return (await pool.query(`UPDATE assessment_layer_runs SET status=$4,engines=$5,evidence_count=$6,failure_reasons=$7,
  started_at=COALESCE(started_at,now()),completed_at=CASE WHEN $4 IN ('COMPLETE','PARTIAL','FAILED','NOT_APPLICABLE') THEN now() ELSE NULL END,updated_at=now()
  WHERE assessment_id=$1 AND organization_id=$2 AND layer=$3 RETURNING *`,[assessmentId,organizationId,layer,input.status,input.engines||[],Number(input.evidenceCount||0),input.failureReasons||[]])).rows[0]
 }
 export async function assessmentLayerCoverage(userId:string,organizationId:string,assessmentId:string){
- await requireOrgPermission(userId,organizationId,'read');const rows=(await pool.query('SELECT layer,status,required,engines,evidence_count,failure_reasons FROM assessment_layer_runs WHERE assessment_id=$1 AND organization_id=$2 ORDER BY layer',[assessmentId,organizationId])).rows;
+ await requireOrgPermission(userId,organizationId,'read');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});const rows=(await pool.query('SELECT layer,status,required,engines,evidence_count,failure_reasons FROM assessment_layer_runs WHERE assessment_id=$1 AND organization_id=$2 ORDER BY layer',[assessmentId,organizationId])).rows;
  return {layers:rows,summary:assessmentCoverage(rows.map(r=>({layer:r.layer,status:r.status,required:r.required,engines:r.engines||[],evidenceCount:Number(r.evidence_count),failureReasons:r.failure_reasons||[]})))}
 }
 
 export async function reconcileInfrastructureCoverage(userId:string,organizationId:string,assessmentId:string){
- await requireOrgPermission(userId,organizationId,'manageAssessment');
+ await requireOrgPermission(userId,organizationId,'manageAssessment');const assessmentAccess=await requireAssessmentAccess(userId,assessmentId);if(assessmentAccess.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});
  const access=(await pool.query('SELECT 1 FROM grc_assessment_org WHERE assessment_id=$1 AND organization_id=$2',[assessmentId,organizationId])).rows[0];if(!access)throw new Error('Assessment is not assigned to this organization');
  const ev=(await pool.query(`SELECT source,payload FROM evidence WHERE assessment_id=$1 AND source = ANY($2::text[])`,[assessmentId,['nmap','openvas']])).rows;
  const valid=(source:string)=>ev.some((x:any)=>x.source===source&&Number(x.payload?.exitCode)===0&&!x.payload?.metadata?.timedOut&&!x.payload?.metadata?.stdoutTruncated&&!x.payload?.metadata?.stderrTruncated&&String(x.payload?.stdout||'').length>0);

@@ -21,6 +21,15 @@ export async function initFindingReview(){
  );
  ALTER TABLE finding_reviews ADD COLUMN IF NOT EXISTS retest_evidence_id uuid REFERENCES evidence(id) ON DELETE RESTRICT;
  ALTER TABLE finding_reviews ADD COLUMN IF NOT EXISTS retest_fingerprint text;
+ CREATE TABLE IF NOT EXISTS finding_retests(
+  id uuid PRIMARY KEY,finding_id uuid NOT NULL REFERENCES findings(id) ON DELETE CASCADE,
+  assessment_id uuid NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+  evidence_id uuid NOT NULL UNIQUE REFERENCES evidence(id) ON DELETE RESTRICT,
+  fingerprint text NOT NULL,scanner_source text NOT NULL,scanner_id text,
+  created_by uuid NOT NULL REFERENCES app_users(id) ON DELETE RESTRICT,
+  created_at timestamptz NOT NULL DEFAULT now()
+ );
+ CREATE INDEX IF NOT EXISTS finding_retests_finding_idx ON finding_retests(finding_id,created_at DESC);
  CREATE INDEX IF NOT EXISTS finding_reviews_finding_idx ON finding_reviews(finding_id,created_at DESC);
  CREATE INDEX IF NOT EXISTS finding_reviews_assessment_idx ON finding_reviews(assessment_id,created_at DESC);
  `);
@@ -51,8 +60,8 @@ export async function reviewFinding(userId:string,assessmentId:string,findingId:
    if(Number(ev.payload?.exitCode)!==0)throw Object.assign(new Error('Retest evidence must come from a successful tool execution'),{statusCode:409});
    if(new Date(ev.created_at).getTime()<=new Date(original.createdAt).getTime())throw Object.assign(new Error('Retest evidence must be newer than the original finding'),{statusCode:409});
    if(String(ev.source)!==String(original.source))throw Object.assign(new Error('Retest evidence must use the same scanner source as the original finding'),{statusCode:409});
-   const meta=ev.payload?.metadata||{};
-   if(meta.retestMode!=='TARGETED'||String(meta.retestOfFindingId||'')!==findingId||String(meta.retestOfFingerprint||'')!==fingerprint)throw Object.assign(new Error('Retest evidence must explicitly reference this finding and fingerprint'),{statusCode:409});
+   const link=(await client.query('SELECT evidence_id,finding_id,fingerprint,scanner_source FROM finding_retests WHERE evidence_id=$1 AND assessment_id=$2',[retestEvidenceId,assessmentId])).rows[0];
+   if(!link||String(link.finding_id)!==findingId||String(link.fingerprint)!==fingerprint||String(link.scanner_source)!==String(original.source))throw Object.assign(new Error('Retest evidence is not bound to this finding fingerprint by the server'),{statusCode:409});
    const stillPresent=(await client.query("SELECT 1 FROM findings WHERE assessment_id=$1 AND id<>$2 AND COALESCE(payload->>'fingerprint','')=$3 AND created_at >= $4 LIMIT 1",[assessmentId,findingId,fingerprint,ev.created_at])).rows[0];
    if(stillPresent)throw Object.assign(new Error('Retest still detects the original vulnerability fingerprint'),{statusCode:409});
   }

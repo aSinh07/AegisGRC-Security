@@ -22,7 +22,7 @@ import {readinessPdf,readinessDocx,readinessXlsx} from './readiness-exporters.js
 import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,mapControl,setScopeControl,approveScopeControl,statementOfApplicability,listCanonicalControls,listFrameworkRequirements } from './grc-controls.js';
 import { initEvidenceEngine,createEvidenceRequest,submitEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence,listControlTests } from './grc-evidence.js';
 import { initIssueRiskCapa,listIssues,createRiskFromIssue,approveRiskAcceptance,createCapa,submitCapaEvidence,attachRetest,closeCapa,listCapa,listEnterpriseRisks } from './grc-remediation.js';
-import { initGrcOperations,myWork,timeline,operationsDashboard,sla } from './grc-operations.js';
+import { initGrcOperations,myWork,timeline,operationsDashboard,sla,notifications,markNotification } from './grc-operations.js';
 import {initGrcAutomation,createAutomationRule,listAutomation,runAutomationRule,runDueAutomations} from './grc-automation.js';
 import multer from 'multer';
 import { frameworkCatalog,mapFinding } from './grc.js';
@@ -161,6 +161,8 @@ app.post('/api/grc/organizations/:orgId/issues/:issueId/capa',async(req,res)=>{t
 app.post('/api/grc/organizations/:orgId/capa/:capaId/evidence/:evidenceVersionId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await submitCapaEvidence(u.userId,req.params.orgId,req.params.capaId,req.params.evidenceVersionId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/capa/:capaId/retest/:testRunId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await attachRetest(u.userId,req.params.orgId,req.params.capaId,req.params.testRunId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/capa/:capaId/close',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await closeCapa(u.userId,req.params.orgId,req.params.capaId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/notifications',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await notifications(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.patch('/api/grc/organizations/:orgId/notifications/:id',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await markNotification(u.userId,req.params.orgId,req.params.id,String(req.body?.status||'').toUpperCase()))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/my-work',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await myWork(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});

@@ -152,3 +152,35 @@ test('evidence reviewer independence is checked under transaction locks',async()
  assert.ok(fn.indexOf('Evidence submitter cannot validate own evidence')<fn.indexOf("client.query('COMMIT')"));
  assert.match(fn,/client\.query\('ROLLBACK'\)/);
 });
+
+
+test('risk acceptance eligibility is locked and compare-and-set protected',async()=>{
+ const remediation=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ const start=remediation.indexOf('export async function approveRiskAcceptance');
+ const end=remediation.indexOf('export async function createCapa',start);
+ const fn=remediation.slice(start,end);
+ assert.ok(fn.indexOf("client.query('BEGIN')")<fn.indexOf('grc_enterprise_risks WHERE id=$1'));
+ assert.match(fn,/grc_enterprise_risks WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.ok(fn.indexOf('FOR UPDATE')<fn.indexOf("r.treatment!=='ACCEPT'"));
+ assert.match(fn,/status='ACCEPTANCE_PENDING' RETURNING \*/);
+ assert.match(fn,/Risk state changed before acceptance/);
+ assert.ok(fn.indexOf('RISK_ACCEPTED')<fn.indexOf("client.query('COMMIT')"));
+ assert.match(fn,/client\.query\('ROLLBACK'\)/);
+});
+
+test('issue derived risk and CAPA lock source issue and reject closed state',async()=>{
+ const remediation=await readFile(new URL('../src/grc-remediation.ts',import.meta.url),'utf8');
+ const riskStart=remediation.indexOf('export async function createRiskFromIssue');
+ const acceptStart=remediation.indexOf('export async function approveRiskAcceptance',riskStart);
+ const risk=remediation.slice(riskStart,acceptStart);
+ assert.ok(risk.indexOf("client.query('BEGIN')")<risk.indexOf('grc_issues WHERE id=$1'));
+ assert.match(risk,/grc_issues WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.match(risk,/Closed issue cannot create a new risk/);
+ const capaStart=remediation.indexOf('export async function createCapa',acceptStart);
+ const evidenceStart=remediation.indexOf('export async function submitCapaEvidence',capaStart);
+ const capa=remediation.slice(capaStart,evidenceStart);
+ assert.ok(capa.indexOf("client.query('BEGIN')")<capa.indexOf('grc_issues WHERE id=$1'));
+ assert.match(capa,/grc_issues WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.match(capa,/Closed issue cannot create CAPA/);
+ assert.match(capa,/client\.query\('ROLLBACK'\)/);
+});

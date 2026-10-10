@@ -283,15 +283,15 @@ function documentSecurityScan(file:Express.Multer.File){
  return {execution:'IN_MEMORY_STATIC_DOCUMENT_SECURITY_SCAN',filename:file.originalname,mimeType:file.mimetype,size:file.size,sha256,verdict:signals.some(x=>x.severity==='CRITICAL')?'HIGH_RISK':signals.length?'SUSPICIOUS':'NO_STATIC_INDICATORS_OBSERVED',riskScore:score,signals,note:'Static triage only; no file is executed and this is not a malware-free guarantee. Upload bytes are held in memory for this request and are not stored by this endpoint.'};
 }
 function run(cmd:string,args:string[]){
-  return new Promise<{stdout:string;stderr:string;exitCode:number|null;durationMs:number}>((resolve,reject)=>{
-    const started=Date.now(); let out='',err='',done=false;
+  return new Promise<{stdout:string;stderr:string;exitCode:number|null;durationMs:number;timedOut:boolean;stdoutTruncated:boolean;stderrTruncated:boolean}>((resolve,reject)=>{
+    const started=Date.now();let out='',err='',done=false,timedOut=false,stdoutTruncated=false,stderrTruncated=false;
     const child=spawn(cmd,args,{shell:false,stdio:['ignore','pipe','pipe']});
-    const timer=setTimeout(()=>child.kill('SIGKILL'),TIMEOUT);
-    const append=(base:string,chunk:Buffer)=> (base+chunk.toString()).slice(0,MAX);
-    child.stdout.on('data',(d:Buffer)=>out=append(out,d));
-    child.stderr.on('data',(d:Buffer)=>err=append(err,d));
+    const timer=setTimeout(()=>{timedOut=true;child.kill('SIGKILL')},TIMEOUT);
+    const append=(base:string,chunk:Buffer,which:'stdout'|'stderr')=>{const next=base+chunk.toString();if(next.length>MAX){if(which==='stdout')stdoutTruncated=true;else stderrTruncated=true}return next.slice(0,MAX)};
+    child.stdout.on('data',(d:Buffer)=>out=append(out,d,'stdout'));
+    child.stderr.on('data',(d:Buffer)=>err=append(err,d,'stderr'));
     child.on('error',e=>{if(!done){done=true;clearTimeout(timer);reject(e)}});
-    child.on('close',code=>{if(!done){done=true;clearTimeout(timer);resolve({stdout:out,stderr:err,exitCode:code,durationMs:Date.now()-started})}});
+    child.on('close',code=>{if(!done){done=true;clearTimeout(timer);resolve({stdout:out,stderr:err,exitCode:code,durationMs:Date.now()-started,timedOut,stdoutTruncated,stderrTruncated})}});
   });
 }
 app.get('/api/ready',async(_req,res)=>{try{res.json(await db.ready())}catch(e:any){res.status(503).json({ok:false,error:e.message})}});
@@ -336,15 +336,15 @@ app.post('/api/scans/trivy',async(req,res)=>{try{
 app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
 async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei',assessmentId:string,t:{url:URL,addresses:string[]}){
  t=await revalidateTarget(t);
- const startedAt=new Date().toISOString();let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number};let zapAlerts:any[]=[];
- if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}
+ const startedAt=new Date().toISOString();let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number;timedOut:boolean;stdoutTruncated:boolean;stderrTruncated:boolean};let zapAlerts:any[]=[];
+ if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0,timedOut:false,stdoutTruncated:false,stderrTruncated:false}}
  else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p-','--open','-oX','-',t.url.hostname]:tool==='wapiti'?['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:tool==='nuclei'?['-u',t.url.origin,'-jsonl','-silent','-severity','info,low,medium,high,critical','-timeout','10','-retries','1']:['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
  const completedAt=new Date().toISOString(),evidence=JSON.stringify({tool,target:t.url.origin,startedAt,completedAt,...result}),sha256=crypto.createHash('sha256').update(evidence).digest('hex');
- const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs}};
+ const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs,timedOut:result.timedOut,stdoutTruncated:result.stdoutTruncated,stderrTruncated:result.stderrTruncated}};
  await db.saveEvidence(ev);
  const findings=tool==='wapiti'?wapitiFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='nmap'?nmapFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='nuclei'?nucleiJsonlFindings(assessmentId,t.url.origin,sha256,result.stdout):tool==='zap'?zapFindings(assessmentId,t.url.origin,sha256,zapAlerts):[];
  if(findings.length)await db.saveFindings(findings);
- await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'REAL_SCAN_COMPLETED',actor:'operator',createdAt:completedAt,metadata:{tool,exitCode:result.exitCode,evidenceHash:sha256,durationMs:result.durationMs,findingCount:findings.length}});
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'REAL_SCAN_COMPLETED',actor:'operator',createdAt:completedAt,metadata:{tool,exitCode:result.exitCode,evidenceHash:sha256,durationMs:result.durationMs,timedOut:result.timedOut,stdoutTruncated:result.stdoutTruncated,stderrTruncated:result.stderrTruncated,findingCount:findings.length}});
  console.log('\n[AEGIS REAL SCAN] '+tool.toUpperCase()+' | '+t.url.origin+' | exit='+result.exitCode+' | '+result.durationMs+'ms | findings='+findings.length);
  console.log('[AEGIS EVIDENCE] SHA-256 '+sha256);
  for(const x of findings)console.log('[AEGIS FINDING] ['+x.severity+'] '+x.title+' | '+x.description+' | evidence='+x.evidenceHash);

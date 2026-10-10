@@ -185,12 +185,22 @@ async function validateTarget(raw:string){
   const u=new URL(raw);
   if(!['http:','https:'].includes(u.protocol)) throw new Error('Only HTTP(S) targets are supported');
   if(u.username||u.password) throw new Error('Credentials in target URLs are not allowed');
+  if(u.port&&u.port!=='80'&&u.port!=='443') throw new Error('Only standard HTTP(S) target ports are allowed');
+  if(net.isIP(u.hostname)&&blocked(u.hostname)) throw new Error('Private, local, reserved or link-local targets are blocked');
   const records=await dns.lookup(u.hostname,{all:true,verbatim:true});
   if(!records.length) throw new Error('Target did not resolve');
   if(records.some(r=>blocked(r.address))) throw new Error('Private, local, reserved or link-local targets are blocked');
-  return {url:u,addresses:records.map(r=>r.address)};
+  return {url:u,addresses:[...new Set(records.map(r=>r.address))]};
+}
+async function revalidateTarget(t:{url:URL,addresses:string[]}){
+ const records=await dns.lookup(t.url.hostname,{all:true,verbatim:true});
+ if(!records.length||records.some(r=>blocked(r.address)))throw new Error('Target DNS changed to a blocked address');
+ const addresses=[...new Set(records.map(r=>r.address))];
+ if(addresses.some(ip=>!t.addresses.includes(ip)))throw new Error('Target DNS changed after authorization; scan refused');
+ return {...t,addresses};
 }
 async function quickPosture(assessmentId:string,t:{url:URL,addresses:string[]}){
+ t=await revalidateTarget(t);
  const started=Date.now(),createdAt=new Date().toISOString();
  const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),1200);
  let status=0,headers:any={},error='';
@@ -275,6 +285,7 @@ app.post('/api/scans/quick',async(req,res)=>{try{
 }catch(e:any){res.status(400).json({error:e.message})}});
 app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
 async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap',assessmentId:string,t:{url:URL,addresses:string[]}){
+ t=await revalidateTarget(t);
  const startedAt=new Date().toISOString();let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number};let zapAlerts:any[]=[];
  if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}
  else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p-','--open','-oX','-',t.url.hostname]:tool==='wapiti'?['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
@@ -306,6 +317,7 @@ app.post('/api/scans/run',async(req,res)=>{
       const runs=[];for(const name of ['nmap','zap','wapiti','sqlmap'] as const){try{runs.push(await executeRealTool(name,assessmentId,t))}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);runs.push({tool:name,error:e.message,findings:[]})}}
       const fresh=await db.assessmentForUser(u.userId,assessmentId)||assessment;const allFindings=await db.findingsForAssessment(assessmentId);const allEvidence=await db.evidenceForAssessment(assessmentId);await db.saveAssessment({...fresh,status:'COMPLETED',findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});console.log('[AEGIS FULL ASSESSMENT] COMPLETE | findings='+allFindings.length+' | evidence='+allEvidence.length);return res.json({execution:'REAL_FULL_ASSESSMENT',target:t.url.origin,assessmentId,tools:['http-posture','nmap','zap','wapiti','sqlmap'],runs,summary:{findings:allFindings.length,evidenceRecords:allEvidence.length},findings:allFindings});
     }
+    const safeTarget=await revalidateTarget(t);t=safeTarget;
     const startedAt=new Date().toISOString();
     let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number}; let zapAlerts:any[]=[];
     if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}

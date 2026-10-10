@@ -311,3 +311,16 @@ test('organization membership changes protect last administrator',async()=>{
  assert.match(statusFn,/admins<=1/);
  assert.match(statusFn,/BEGIN/);assert.match(statusFn,/COMMIT/);assert.match(statusFn,/ROLLBACK/);
 });
+
+
+test('GRC notifications are persistent tenant-safe and deduplicated',async()=>{
+ const ops=await readFile(new URL('../src/grc-operations.ts',import.meta.url),'utf8');
+ const automation=await readFile(new URL('../src/grc-automation.ts',import.meta.url),'utf8');
+ assert.match(ops,/CREATE TABLE IF NOT EXISTS grc_notifications/);
+ assert.match(ops,/UNIQUE\(organization_id,user_id,dedupe_key\)/);
+ assert.match(ops,/WHERE organization_id=\$1 AND user_id=\$2/);
+ assert.match(ops,/WHERE id=\$1 AND organization_id=\$2 AND user_id=\$3/);
+ assert.match(automation,/CAPA_OVERDUE:/);
+ assert.match(automation,/RISK_ACCEPTANCE_EXPIRED:/);
+ assert.match(automation,/ON CONFLICT\(organization_id,user_id,dedupe_key\) DO NOTHING/);
+});

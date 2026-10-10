@@ -12,3 +12,5 @@ test('Trivy route requires assessment membership and manageAssessment permission
  assert.match(body,/assessmentForUser/);assert.match(body,/requireOrgPermission\(u\.userId,access\.organization_id,'manageAssessment'\)/);
  assert.doesNotMatch(body,/status:'COMPLETED'/);
 });
+
+test('container image scanner rejects unsafe or empty references',async()=>{await assert.rejects(()=>scanContainerImageWithTrivy(''));await assert.rejects(()=>scanContainerImageWithTrivy('alpine:latest;id'));await assert.rejects(()=>scanContainerImageWithTrivy('x | sh'))});

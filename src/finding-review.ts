@@ -46,10 +46,11 @@ export async function reviewFinding(userId:string,assessmentId:string,findingId:
   if(decision==='REMEDIATED'){
    retestEvidenceId=String(input.retestEvidenceId||'').trim();
    if(!retestEvidenceId)throw Object.assign(new Error('REMEDIATED requires successful retest evidence'),{statusCode:409});
-   const ev=(await client.query('SELECT id,created_at,exit_code FROM evidence WHERE id=$1 AND assessment_id=$2 FOR UPDATE',[retestEvidenceId,assessmentId])).rows[0];
+   const ev=(await client.query('SELECT id,source,created_at,exit_code,metadata FROM evidence WHERE id=$1 AND assessment_id=$2 FOR UPDATE',[retestEvidenceId,assessmentId])).rows[0];
    if(!ev)throw Object.assign(new Error('Retest evidence not found in this assessment'),{statusCode:409});
    if(Number(ev.exit_code)!==0)throw Object.assign(new Error('Retest evidence must come from a successful tool execution'),{statusCode:409});
    if(new Date(ev.created_at).getTime()<=new Date(original.createdAt).getTime())throw Object.assign(new Error('Retest evidence must be newer than the original finding'),{statusCode:409});
+   if(String(ev.source)!==String(original.source))throw Object.assign(new Error('Retest evidence must use the same scanner source as the original finding'),{statusCode:409});
    const stillPresent=(await client.query("SELECT 1 FROM findings WHERE assessment_id=$1 AND id<>$2 AND COALESCE(payload->>'fingerprint','')=$3 AND created_at >= $4 LIMIT 1",[assessmentId,findingId,fingerprint,ev.created_at])).rows[0];
    if(stillPresent)throw Object.assign(new Error('Retest still detects the original vulnerability fingerprint'),{statusCode:409});
   }

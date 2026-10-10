@@ -7,7 +7,8 @@ import { spawn } from 'node:child_process';
 import { db } from './store.js';
 import { scanSource } from './semgrep.js';
 import { semgrepFindings, wapitiFindings, nmapFindings } from './parsers.js';
-import {nucleiJsonlFindings} from './infrastructure-parsers.js';
+import {nucleiJsonlFindings,trivyJsonFindings} from './infrastructure-parsers.js';
+import {scanFilesystemWithTrivy} from './trivy.js';
 import { assessmentReport } from './reports.js';
 import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
@@ -296,9 +297,9 @@ function run(cmd:string,args:string[]){
 app.get('/api/ready',async(_req,res)=>{try{res.json(await db.ready())}catch(e:any){res.status(503).json({ok:false,error:e.message})}});
 app.get('/api/health',async(_req,res)=>{
  const check=async(cmd:string,args:string[])=>{try{const r=await run(cmd,args);return {available:r.exitCode===0,version:(r.stdout||r.stderr).split('\n')[0]}}catch(e:any){return {available:false,error:e.message}}};
- const [nmap,wapiti,semgrep,sqlmap,tshark,nuclei]=await Promise.all([check('nmap',['--version']),check('wapiti',['--version']),check('semgrep',['--version']),check('sqlmap',['--version']),check('tshark',['--version']),check('nuclei',['-version'])]);
+ const [nmap,wapiti,semgrep,sqlmap,tshark,nuclei,trivy]=await Promise.all([check('nmap',['--version']),check('wapiti',['--version']),check('semgrep',['--version']),check('sqlmap',['--version']),check('tshark',['--version']),check('nuclei',['-version']),check('trivy',['--version'])]);
  let zap:any={available:false};try{zap={available:await zapReady()}}catch(e:any){zap={available:false,error:e.message}}
- const tools={nmap,zap,wapiti,semgrep,sqlmap,tshark,nuclei};const coreReady=nmap.available&&zap.available&&wapiti.available&&sqlmap.available&&nuclei.available;
+ const tools={nmap,zap,wapiti,semgrep,sqlmap,tshark,nuclei,trivy};const coreReady=nmap.available&&zap.available&&wapiti.available&&sqlmap.available&&nuclei.available;
  res.status(coreReady?200:503).json({ok:coreReady,service:'AegisGRC Security',coreUrlAssessmentReady:coreReady,tools,note:'Availability confirms executable/service readiness only; finding correctness depends on scanner evidence and parser interpretation.'});
 });
 app.post('/api/assessment/authorize',async(req,res)=>{
@@ -321,6 +322,17 @@ app.post('/api/scans/quick',async(req,res)=>{try{
  await db.saveEvidence(ev);if(q.findings.length)await db.saveFindings(q.findings);await db.saveAssessment({...assessment,status:q.error?'FAILED':'COMPLETED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...q.findings]});
  res.json({execution:'REAL_LIVE_HTTP_POSTURE',target:t.url.origin,...q,evidence:{sha256:q.sha256}});
 }catch(e:any){res.status(400).json({error:e.message})}});
+app.post('/api/scans/trivy',async(req,res)=>{try{
+ const session=verifySession(String(req.headers['x-assessment-session']||''));const assessmentId=session.assessmentId;
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ const assessment=await db.assessmentForUser(u.userId,assessmentId);if(!assessment)return res.status(404).json({error:'Assessment not found'});
+ const access=await requireAssessmentAccess(u.userId,assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');
+ const sourcePath=String(req.body?.sourcePath||'/workspace/source');const result=await scanFilesystemWithTrivy(sourcePath);
+ const completedAt=new Date().toISOString();const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'trivy',sha256:result.evidence.sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{sourcePath,durationMs:result.durationMs,mode:'filesystem-vulnerability-misconfiguration'}};
+ await db.saveEvidence(ev);const findings=result.exitCode===0?trivyJsonFindings(assessmentId,sourcePath,ev.sha256,result.stdout):[];if(findings.length)await db.saveFindings(findings);
+ const status=result.exitCode===0?'COMPLETED':'FAILED';await db.saveAssessment({...assessment,status,evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
+ res.status(result.exitCode===0?200:502).json({execution:'REAL_TRIVY_FILESYSTEM_SCAN',status,assessmentId,sourcePath,evidence:{sha256:ev.sha256},findings});
+}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
 async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei',assessmentId:string,t:{url:URL,addresses:string[]}){
  t=await revalidateTarget(t);

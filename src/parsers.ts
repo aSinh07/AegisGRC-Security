@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'; import type { Finding,Severity } from './models.js'; import { mapFinding } from './grc.js';
 const sev=(x:string):Severity=>{const s=x.toUpperCase();return ['INFO','LOW','MEDIUM','HIGH','CRITICAL'].includes(s)?s as Severity:'MEDIUM'};
 export function semgrepFindings(assessmentId:string,asset:string,evidenceHash:string,results:any[]):Finding[]{
- return results.map((r:any)=>mapFinding({id:crypto.randomUUID(),assessmentId,source:'semgrep',title:r.check_id||'Semgrep finding',description:r.extra?.message||'Static analysis finding',severity:sev(r.extra?.severity||'MEDIUM'),cwe:r.extra?.metadata?.cwe?.[0],asset,evidenceHash,createdAt:new Date().toISOString(),mappings:{}}))
+ return results.map((r:any)=>mapFinding({id:crypto.randomUUID(),assessmentId,source:'semgrep',title:r.check_id||'Semgrep finding',description:r.extra?.message||'Static analysis finding',severity:sev(r.extra?.severity||'MEDIUM'),cwe:r.extra?.metadata?.cwe?.[0],asset,evidenceHash,createdAt:new Date().toISOString(),mappings:{},status:'OPEN',confidence:'SCANNER_REPORTED',externalIds:{cwe:Array.isArray(r.extra?.metadata?.cwe)?r.extra.metadata.cwe:undefined,scannerId:String(r.check_id||'semgrep')}}))
 }
 export function wapitiFindings(assessmentId:string,asset:string,evidenceHash:string,raw:string):Finding[]{
  let x:any={};try{x=JSON.parse(raw)}catch{return []}; const out:Finding[]=[];

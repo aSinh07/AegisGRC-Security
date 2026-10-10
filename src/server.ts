@@ -168,7 +168,7 @@ const TIMEOUT=Number(process.env.SCAN_TIMEOUT_MS||90000);
 const MAX=Number(process.env.MAX_OUTPUT_BYTES||1048576);
 
 async function currentUser(req:any){const ut=(req.headers.cookie||'').split(';').map((x:string)=>x.trim()).find((x:string)=>x.startsWith('aegis_user='))?.slice(11)||'';return userSession(ut)}
-async function reportAuthorized(req:any){const u=await currentUser(req);if(!u)return {ok:false,reason:'USER_SESSION_MISSING'};const v=await verifyUserStepUp(u.userId,String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||''));return v.ok?{ok:true,mode:'user'}:{ok:false,reason:v.reason}}
+async function reportAuthorized(req:any){const u=await currentUser(req);if(!u)return {ok:false,reason:'USER_SESSION_MISSING'};const attemptKey=authAttemptKey(req,'report-step-up',u.userId);if(!await authAttemptAllowed(attemptKey,6,15))return {ok:false,reason:'STEP_UP_RATE_LIMITED'};const v=await verifyUserStepUp(u.userId,String(req.headers['x-report-password']||''),String(req.headers['x-report-totp']||''));if(!v.ok){await recordAuthFailure(attemptKey,6,15);return {ok:false,reason:v.reason}}await clearAuthFailures(attemptKey);return {ok:true,mode:'user'}}
 
 
 type Tool='nmap'|'wapiti'|'sqlmap'|'zap'|'all';

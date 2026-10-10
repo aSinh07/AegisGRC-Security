@@ -65,12 +65,14 @@ async function execute(client:any,org:string,kind:Kind,config:any){
   events.push({dueTests:due.length,testIds:due.map((x:any)=>x.id)});
  }else if(kind==='CAPA_SLA'){
   const changed=(await client.query(`UPDATE grc_capa SET status='OVERDUE',updated_at=now()
-   WHERE organization_id=$1 AND status NOT IN ('CLOSED','OVERDUE') AND due_at<now() RETURNING id,capa_key`,[org])).rows;
+   WHERE organization_id=$1 AND status NOT IN ('CLOSED','OVERDUE') AND due_at<now() RETURNING id,capa_key,owner_user_id`,[org])).rows;
+  for(const x of changed)if(x.owner_user_id)await client.query(`INSERT INTO grc_notifications(id,organization_id,user_id,severity,title,message,record_type,record_id,dedupe_key) VALUES($1,$2,$3,'HIGH',$4,$5,'CAPA',$6,$7) ON CONFLICT(organization_id,user_id,dedupe_key) DO NOTHING`,[crypto.randomUUID(),org,x.owner_user_id,'CAPA overdue: '+x.capa_key,'Corrective action has passed its due date and requires attention.',x.id,'CAPA_OVERDUE:'+x.id]);
   events.push({overdueCapa:changed.length,capaIds:changed.map((x:any)=>x.id)});
  }else if(kind==='RISK_ACCEPTANCE_EXPIRY'){
   const changed=(await client.query(`UPDATE grc_enterprise_risks SET status='ACCEPTANCE_PENDING',accepted_by=NULL,updated_at=now()
    WHERE organization_id=$1 AND status='ACCEPTED' AND acceptance_expires_at IS NOT NULL AND acceptance_expires_at<=now()
-   RETURNING id,risk_key`,[org])).rows;
+   RETURNING id,risk_key,owner_user_id`,[org])).rows;
+  for(const x of changed)if(x.owner_user_id)await client.query(`INSERT INTO grc_notifications(id,organization_id,user_id,severity,title,message,record_type,record_id,dedupe_key) VALUES($1,$2,$3,'HIGH',$4,$5,'RISK',$6,$7) ON CONFLICT(organization_id,user_id,dedupe_key) DO NOTHING`,[crypto.randomUUID(),org,x.owner_user_id,'Risk acceptance expired: '+x.risk_key,'Risk acceptance has expired and requires a new independent review.',x.id,'RISK_ACCEPTANCE_EXPIRED:'+x.id]);
   events.push({expiredAcceptances:changed.length,riskIds:changed.map((x:any)=>x.id)});
  }
  return events;

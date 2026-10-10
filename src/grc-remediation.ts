@@ -81,8 +81,40 @@ export async function createCapa(user:string,org:string,issueId:string,input:any
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
-export async function submitCapaEvidence(user:string,org:string,capaId:string,evidenceVersionId:string){const m=await requireOrgPermission(user,org,'manageControl');const client=await pool.connect();try{await client.query('BEGIN');const c=(await client.query('SELECT * FROM grc_capa WHERE id=$1 AND organization_id=$2 FOR UPDATE',[capaId,org])).rows[0];if(!c)throw Object.assign(new Error('CAPA not found'),{statusCode:404});if(c.owner_user_id&&c.owner_user_id!==user&&!['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST'].includes(m.role))throw Object.assign(new Error('CAPA owner required'),{statusCode:403});const ev=(await client.query(`SELECT v.id FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE v.id=$1 AND r.organization_id=$2 AND r.status='VALID' AND v.valid_until>now() FOR UPDATE OF v,r`,[evidenceVersionId,org])).rows[0];if(!ev)throw new Error('Current validated evidence version required');await client.query('INSERT INTO grc_capa_evidence(capa_id,evidence_version_id,linked_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[capaId,evidenceVersionId,user]);const out=(await client.query(`UPDATE grc_capa SET status='RETEST_PENDING',submitted_by=$2,updated_at=now() WHERE id=$1 RETURNING *`,[capaId,user])).rows[0];await event(org,'CAPA',capaId,'EVIDENCE_SUBMITTED',user,undefined,{evidenceVersionId},client);await client.query('COMMIT');return out}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}
-export async function attachRetest(user:string,org:string,capaId:string,testRunId:string){await requireOrgPermission(user,org,'review');const client=await pool.connect();try{await client.query('BEGIN');const c=(await client.query('SELECT * FROM grc_capa WHERE id=$1 AND organization_id=$2 FOR UPDATE',[capaId,org])).rows[0];if(!c)throw Object.assign(new Error('CAPA not found'),{statusCode:404});if(c.status!=='RETEST_PENDING'&&c.status!=='CHANGES_REQUESTED')throw Object.assign(new Error('CAPA is not ready for retest'),{statusCode:409});const run=(await client.query('SELECT * FROM grc_control_test_runs WHERE id=$1 AND organization_id=$2 FOR UPDATE',[testRunId,org])).rows[0];if(!run)throw new Error('Retest run not found');const status=run.result==='PASS'?'VALIDATION':'CHANGES_REQUESTED';const out=(await client.query('UPDATE grc_capa SET retest_run_id=$2,status=$3,updated_at=now() WHERE id=$1 RETURNING *',[capaId,testRunId,status])).rows[0];await event(org,'CAPA',capaId,'RETEST_'+run.result,user,run.rationale,{testRunId},client);await client.query('COMMIT');return out}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}
+export async function submitCapaEvidence(user:string,org:string,capaId:string,evidenceVersionId:string){
+ const m=await requireOrgPermission(user,org,'manageControl');const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const c=(await client.query('SELECT * FROM grc_capa WHERE id=$1 AND organization_id=$2 FOR UPDATE',[capaId,org])).rows[0];
+  if(!c)throw Object.assign(new Error('CAPA not found'),{statusCode:404});
+  if(!['OPEN','IN_PROGRESS','EVIDENCE_SUBMITTED','CHANGES_REQUESTED'].includes(c.status))throw Object.assign(new Error('CAPA is not accepting evidence in its current state'),{statusCode:409});
+  if(c.owner_user_id&&c.owner_user_id!==user&&!['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST'].includes(m.role))throw Object.assign(new Error('CAPA owner required'),{statusCode:403});
+  const ev=(await client.query(`SELECT v.id FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE v.id=$1 AND r.organization_id=$2 AND r.status='VALID' AND v.validated_at IS NOT NULL AND v.valid_until>now() FOR UPDATE OF v,r`,[evidenceVersionId,org])).rows[0];
+  if(!ev)throw new Error('Current validated evidence version required');
+  await client.query('INSERT INTO grc_capa_evidence(capa_id,evidence_version_id,linked_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[capaId,evidenceVersionId,user]);
+  const out=(await client.query(`UPDATE grc_capa SET status='RETEST_PENDING',submitted_by=$2,updated_at=now() WHERE id=$1 AND status = ANY($3::text[]) RETURNING *`,[capaId,user,['OPEN','IN_PROGRESS','EVIDENCE_SUBMITTED','CHANGES_REQUESTED']])).rows[0];
+  if(!out)throw Object.assign(new Error('CAPA state changed before evidence submission'),{statusCode:409});
+  await event(org,'CAPA',capaId,'EVIDENCE_SUBMITTED',user,undefined,{evidenceVersionId},client);
+  await client.query('COMMIT');return out;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
+export async function attachRetest(user:string,org:string,capaId:string,testRunId:string){
+ await requireOrgPermission(user,org,'review');const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const c=(await client.query('SELECT * FROM grc_capa WHERE id=$1 AND organization_id=$2 FOR UPDATE',[capaId,org])).rows[0];
+  if(!c)throw Object.assign(new Error('CAPA not found'),{statusCode:404});
+  if(c.status!=='RETEST_PENDING'&&c.status!=='CHANGES_REQUESTED')throw Object.assign(new Error('CAPA is not ready for retest'),{statusCode:409});
+  const run=(await client.query('SELECT * FROM grc_control_test_runs WHERE id=$1 AND organization_id=$2 FOR UPDATE',[testRunId,org])).rows[0];
+  if(!run)throw new Error('Retest run not found');
+  if(run.result!=='PASS'&&run.result!=='FAIL')throw Object.assign(new Error('Retest must have a deterministic PASS or FAIL result'),{statusCode:409});
+  const status=run.result==='PASS'?'VALIDATION':'CHANGES_REQUESTED';
+  const out=(await client.query(`UPDATE grc_capa SET retest_run_id=$2,status=$3,updated_at=now() WHERE id=$1 AND status = ANY($4::text[]) RETURNING *`,[capaId,testRunId,status,['RETEST_PENDING','CHANGES_REQUESTED']])).rows[0];
+  if(!out)throw Object.assign(new Error('CAPA state changed before retest attachment'),{statusCode:409});
+  await event(org,'CAPA',capaId,'RETEST_'+run.result,user,run.rationale,{testRunId},client);
+  await client.query('COMMIT');return out;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
 export async function closeCapa(user:string,org:string,capaId:string,input:any){
  await requireOrgPermission(user,org,'review');
  const client=await pool.connect();

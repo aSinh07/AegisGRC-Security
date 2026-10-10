@@ -8,6 +8,7 @@ import { db } from './store.js';
 import { scanSource } from './semgrep.js';
 import { semgrepFindings, wapitiFindings, nmapFindings } from './parsers.js';
 import {nucleiJsonlFindings,trivyJsonFindings,openvasJsonFindings} from './infrastructure-parsers.js';
+import {wazuhJsonFindings} from './endpoint-parsers.js';
 import {scanFilesystemWithTrivy} from './trivy.js';
 import { assessmentReport } from './reports.js';
 import type { Assessment,Evidence } from './models.js';

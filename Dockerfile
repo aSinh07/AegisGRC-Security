@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends nmap tshark sql
     && pip3 install --break-system-packages --no-cache-dir semgrep==1.179.0 \
     && NUCLEI_VERSION=3.4.10 && curl -fsSL -o /tmp/nuclei.zip https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip \
     && unzip /tmp/nuclei.zip nuclei -d /usr/local/bin && chmod 0755 /usr/local/bin/nuclei && rm /tmp/nuclei.zip \
+    && TRIVY_VERSION=0.67.2 && curl -fsSL -o /tmp/trivy.deb https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.deb \
+    && dpkg -i /tmp/trivy.deb && rm /tmp/trivy.deb \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./

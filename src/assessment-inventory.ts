@@ -117,6 +117,8 @@ export async function reconcileDependencyCoverage(userId:string,organizationId:s
  return {layer:'DEPENDENCIES',status,requiredEngines:['TRIVY'],evidenceCount:valid.length,reasons,trivy:{complete}};
 }
 
+export async function activeContainerAsset(userId:string,organizationId:string,assetId:string){await requireOrgPermission(userId,organizationId,'manageAssessment');return (await pool.query("SELECT id,asset_key FROM assessment_assets WHERE id=$1 AND organization_id=$2 AND asset_type='CONTAINER' AND status='ACTIVE'",[assetId,organizationId])).rows[0]||null}
+
 export async function reconcileContainerCoverage(userId:string,organizationId:string,assessmentId:string){
  await requireOrgPermission(userId,organizationId,'manageAssessment');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});
  const ev=(await pool.query('SELECT source,payload FROM evidence WHERE assessment_id=$1 AND source=$2',[assessmentId,'trivy'])).rows;

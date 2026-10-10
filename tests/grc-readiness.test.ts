@@ -42,3 +42,14 @@ test('audit readiness report model preserves clause traceability and assurance b
  assert.match(model.methodology.join(' '),/not a compliance percentage/);
  assert.match(model.limitations.join(' '),/External certification/);
 });
+
+
+test('readiness query only accepts the latest active control test result',async()=>{
+ const src=await readFile(new URL('../src/grc-readiness.ts',import.meta.url),'utf8');
+ const start=src.indexOf('export async function organizationAuditReadiness');
+ const end=src.indexOf('export function auditReadinessReportModel',start);
+ const fn=src.slice(start,end);
+ assert.match(fn,/td\.active=true/);
+ assert.match(fn,/tr\.result='PASS'/);
+ assert.match(fn,/tr\.id=\(SELECT tr2\.id FROM grc_control_test_runs tr2 WHERE tr2\.test_definition_id=td\.id ORDER BY tr2\.executed_at DESC LIMIT 1\)/);
+});

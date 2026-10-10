@@ -97,6 +97,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       controlsWithDeterministicTests: controlAssurance.filter((x:any)=>['PASS','FAIL'].includes(x.test_result)).length,
       controlsNotTested: controlAssurance.filter((x:any)=>!['PASS','FAIL'].includes(x.test_result)).length
     },
+    sourceCodeAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='SOURCE_CODE');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['SEMGREP'],evidenceCount:0,failureReasons:['Source-code coverage has not been reconciled'],completedAt:null}})(),
     apiAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='API');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['ZAP','NUCLEI'],evidenceCount:0,failureReasons:['API coverage has not been reconciled'],completedAt:null}})(),
     webAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='WEB');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['ZAP','NUCLEI'],evidenceCount:0,failureReasons:['Web coverage has not been reconciled'],completedAt:null}})(),
     endpointAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='ENDPOINT');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['WAZUH'],evidenceCount:0,failureReasons:['Endpoint coverage has not been reconciled'],completedAt:null}})(),
@@ -121,6 +122,7 @@ export function auditPackageModel(trace:any){
    openIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED').length,
    overdueIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED'&&x.issue.due_at&&new Date(x.issue.due_at)<new Date()).length
   },
+  sourceCodeAssurance:trace?.sourceCodeAssurance||{status:'NOT_STARTED',required:true,engines:['SEMGREP'],evidenceCount:0,failureReasons:['Source-code coverage unavailable']},
   apiAssurance:trace?.apiAssurance||{status:'NOT_STARTED',required:true,engines:['ZAP','NUCLEI'],evidenceCount:0,failureReasons:['API coverage unavailable']},
   webAssurance:trace?.webAssurance||{status:'NOT_STARTED',required:true,engines:['ZAP','NUCLEI'],evidenceCount:0,failureReasons:['Web coverage unavailable']},
   endpointAssurance:trace?.endpointAssurance||{status:'NOT_STARTED',required:true,engines:['WAZUH'],evidenceCount:0,failureReasons:['Endpoint coverage unavailable']},

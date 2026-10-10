@@ -43,7 +43,7 @@ import { auditPackageModel } from './audit-trace.js';
 import {reportSnapshotDigest} from './report-auth.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
-import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage} from './assessment-inventory.js';
+import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import { analyzeIntel } from './intel-ai.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
@@ -129,6 +129,7 @@ app.post('/api/grc/assessments/:assessmentId/finding-import',upload.single('file
  await db.saveFindingImport(ev,parsed.findings,audit);
  res.status(201).json({imported:true,evidence:{id:evidenceId,sha256,hashComputedByServer:true,integrityStatus:'HASHED_AT_INGEST'},format:parsed.format,count:parsed.findings.length,warnings:parsed.warnings,findings:parsed.findings});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/assessments/:assessmentId/infrastructure/reconcile',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reconcileInfrastructureCoverage(u.userId,req.params.orgId,req.params.assessmentId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/assessments/:assessmentId/openvas-report',upload.single('file'),async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');
  const file=req.file;if(!file)return res.status(400).json({error:'Greenbone/OpenVAS JSON report required'});const raw=file.buffer.toString('utf8');const sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();

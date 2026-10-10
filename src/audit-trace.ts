@@ -97,6 +97,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       controlsWithDeterministicTests: controlAssurance.filter((x:any)=>['PASS','FAIL'].includes(x.test_result)).length,
       controlsNotTested: controlAssurance.filter((x:any)=>!['PASS','FAIL'].includes(x.test_result)).length
     },
+    dataSecurityAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='DATA_SECURITY');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['PROWLER'],evidenceCount:0,failureReasons:['Data-security coverage has not been reconciled'],completedAt:null}})(),
     identityAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='IDENTITY');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['PROWLER','WAZUH'],evidenceCount:0,failureReasons:['Identity coverage has not been reconciled'],completedAt:null}})(),
     cloudAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='CLOUD');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['PROWLER'],evidenceCount:0,failureReasons:['Cloud coverage has not been reconciled'],completedAt:null}})(),
     containerAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='CONTAINER');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['TRIVY'],evidenceCount:0,failureReasons:['Container coverage has not been reconciled'],completedAt:null}})(),
@@ -126,6 +127,7 @@ export function auditPackageModel(trace:any){
    openIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED').length,
    overdueIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED'&&x.issue.due_at&&new Date(x.issue.due_at)<new Date()).length
   },
+  dataSecurityAssurance:trace?.dataSecurityAssurance||{status:'NOT_STARTED',required:true,engines:['PROWLER'],evidenceCount:0,failureReasons:['Data-security coverage unavailable']},
   identityAssurance:trace?.identityAssurance||{status:'NOT_STARTED',required:true,engines:['PROWLER','WAZUH'],evidenceCount:0,failureReasons:['Identity coverage unavailable']},
   cloudAssurance:trace?.cloudAssurance||{status:'NOT_STARTED',required:true,engines:['PROWLER'],evidenceCount:0,failureReasons:['Cloud coverage unavailable']},
   containerAssurance:trace?.containerAssurance||{status:'NOT_STARTED',required:true,engines:['TRIVY'],evidenceCount:0,failureReasons:['Container coverage unavailable']},

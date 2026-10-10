@@ -24,6 +24,17 @@ export const db={
  findings:async()=>pool?(await qPayload<Finding>('findings'))!:read<Finding>('findings.json'),
  audits:async()=>pool?(await qPayload<AuditEvent>('audit_events'))!:read<AuditEvent>('audit.json'),
  saveAssessment:upsertAssessment,
+ saveFindingImport:async(evidence:Evidence,findings:Finding[],audit:AuditEvent)=>{
+  if(!pool)throw new Error('Atomic finding import requires PostgreSQL');
+  if(!/^[0-9a-f]{64}$/.test(evidence.sha256))throw new Error('Evidence SHA-256 must be a server-computed lowercase 64-character digest');
+  const byteLength=Buffer.byteLength(JSON.stringify({stdout:evidence.stdout||'',stderr:evidence.stderr||'',metadata:evidence.metadata||{}}));
+  const client=await pool.connect();try{await client.query('BEGIN');
+   await client.query(`INSERT INTO evidence(id,assessment_id,source,sha256,created_at,payload,byte_length,integrity_verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,now()) ON CONFLICT(id) DO NOTHING`,[evidence.id,evidence.assessmentId,evidence.source,evidence.sha256,evidence.createdAt,evidence,byteLength]);
+   for(const x of findings)await client.query(`INSERT INTO findings(id,assessment_id,severity,source,created_at,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING`,[x.id,x.assessmentId,x.severity,x.source,x.createdAt,x]);
+   await client.query(`INSERT INTO audit_events(id,assessment_id,action,created_at,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO NOTHING`,[audit.id,audit.assessmentId||null,audit.action,audit.createdAt,audit]);
+   await client.query('COMMIT');return {evidenceId:evidence.id,findingCount:findings.length,auditId:audit.id};
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+ },
  saveEvidence:async(x:Evidence)=>{if(!pool)return rw<Evidence>('evidence.json',a=>[...a,x]);if(!/^[0-9a-f]{64}$/.test(x.sha256))throw new Error('Evidence SHA-256 must be a server-computed lowercase 64-character digest');const byteLength=Buffer.byteLength(JSON.stringify({stdout:x.stdout||'',stderr:x.stderr||'',metadata:x.metadata||{}}));await pool.query(`INSERT INTO evidence(id,assessment_id,source,sha256,created_at,payload,byte_length,integrity_verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,now()) ON CONFLICT(id) DO NOTHING`,[x.id,x.assessmentId,x.source,x.sha256,x.createdAt,x,byteLength]);return []},
  saveFindings:async(xs:Finding[])=>{if(!pool)return rw<Finding>('findings.json',a=>[...a,...xs.filter(x=>!a.some(v=>v.id===x.id))]);for(const x of xs)await insert('findings',x,['id','assessment_id','severity','source','created_at','payload'],[x.id,x.assessmentId,x.severity,x.source,x.createdAt,x]);return []},
  saveAudit:async(x:AuditEvent)=>{if(!pool)return rw<AuditEvent>('audit.json',a=>[...a,x]);await insert('audit_events',x,['id','assessment_id','action','created_at','payload'],[x.id,x.assessmentId||null,x.action,x.createdAt,x]);return []},

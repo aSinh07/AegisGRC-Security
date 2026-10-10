@@ -42,3 +42,5 @@ test('audit package reports control relevance separately from deterministic cont
  assert.match(m.limitations.join(' '),/NOT_TESTED/);
  assert.equal(m.documentControl.documentId,'AEGIS-AUDIT-a1');
 });
+
+test('authenticated audit snapshot governs infrastructure Nmap and OpenVAS coverage',async()=>{const src=await readFile(new URL('../src/audit-trace.ts',import.meta.url),'utf8');assert.match(src,/assessment_layer_runs/);assert.match(src,/INFRASTRUCTURE/);const m=auditPackageModel({assessmentId:'a',organizationId:'o',summary:{},evidence:[],chains:[],infrastructureAssurance:{status:'COMPLETE',required:true,engines:['NMAP','OPENVAS'],evidenceCount:2,failureReasons:[]}});assert.equal(m.infrastructureAssurance.status,'COMPLETE');assert.deepEqual(m.infrastructureAssurance.engines,['NMAP','OPENVAS'])});

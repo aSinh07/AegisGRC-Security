@@ -21,13 +21,17 @@ export async function initFindingReview(){
  );
  ALTER TABLE finding_reviews ADD COLUMN IF NOT EXISTS retest_evidence_id uuid REFERENCES evidence(id) ON DELETE RESTRICT;
  ALTER TABLE finding_reviews ADD COLUMN IF NOT EXISTS retest_fingerprint text;
+ CREATE UNIQUE INDEX IF NOT EXISTS findings_id_assessment_uidx ON findings(id,assessment_id);
+ CREATE UNIQUE INDEX IF NOT EXISTS evidence_id_assessment_uidx ON evidence(id,assessment_id);
  CREATE TABLE IF NOT EXISTS finding_retests(
-  id uuid PRIMARY KEY,finding_id uuid NOT NULL REFERENCES findings(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY,finding_id uuid NOT NULL,
   assessment_id uuid NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
-  evidence_id uuid NOT NULL UNIQUE REFERENCES evidence(id) ON DELETE RESTRICT,
+  evidence_id uuid NOT NULL UNIQUE,
   fingerprint text NOT NULL,scanner_source text NOT NULL,scanner_id text,
   created_by uuid NOT NULL REFERENCES app_users(id) ON DELETE RESTRICT,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  FOREIGN KEY(finding_id,assessment_id) REFERENCES findings(id,assessment_id) ON DELETE CASCADE,
+  FOREIGN KEY(evidence_id,assessment_id) REFERENCES evidence(id,assessment_id) ON DELETE RESTRICT
  );
  CREATE INDEX IF NOT EXISTS finding_retests_finding_idx ON finding_retests(finding_id,created_at DESC);
  CREATE INDEX IF NOT EXISTS finding_reviews_finding_idx ON finding_reviews(finding_id,created_at DESC);

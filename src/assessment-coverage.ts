@@ -6,13 +6,17 @@ export type LayerStatus='NOT_STARTED'|'RUNNING'|'COMPLETE'|'PARTIAL'|'FAILED'|'N
 export type LayerCoverage={layer:AssessmentLayer;status:LayerStatus;required:boolean;engines:string[];evidenceCount:number;failureReasons:string[]};
 
 export function assessmentCoverage(rows:LayerCoverage[]){
+ const declared=new Map(rows.map(x=>[x.layer,x]));
+ const missing=ASSESSMENT_LAYERS.filter(layer=>!declared.has(layer));
+ const unjustifiedNA=rows.filter(x=>x.required&&x.status==='NOT_APPLICABLE'&&!(x.failureReasons||[]).some(r=>String(r).trim().length>=10));
  const required=rows.filter(x=>x.required&&x.status!=='NOT_APPLICABLE');
  const complete=required.filter(x=>x.status==='COMPLETE');
  const failed=required.filter(x=>x.status==='FAILED'||x.status==='PARTIAL'||x.status==='NOT_STARTED'||x.status==='RUNNING');
  return {
   declaredLayers:rows.length,requiredLayers:required.length,completeLayers:complete.length,
   coveragePercent:required.length?Math.round(complete.length/required.length*100):0,
-  status:failed.length===0?'COMPLETE':'PARTIAL',
+  status:rows.length===ASSESSMENT_LAYERS.length&&required.length>0&&failed.length===0&&missing.length===0&&unjustifiedNA.length===0?'COMPLETE':'PARTIAL',
+  missingLayers:missing,unjustifiedNotApplicable:unjustifiedNA.map(x=>x.layer),
   incompleteLayers:failed.map(x=>({layer:x.layer,status:x.status,reasons:x.failureReasons}))
  };
 }

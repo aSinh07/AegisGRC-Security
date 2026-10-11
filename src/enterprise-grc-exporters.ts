@@ -49,6 +49,11 @@ export function enterpriseGrcXlsx(m:any){
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.correctivePreventiveActions||[]),'CAPA');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.evidenceRegister||[]),'Evidence Register');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.technicalAssuranceCoverage||[]),'Technical Coverage');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.thirdPartyRisk?.vendors||[]),'Third Parties');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.thirdPartyRisk?.incidents||[]),'Vendor Incidents');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.architectureAssurance?.components||[]),'Architecture');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.architectureAssurance?.firewallReviews||[]),'Firewall Reviews');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.architectureAssurance?.gaps||[]),'Architecture Gaps');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.priorityActions||[]),'Priority Actions');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((m.assuranceBoundary||[]).map((x:string)=>({Limitation:x}))),'Limitations');
  return Buffer.from(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}));
@@ -82,7 +87,13 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
  d.addPage();h('7.','Technical & Firewall/Security Evidence Coverage');
  if(!(m.technicalAssuranceCoverage||[]).length)d.fontSize(9).text('No linked assessment trace was supplied for this scope.');
  for(const x of m.technicalAssuranceCoverage||[])d.fontSize(8).text('Assessment '+s(x.assessmentId)+' | INFRA '+s(x.infrastructure)+' | WEB '+s(x.web)+' | API '+s(x.api)+' | CLOUD '+s(x.cloud)+' | ENDPOINT '+s(x.endpoint)+' | IDENTITY '+s(x.identity)+' | DATA '+s(x.dataSecurity)+' | PRIVACY '+s(x.privacy)+' | CODE '+s(x.sourceCode)+' | DEP '+s(x.dependencies)+' | CONTAINER '+s(x.container)+' | ATTACK SURFACE '+s(x.attackSurface)+' | BREACH TELEMETRY '+s(x.breachTelemetry));
- h('8.','Priority Management Actions');for(const x of m.priorityActions||[])d.fontSize(9).text('• ['+s(x.priority)+'] '+s(x.type)+' '+s(x.key)+': '+s(x.action));
- h('9.','Assurance Boundary & Limitations');for(const x of m.assuranceBoundary||[])d.fontSize(9).text('• '+x);
+ h('8.','Third-Party / Vendor Risk');
+ d.fontSize(9).text('Vendors: '+s(m.thirdPartyRisk?.summary?.vendors||0)+' | Tier 1: '+s(m.thirdPartyRisk?.summary?.tier1||0)+' | Due review: '+s(m.thirdPartyRisk?.summary?.dueReview||0)+' | Open incidents: '+s(m.thirdPartyRisk?.summary?.openIncidents||0));
+ for(const v of m.thirdPartyRisk?.vendors||[])d.fontSize(8).text(s(v.vendor_key)+' | '+s(v.tier)+' | '+s(v.criticality)+' | '+s(v.status)+' | '+s(v.name)+' | '+s(v.service));
+ h('9.','Architecture & Firewall Assurance');
+ d.fontSize(9).text('Components: '+s(m.architectureAssurance?.summary?.components||0)+' | Flows: '+s(m.architectureAssurance?.summary?.flows||0)+' | Security gateways: '+s(m.architectureAssurance?.summary?.securityGateways||0)+' | Reviewed gateways: '+s(m.architectureAssurance?.summary?.reviewedGateways||0));
+ for(const g of m.architectureAssurance?.gaps||[])d.fontSize(8).text('• '+s(g.severity)+' '+s(g.type)+' '+s(g.component||g.componentId||g.edgeId||''));
+ h('10.','Priority Management Actions');for(const x of m.priorityActions||[])d.fontSize(9).text('• ['+s(x.priority)+'] '+s(x.type)+' '+s(x.key)+': '+s(x.action));
+ h('11.','Assurance Boundary & Limitations');for(const x of m.assuranceBoundary||[])d.fontSize(9).text('• '+x);
  d.end();
 })}

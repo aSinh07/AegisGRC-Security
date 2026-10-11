@@ -104,10 +104,10 @@ export async function runControlTest(userId:string,orgId:string,testId:string){
   const run=(await client.query(`INSERT INTO grc_control_test_runs(id,organization_id,test_definition_id,result,rationale,evidence_version_id,executed_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[crypto.randomUUID(),orgId,testId,result,rationale,ev?.id||null,userId])).rows[0];
   if(result==='FAIL'){
    const issueId=crypto.randomUUID(),issueKey='ISS-'+new Date().getUTCFullYear()+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
-   await client.query(`INSERT INTO grc_issues(id,organization_id,issue_key,title,description,source_type,source_id,priority,status,created_by)
-    SELECT $1,$2,$3,$4,$5,'CONTROL_TEST',$6,'P2','OPEN',$7
-    WHERE NOT EXISTS(SELECT 1 FROM grc_issues WHERE organization_id=$2 AND source_type='CONTROL_TEST' AND source_id=$6 AND status<>'CLOSED')`,
-    [issueId,orgId,issueKey,'Failed control test: '+t.name,rationale,testId,userId]);
+   await client.query(`INSERT INTO grc_issues(id,organization_id,scope_control_id,issue_key,title,description,source_type,source_id,priority,status,created_by)
+    SELECT $1,$2,$3,$4,$5,$6,'CONTROL_TEST',$7,'P2','OPEN',$8
+    WHERE NOT EXISTS(SELECT 1 FROM grc_issues WHERE organization_id=$2 AND source_type='CONTROL_TEST' AND source_id=$7 AND status<>'CLOSED')`,
+    [issueId,orgId,t.scope_control_id,issueKey,'Failed control test: '+t.name,rationale,testId,userId]);
   }
   await client.query('COMMIT');
   return run;

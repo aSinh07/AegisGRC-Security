@@ -50,7 +50,7 @@ import {findingFingerprint} from './finding-correlation.js';
 import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage,reconcileContainerCoverage,activeContainerAsset,reconcileCloudCoverage,activeCloudAsset,reconcileIdentityCoverage,reconcileDataSecurityCoverage,reconcileAttackSurfaceCoverage,reconcilePrivacyCoverage,reconcileBreachTelemetryCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import {initBreachAssessment,deriveBreachAssessment,listBreachAssessments} from './breach-assessment.js';
-import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,executeClaimedScannerJob,scannerRegistry} from './scanner-jobs.js';
+import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,recoverStaleScannerJobs,executeClaimedScannerJob,scannerRegistry} from './scanner-jobs.js';
 import { analyzeIntel } from './intel-ai.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 
@@ -70,6 +70,7 @@ await initFindingRisk();
 await initAssessmentInventory();
 await initBreachAssessment();
 await initScannerJobs();
+await recoverStaleScannerJobs();
 
 app.use(express.json({limit:'1mb'}));
 // The HTML shell must never be served stale after a UI release. Static assets can be revalidated.

@@ -15,3 +15,6 @@ test('breach is never inferred from vulnerability alone',()=>{
  assert.equal(dataExposureState({vulnerability:true,dataExposed:true,telemetryIndicators:true,confirmedExfiltration:false}),'SUSPECTED_BREACH');
  assert.equal(dataExposureState({vulnerability:true,dataExposed:true,telemetryIndicators:true,confirmedExfiltration:true}),'CONFIRMED_BREACH');
 });
+
+test('coverage fails closed when layer declarations are incomplete',()=>{const r=assessmentCoverage([]);assert.equal(r.status,'PARTIAL');assert.equal(r.coveragePercent,0);assert.equal(r.missingLayers.length,13)});
+test('required not-applicable layer needs explicit justification',()=>{const rows:any[]=ASSESSMENT_LAYERS.map(layer=>({layer,status:'COMPLETE',required:true,engines:['X'],evidenceCount:1,failureReasons:[]}));rows[0]={...rows[0],status:'NOT_APPLICABLE',failureReasons:[]};assert.equal(assessmentCoverage(rows).status,'PARTIAL')});

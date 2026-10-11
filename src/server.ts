@@ -53,6 +53,7 @@ import {initContinuousCompliance,createObligation,completeObligation,createExcep
 import {enterpriseAcceptance} from './enterprise-acceptance.js';
 import {initBusinessContinuity,createBusinessService,recordResilienceExercise,reviewResilienceExercise,resilienceDashboard} from './business-continuity.js';
 import {initPolicyGovernance,createPolicy,submitPolicy,approvePolicy,attestPolicy,linkPolicyControl,policyDashboard} from './policy-governance.js';
+import {initAuditManagement,createAudit,addWorkpaper,reviewWorkpaper,setAuditStatus,auditDashboard} from './audit-management.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
@@ -73,6 +74,7 @@ await initArchitectureAssurance();
 await initContinuousCompliance();
 await initBusinessContinuity();
 await initPolicyGovernance();
+await initAuditManagement();
 await initOrganizations();
 await initControlRegistry();
 await initEvidenceEngine();
@@ -275,6 +277,11 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness.:format',
 
 
 
+app.get('/api/grc/organizations/:orgId/audits',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await auditDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/audits',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createAudit(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/audits/:auditId/workpapers',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await addWorkpaper(u.userId,req.params.orgId,req.params.auditId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/audit-workpapers/:id/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reviewWorkpaper(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/audits/:id/status',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await setAuditStatus(u.userId,req.params.orgId,req.params.id,String(req.body?.status||'')))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/policies',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await policyDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/policies',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createPolicy(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/policies/:id/submit',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await submitPolicy(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

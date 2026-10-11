@@ -45,7 +45,7 @@ export function correlateFindings(findings:Finding[]):CorrelatedFinding[]{
    evidenceHashes:[...new Set(fs.map(f=>f.evidenceHash).filter(Boolean))].sort(),
    findingIds:fs.map(f=>f.id),statuses:[...new Set(fs.map(f=>f.status||'UNREVIEWED'))],
    confidence:(id==='UNVERIFIED'?'UNVERIFIED_SINGLE':'IDENTIFIER_MATCH') as CorrelatedFinding['confidence'],
-   corroboration:id==='UNVERIFIED'?'NONE':new Set(fs.map(f=>f.source)).size>1?'MULTI_SOURCE':'SINGLE_SOURCE',
+   corroboration:(id==='UNVERIFIED'?'NONE':new Set(fs.map(f=>f.source)).size>1?'MULTI_SOURCE':'SINGLE_SOURCE') as CorrelatedFinding['corroboration'],
    severityConflict:new Set(fs.map(f=>f.severity)).size>1,
    observedSeverities:[...new Set(fs.map(f=>f.severity))].sort((a,b)=>ranks[b]-ranks[a])
   };

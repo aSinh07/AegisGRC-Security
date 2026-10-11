@@ -28,7 +28,7 @@ import {readinessPdf,readinessDocx,readinessXlsx} from './readiness-exporters.js
 import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,mapControl,setScopeControl,approveScopeControl,statementOfApplicability,listCanonicalControls,listFrameworkRequirements } from './grc-controls.js';
 import { initEvidenceEngine,createEvidenceRequest,submitEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence,listControlTests } from './grc-evidence.js';
 import { initIssueRiskCapa,listIssues,createRiskFromIssue,approveRiskAcceptance,createCapa,submitCapaEvidence,attachRetest,closeCapa,listCapa,listEnterpriseRisks } from './grc-remediation.js';
-import { initGrcOperations,myWork,timeline,operationsDashboard,sla,notifications,markNotification } from './grc-operations.js';
+import { initGrcOperations,myWork,timeline,operationsDashboard,sla,notifications,markNotification,enterpriseReportData } from './grc-operations.js';
 import {initGrcAutomation,createAutomationRule,listAutomation,runAutomationRule,runDueAutomations} from './grc-automation.js';
 import multer from 'multer';
 import { frameworkCatalog,mapFinding } from './grc.js';
@@ -44,7 +44,16 @@ import { initFindingRisk,slaPolicy,setSlaPolicy,promoteFindingToIssue } from './
 import { assessmentTrace } from './audit-trace.js';
 import { auditDocx,auditXlsx,auditPdf } from './audit-exporters.js';
 import { auditPackageModel } from './audit-trace.js';
+import {buildEnterpriseGrcReport} from './enterprise-grc-report.js';
+import {enterpriseGrcPdf,enterpriseGrcDocx,enterpriseGrcXlsx} from './enterprise-grc-exporters.js';
 import {reportSnapshotDigest} from './report-auth.js';
+import {initThirdPartyRisk,createThirdParty,listThirdParties,assessThirdParty,reviewThirdParty,recordThirdPartyIncident,thirdPartyDashboard} from './third-party-risk.js';
+import {initArchitectureAssurance,createArchitectureComponent,createArchitectureEdge,recordFirewallReview,architectureAssurance} from './architecture-assurance.js';
+import {initContinuousCompliance,createObligation,completeObligation,createException,approveException,continuousComplianceDashboard} from './continuous-compliance.js';
+import {enterpriseAcceptance} from './enterprise-acceptance.js';
+import {initBusinessContinuity,createBusinessService,recordResilienceExercise,reviewResilienceExercise,resilienceDashboard} from './business-continuity.js';
+import {initPolicyGovernance,createPolicy,submitPolicy,approvePolicy,attestPolicy,linkPolicyControl,policyDashboard} from './policy-governance.js';
+import {initAuditManagement,createAudit,addWorkpaper,reviewWorkpaper,setAuditStatus,auditDashboard} from './audit-management.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
@@ -62,6 +71,12 @@ await initGrcReviews();
 await initGrcCore();
 await initOrganizations();
 await initControlRegistry();
+await initThirdPartyRisk();
+await initArchitectureAssurance();
+await initContinuousCompliance();
+await initBusinessContinuity();
+await initPolicyGovernance();
+await initAuditManagement();
 await initEvidenceEngine();
 await initIssueRiskCapa();
 await initGrcOperations();
@@ -259,6 +274,60 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness.:format',
  else return res.status(400).json({error:'Audit readiness format must be pdf, docx or xlsx'});
  res.setHeader('Content-Type',contentType);res.setHeader('Content-Disposition','attachment; filename="AegisGRC-Readiness-'+req.params.scopeId+'.'+ext+'"');res.send(body);
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
+
+
+app.get('/api/grc/organizations/:orgId/audits',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await auditDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/audits',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createAudit(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/audits/:auditId/workpapers',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await addWorkpaper(u.userId,req.params.orgId,req.params.auditId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/audit-workpapers/:id/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reviewWorkpaper(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/audits/:id/status',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await setAuditStatus(u.userId,req.params.orgId,req.params.id,String(req.body?.status||'')))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/policies',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await policyDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createPolicy(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies/:id/submit',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await submitPolicy(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies/:id/approve',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await approvePolicy(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies/:id/attest',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await attestPolicy(u.userId,req.params.orgId,req.params.id,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies/:id/controls/:controlId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await linkPolicyControl(u.userId,req.params.orgId,req.params.id,req.params.controlId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/resilience-exercises/:exerciseId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reviewResilienceExercise(u.userId,req.params.orgId,req.params.exerciseId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/resilience',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await resilienceDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/business-services',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createBusinessService(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/business-services/:serviceId/exercises',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await recordResilienceExercise(u.userId,req.params.orgId,req.params.serviceId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-acceptance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await enterpriseAcceptance(u.userId,req.params.orgId,req.params.scopeId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/continuous-compliance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await continuousComplianceDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/obligations',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createObligation(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/obligations/:id/complete',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await completeObligation(u.userId,req.params.orgId,req.params.id,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/exceptions',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createException(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/exceptions/:id/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await approveException(u.userId,req.params.orgId,req.params.id,String(req.body?.decision||'')))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
+app.get('/api/grc/organizations/:orgId/third-parties',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({vendors:await listThirdParties(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/third-parties',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createThirdParty(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/third-party-dashboard',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await thirdPartyDashboard(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/third-parties/:vendorId/assessments',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await assessThirdParty(u.userId,req.params.orgId,req.params.vendorId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/third-party-assessments/:assessmentId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reviewThirdParty(u.userId,req.params.orgId,req.params.assessmentId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/third-parties/:vendorId/incidents',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await recordThirdPartyIncident(u.userId,req.params.orgId,req.params.vendorId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/architecture/components',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createArchitectureComponent(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/architecture/edges',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createArchitectureEdge(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/architecture/firewall-reviews',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await recordFirewallReview(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/scopes/:scopeId/architecture-assurance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await architectureAssurance(u.userId,req.params.orgId,req.params.scopeId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
+app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-report.:format',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ const base=await enterpriseReportData(u.userId,req.params.orgId,req.params.scopeId);
+ const readiness=await organizationAuditReadiness(u.userId,req.params.orgId,req.params.scopeId);
+ const soa=await statementOfApplicability(u.userId,req.params.orgId,req.params.scopeId);
+ const dashboard=await operationsDashboard(u.userId,req.params.orgId),slaState=await sla(u.userId,req.params.orgId);
+ const thirdParty=await thirdPartyDashboard(u.userId,req.params.orgId),architecture=await architectureAssurance(u.userId,req.params.orgId,req.params.scopeId),continuousCompliance=await continuousComplianceDashboard(u.userId,req.params.orgId,req.params.scopeId),resilience=await resilienceDashboard(u.userId,req.params.orgId,req.params.scopeId),policy=await policyDashboard(u.userId,req.params.orgId,req.params.scopeId),audit=await auditDashboard(u.userId,req.params.orgId,req.params.scopeId);
+ const traces=[];for(const a of base.assessments){try{traces.push(await assessmentTrace(u.userId,a.id))}catch{}}
+ const model=buildEnterpriseGrcReport({...base,readiness,soa,dashboard,sla:slaState,thirdParty,architecture,continuousCompliance,resilience,policy,audit,assessmentTraces:traces});
+ const format=String(req.params.format||'json').toLowerCase();let body:Buffer,contentType='application/json',ext=format;
+ if(format==='pdf'){body=await enterpriseGrcPdf(model);contentType='application/pdf'}
+ else if(format==='docx'){body=await enterpriseGrcDocx(model);contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
+ else if(format==='xlsx'){body=enterpriseGrcXlsx(model);contentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+ else if(format==='json'){body=Buffer.from(JSON.stringify(model,null,2))}
+ else return res.status(400).json({error:'Enterprise GRC report format must be pdf, docx, xlsx or json'});
+ res.setHeader('Content-Type',contentType);res.setHeader('Content-Disposition','attachment; filename="AegisGRC-Enterprise-'+req.params.scopeId+'.'+ext+'"');res.send(body);
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
 app.post('/api/internal/grc/automation/run-due',async(req,res)=>{try{
  const expected=String(process.env.GRC_AUTOMATION_SECRET||'');const supplied=String(req.get('x-aegis-automation-secret')||'');
  if(expected.length<32)return res.status(503).json({error:'GRC automation scheduler is not configured'});

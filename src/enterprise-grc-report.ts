@@ -10,7 +10,7 @@ const rows=(v:any)=>Array.isArray(v)?v:[];
 
 export function buildEnterpriseGrcReport(input:{
  organization:any;scope:any;readiness:any;soa:any;risks:any[];issues:any[];capa:any[];
- dashboard?:any;sla?:any;assessmentTraces?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;generatedAt?:string;
+ dashboard?:any;sla?:any;assessmentTraces?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;generatedAt?:string;
 }){
  const generatedAt=input.generatedAt||new Date().toISOString();
  const controls=rows(input.readiness?.controls);
@@ -95,6 +95,9 @@ export function buildEnterpriseGrcReport(input:{
   thirdPartyRisk:input.thirdParty||{vendors:[],incidents:[],summary:{}},
   architectureAssurance:input.architecture||{components:[],edges:[],firewallReviews:[],gaps:[],summary:{}},
   continuousCompliance:input.continuousCompliance||{obligations:[],exceptions:[],summary:{}},
+  operationalResilience:input.resilience||{services:[],latestExercises:[],gaps:[],summary:{}},
+  policyGovernance:input.policy||{policies:[],summary:{}},
+  auditManagement:input.audit||{audits:[],summary:{}},
   sla:input.sla||null,
   operationalMetrics:input.dashboard?.metrics||input.dashboard||null,
   priorityActions:[

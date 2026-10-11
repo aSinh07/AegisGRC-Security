@@ -54,3 +54,9 @@ test('enterprise modules initialize only after organization and control dependen
  const org=s.indexOf('await initOrganizations()'),control=s.indexOf('await initControlRegistry()'),vendor=s.indexOf('await initThirdPartyRisk()'),arch=s.indexOf('await initArchitectureAssurance()'),continuity=s.indexOf('await initBusinessContinuity()');
  assert.ok(org>=0&&control>org&&vendor>control&&arch>control&&continuity>control,'enterprise schema initialization order must satisfy foreign-key dependencies');
 });
+
+test('failed deterministic control tests preserve scope-control traceability',async()=>{
+ const s=await readFile(new URL('../src/grc-evidence.ts',import.meta.url),'utf8');
+ assert.match(s,/INSERT INTO grc_issues\(id,organization_id,scope_control_id/);
+ assert.match(s,/t\.scope_control_id/);
+});

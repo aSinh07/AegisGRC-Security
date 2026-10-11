@@ -10,7 +10,7 @@ if ! docker volume inspect "$PRODUCTION_DB_VOLUME" >/dev/null 2>&1; then
   exit 1
 fi
 
-required=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL ASSESSMENT_SESSION_SECRET EVIDENCE_HMAC_KEY REPORT_SIGNING_KEY GRC_AUTOMATION_SECRET)
+required=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL ASSESSMENT_SESSION_SECRET EVIDENCE_HMAC_KEY REPORT_SIGNING_KEY GRC_AUTOMATION_SECRET TOTP_ENCRYPTION_KEY)
 for key in "${required[@]}"; do
   value="$(grep -E "^${key}=" .env.production | tail -1 | cut -d= -f2- || true)"
   normalized="$(printf '%s' "$value" | tr '[:lower:]' '[:upper:]')"
@@ -19,6 +19,19 @@ for key in "${required[@]}"; do
     exit 1
   fi
 done
+
+node_env="$(grep -E '^NODE_ENV=' .env.production | tail -1 | cut -d= -f2- || true)"
+cookie_secure="$(grep -E '^COOKIE_SECURE=' .env.production | tail -1 | cut -d= -f2- || true)"
+[ "$node_env" = "production" ] || { echo "NODE_ENV must be production"; exit 1; }
+[ "$cookie_secure" = "true" ] || { echo "COOKIE_SECURE must be true"; exit 1; }
+
+totp_key="$(grep -E '^TOTP_ENCRYPTION_KEY=' .env.production | tail -1 | cut -d= -f2- || true)"
+if ! printf '%s' "$totp_key" | base64 -d 2>/dev/null | awk 'BEGIN{ok=0} { } END{ }' >/dev/null; then
+  echo "TOTP_ENCRYPTION_KEY must be valid base64"
+  exit 1
+fi
+totp_bytes="$(printf '%s' "$totp_key" | base64 -d 2>/dev/null | wc -c | tr -d ' ')"
+[ "$totp_bytes" = "32" ] || { echo "TOTP_ENCRYPTION_KEY must decode to exactly 32 bytes"; exit 1; }
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 mkdir -p "$BACKUP_DIR"

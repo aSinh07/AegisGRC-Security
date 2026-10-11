@@ -30,3 +30,9 @@ test('enterprise acceptance gate cannot represent workflow completion as certifi
  assert.match(s,/not a certification/);assert.match(s,/proof that no vulnerability exists/);
  assert.match(s,/ARCHITECTURE_FIREWALL/);assert.match(s,/THIRD_PARTY_RISK/);assert.match(s,/CONTINUOUS_COMPLIANCE/);
 });
+
+test('business continuity records RTO RPO MTD and evidence-backed exercises',async()=>{
+ const s=await readFile(new URL('../src/business-continuity.ts',import.meta.url),'utf8');
+ assert.match(s,/rto_minutes/);assert.match(s,/rpo_minutes/);assert.match(s,/mtd_minutes/);
+ assert.match(s,/evidence reference required/i);assert.match(s,/RTO_BREACH/);assert.match(s,/RPO_BREACH/);assert.match(s,/BIA_OVERDUE/);
+});

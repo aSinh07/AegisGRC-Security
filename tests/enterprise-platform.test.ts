@@ -42,3 +42,9 @@ test('policy governance requires independent approval and control traceability',
  assert.match(s,/Independent approver required for policy/);assert.match(s,/grc_policy_control_links/);
  assert.match(s,/grc_policy_attestations/);assert.match(s,/overdueReview/);assert.match(s,/unmapped/);
 });
+
+test('audit management requires evidence and independent workpaper review',async()=>{
+ const s=await readFile(new URL('../src/audit-management.ts',import.meta.url),'utf8');
+ assert.match(s,/Independent workpaper reviewer required/);assert.match(s,/Tested result, conclusion and evidence required before review/);
+ assert.match(s,/All audit workpapers require independent review before completion/);assert.match(s,/Completed audit is immutable/);
+});

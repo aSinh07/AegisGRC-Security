@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+test('assurance engines are exposed only through organization scoped authenticated routes',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');for(const p of ['/assurance/evidence-evaluate','/integrations/readiness','/exposure/prioritize','/architecture/benchmark','/architecture/confidence'])assert.ok(s.includes("/api/grc/organizations/:orgId"+p));assert.match(s,/requireOrgPermission\(u\.userId,req\.params\.orgId/);});

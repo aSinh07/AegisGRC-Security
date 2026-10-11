@@ -20,7 +20,7 @@ test('continuous compliance requires evidence and independent exception approval
  const s=await readFile(new URL('../src/continuous-compliance.ts',import.meta.url),'utf8');
  assert.match(s,/Evidence reference required to complete obligation/);
  assert.match(s,/Independent approver required for exception/);
- assert.match(s,/status='EXPIRED'/);
+ assert.match(s,/effective_status/);assert.doesNotMatch(s,/UPDATE grc_exceptions SET status='EXPIRED'/);assert.match(s,/Invalid exception risk rating/);
  assert.match(s,/overdueObligations/);
 });
 

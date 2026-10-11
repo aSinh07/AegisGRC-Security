@@ -67,11 +67,11 @@ export async function verifyUserStepUp(userId:string,password:string,code:string
 export async function authAttemptAllowed(key:string,limit=10,windowMinutes=15){
  const r=await pool.query(`INSERT INTO app_auth_attempts(attempt_key,failures,window_started_at,blocked_until,updated_at)
  VALUES($1,0,now(),NULL,now()) ON CONFLICT(attempt_key) DO UPDATE SET
- failures=CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN 0 ELSE app_auth_attempts.failures END,
- window_started_at=CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN now() ELSE app_auth_attempts.window_started_at END,
+ failures=CASE WHEN app_auth_attempts.window_started_at<=now()-($2::text||' minutes')::interval THEN 0 ELSE app_auth_attempts.failures END,
+ window_started_at=CASE WHEN app_auth_attempts.window_started_at<=now()-($2::text||' minutes')::interval THEN now() ELSE app_auth_attempts.window_started_at END,
  blocked_until=CASE WHEN app_auth_attempts.blocked_until<=now() THEN NULL ELSE app_auth_attempts.blocked_until END,
  updated_at=now()
- RETURNING failures,blocked_until`,[key,limit,windowMinutes]);
+ RETURNING failures,blocked_until`,[key,windowMinutes]);
  const x=r.rows[0];return !(x.blocked_until&&new Date(x.blocked_until).getTime()>Date.now())&&Number(x.failures)<limit;
 }
 export async function recordAuthFailure(key:string,limit=10,windowMinutes=15){

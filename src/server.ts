@@ -50,6 +50,7 @@ import {reportSnapshotDigest} from './report-auth.js';
 import {initThirdPartyRisk,createThirdParty,listThirdParties,assessThirdParty,reviewThirdParty,recordThirdPartyIncident,thirdPartyDashboard} from './third-party-risk.js';
 import {initArchitectureAssurance,createArchitectureComponent,createArchitectureEdge,recordFirewallReview,architectureAssurance} from './architecture-assurance.js';
 import {initContinuousCompliance,createObligation,completeObligation,createException,approveException,continuousComplianceDashboard} from './continuous-compliance.js';
+import {enterpriseAcceptance} from './enterprise-acceptance.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
@@ -270,6 +271,7 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness.:format',
 
 
 
+app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-acceptance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await enterpriseAcceptance(u.userId,req.params.orgId,req.params.scopeId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/continuous-compliance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await continuousComplianceDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/obligations',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createObligation(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/obligations/:id/complete',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await completeObligation(u.userId,req.params.orgId,req.params.id,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

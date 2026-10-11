@@ -50,7 +50,7 @@ export const db={
 function withEvidenceProvenance(x:Evidence):Evidence{
  const existing=(x.metadata as any)?.provenance as EvidenceProvenance|undefined;if(existing){const trust=evidenceTrust(existing);return {...x,metadata:{...x.metadata,provenance:existing,evidenceTrust:trust,provenanceFingerprint:provenanceFingerprint(existing)}}}
  const integration=integrationById(String(x.source||'').toLowerCase());if(!integration)return {...x,metadata:{...x.metadata,evidenceTrust:'UNVERIFIED',provenanceLimitations:['Evidence source is not registered in the integration catalog']}};
- const method=integration.kind==='SCANNER'?'LOCAL_EXECUTION':'IMPORTED_REPORT';const verified=Boolean((x.metadata as any)?.reportRecognized)||integration.activeCollection;
+ const method:EvidenceProvenance['verificationMethod']=integration.kind==='SCANNER'?'LOCAL_EXECUTION':'IMPORTED_REPORT';const verified=Boolean((x.metadata as any)?.reportRecognized)||integration.activeCollection;
  const p:EvidenceProvenance={integrationId:integration.id,integrationKind:integration.kind,collectorVersion:String((x.metadata as any)?.collectorVersion||(x.metadata as any)?.scannerVersion||'unspecified'),collectedAt:x.createdAt,sourceRef:String((x.metadata as any)?.target||(x.metadata as any)?.assetId||x.assessmentId),sha256:x.sha256,verified,verificationMethod:method,limitations:[...integration.limitations,...(!verified?['Collection authenticity was not independently verified']:[])]};return {...x,metadata:{...x.metadata,provenance:p,evidenceTrust:evidenceTrust(p),provenanceFingerprint:provenanceFingerprint(p)}}
 }
 export const db={

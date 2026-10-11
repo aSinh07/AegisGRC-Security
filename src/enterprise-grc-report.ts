@@ -10,7 +10,7 @@ const rows=(v:any)=>Array.isArray(v)?v:[];
 
 export function buildEnterpriseGrcReport(input:{
  organization:any;scope:any;readiness:any;soa:any;risks:any[];issues:any[];capa:any[];
- dashboard?:any;sla?:any;assessmentTraces?:any[];generatedAt?:string;
+ dashboard?:any;sla?:any;assessmentTraces?:any[];thirdParty?:any;architecture?:any;generatedAt?:string;
 }){
  const generatedAt=input.generatedAt||new Date().toISOString();
  const controls=rows(input.readiness?.controls);
@@ -92,6 +92,8 @@ export function buildEnterpriseGrcReport(input:{
   correctivePreventiveActions:capa,
   evidenceRegister:sourceRegister,
   technicalAssuranceCoverage:technicalCoverage,
+  thirdPartyRisk:input.thirdParty||{vendors:[],incidents:[],summary:{}},
+  architectureAssurance:input.architecture||{components:[],edges:[],firewallReviews:[],gaps:[],summary:{}},
   sla:input.sla||null,
   operationalMetrics:input.dashboard?.metrics||input.dashboard||null,
   priorityActions:[

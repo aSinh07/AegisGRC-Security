@@ -52,3 +52,5 @@ test('assessment evidence uploads are classified and audited',async()=>{const s=
 
 test('real attack-surface scans carry scope provenance',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/attackSurfaceAssessed:tool==='nmap'\|\|tool==='nuclei'/);assert.match(s,/attackSurfaceAssetId:t\.url\.origin/);});
 test('scoped coverage binds exact asset id or asset key',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/covered\.has\(String\(a\.asset_key\)\)/);});
+
+test('defense in depth matrix includes independent TLS SBOM secrets IaC Kubernetes image and host checks',async()=>{const s=await readFile(new URL('../src/scanner-orchestration.ts',import.meta.url),'utf8');for(const e of ['TESTSSL','GRYPE','SYFT','KUBESCAPE','CHECKOV','GITLEAKS','LYNIS'])assert.match(s,new RegExp(e));});

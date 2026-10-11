@@ -18,8 +18,8 @@ function withEvidenceProvenance(x:Evidence):Evidence{
  const integration=integrationById(String(x.source||'').toLowerCase());
  if(!integration)return {...x,metadata:{...x.metadata,evidenceTrust:'UNVERIFIED',provenanceLimitations:['Evidence source is not registered in the integration catalog']}};
  const method:EvidenceProvenance['verificationMethod']=integration.kind==='SCANNER'?'LOCAL_EXECUTION':'IMPORTED_REPORT';
- const verified=Boolean((x.metadata as any)?.reportRecognized)||integration.activeCollection;
- const p:EvidenceProvenance={integrationId:integration.id,integrationKind:integration.kind,collectorVersion:String((x.metadata as any)?.collectorVersion||(x.metadata as any)?.scannerVersion||'unspecified'),collectedAt:x.createdAt,sourceRef:String((x.metadata as any)?.target||(x.metadata as any)?.assetId||x.assessmentId),sha256:x.sha256,verified,verificationMethod:method,limitations:[...integration.limitations,...(!verified?['Collection authenticity was not independently verified']:[])]};
+ const verified=false;
+ const p:EvidenceProvenance={integrationId:integration.id,integrationKind:integration.kind,collectorVersion:String((x.metadata as any)?.collectorVersion||(x.metadata as any)?.scannerVersion||'unspecified'),collectedAt:x.createdAt,sourceRef:String((x.metadata as any)?.target||(x.metadata as any)?.assetId||x.assessmentId),sha256:x.sha256,verified,verificationMethod:method,limitations:[...integration.limitations,'Trusted provenance was not explicitly supplied by the collection path']};
  return {...x,metadata:{...x.metadata,provenance:p,evidenceTrust:evidenceTrust(p),provenanceFingerprint:provenanceFingerprint(p)}};
 }
 export const db={

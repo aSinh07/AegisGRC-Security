@@ -4,6 +4,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 test -f .env.production || { echo ".env.production is required"; exit 1; }
 
+PRODUCTION_DB_VOLUME="aegisgrc-security_aegis-db"
+if ! docker volume inspect "$PRODUCTION_DB_VOLUME" >/dev/null 2>&1; then
+  echo "Required production database volume $PRODUCTION_DB_VOLUME does not exist; refusing to initialize a replacement database."
+  exit 1
+fi
+
 required=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL ASSESSMENT_SESSION_SECRET EVIDENCE_HMAC_KEY REPORT_SIGNING_KEY GRC_AUTOMATION_SECRET)
 for key in "${required[@]}"; do
   value="$(grep -E "^${key}=" .env.production | tail -1 | cut -d= -f2- || true)"

@@ -37,4 +37,5 @@ services:
 
 volumes:
   aegis-db:
-    name: aegis-db
+    name: aegisgrc-security_aegis-db
+    external: true

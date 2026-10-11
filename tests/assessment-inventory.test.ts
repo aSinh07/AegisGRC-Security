@@ -44,3 +44,5 @@ test('server exposes identity reconciliation without auto-completing from cloud'
 
 test('data-security coverage requires explicit asset-bound Prowler scope',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/reconcileDataSecurityCoverage/);assert.match(s,/DATABASE/);assert.match(s,/STORAGE/);assert.match(s,/dataSecurityAssessed===true/);assert.match(s,/dataAssetId/);assert.match(s,/DATA_SECURITY layer is not initialized/)});
 test('server exposes independent data-security reconciliation',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/data-security\/reconcile/);assert.match(s,/dataSecurityAssessed/);assert.match(s,/dataAssetId/)});
+
+test('all assurance layers reject manual completion',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');for(const layer of ['ATTACK_SURFACE','PRIVACY','BREACH_TELEMETRY'])assert.match(s,new RegExp(layer));assert.match(s,/reconcileAttackSurfaceCoverage/);assert.match(s,/reconcilePrivacyCoverage/);assert.match(s,/reconcileBreachTelemetryCoverage/)});

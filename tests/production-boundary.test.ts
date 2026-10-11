@@ -18,3 +18,12 @@ test('only minimal readiness and authentication bootstrap routes bypass API auth
  assert.doesNotMatch(authMiddleware,/['"]\/health['"]/);
  assert.doesNotMatch(authMiddleware,/['"]\/integrations['"]/);
 });
+
+
+test('browser cross-site state changes are rejected before API handling',async()=>{
+ const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(s,/sec-fetch-site/);
+ assert.match(s,/cross-site/);
+ assert.match(s,/Cross-site state-changing requests are not allowed/);
+ assert.match(s,/\['GET','HEAD','OPTIONS'\]/);
+});

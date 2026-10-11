@@ -2,7 +2,21 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-test -f .env.production || { echo ".env.production is required"; exit 1; }\n\nrequired=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL ASSESSMENT_SESSION_SECRET EVIDENCE_HMAC_KEY REPORT_SIGNING_KEY GRC_AUTOMATION_SECRET)\nfor key in "${required[@]}"; do\n  value="$(grep -E "^${key}=" .env.production | tail -1 | cut -d= -f2- || true)"\n  if [ -z "$value" ] || [[ "$value" == REPLACE_* ]] || [[ "$value" == replace-* ]]; then echo "Missing or placeholder production secret: $key"; exit 1; fi\ndone\n\nBACKUP_DIR="${BACKUP_DIR:-./backups}"\nmkdir -p "$BACKUP_DIR"\nif docker compose -f docker-compose.production.yml ps --status running postgres 2>/dev/null | grep -q postgres; then\n  stamp="$(date -u +%Y%m%dT%H%M%SZ)"\n  echo "Creating pre-deploy PostgreSQL backup..."\n  docker compose -f docker-compose.production.yml exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > "$BACKUP_DIR/aegis-$stamp.dump"\nfi
+test -f .env.production || { echo ".env.production is required"; exit 1; }
+
+required=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL ASSESSMENT_SESSION_SECRET EVIDENCE_HMAC_KEY REPORT_SIGNING_KEY GRC_AUTOMATION_SECRET)
+for key in "${required[@]}"; do
+  value="$(grep -E "^${key}=" .env.production | tail -1 | cut -d= -f2- || true)"
+  if [ -z "$value" ] || [[ "$value" == REPLACE_* ]] || [[ "$value" == replace-* ]]; then echo "Missing or placeholder production secret: $key"; exit 1; fi
+done
+
+BACKUP_DIR="${BACKUP_DIR:-./backups}"
+mkdir -p "$BACKUP_DIR"
+if docker compose -f docker-compose.production.yml ps --status running postgres 2>/dev/null | grep -q postgres; then
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  echo "Creating pre-deploy PostgreSQL backup..."
+  docker compose -f docker-compose.production.yml exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > "$BACKUP_DIR/aegis-$stamp.dump"
+fi
 
 echo "Pulling release..."
 git pull --ff-only origin main

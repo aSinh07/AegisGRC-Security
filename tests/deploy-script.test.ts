@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+test('production deployment script contains real shell line breaks and release safeguards',async()=>{const s=await readFile(new URL('../scripts/deploy-gce.sh',import.meta.url),'utf8');assert.doesNotMatch(s,/\\n/);assert.match(s,/set -euo pipefail/);assert.match(s,/pg_dump/);assert.match(s,/"mode":"postgres"/);assert.doesNotMatch(s,/down\s+-v|down\s+--volumes/);});

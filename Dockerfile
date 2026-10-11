@@ -1,7 +1,13 @@
 FROM node:22-bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends nmap tshark sqlmap python3 python3-pip python3-venv ca-certificates curl unzip \
+RUN apt-get update && apt-get install -y --no-install-recommends nmap tshark sqlmap python3 python3-pip python3-venv ca-certificates curl unzip git openssl lynis \
     && python3 -m venv /opt/wapiti && /opt/wapiti/bin/pip install --no-cache-dir wapiti3==3.2.3 \
     && ln -s /opt/wapiti/bin/wapiti /usr/local/bin/wapiti \
+    && python3 -m venv /opt/checkov && /opt/checkov/bin/pip install --no-cache-dir checkov==3.2.490 && ln -s /opt/checkov/bin/checkov /usr/local/bin/checkov \
+    && TESTSSL_VERSION=3.2.2 && curl -fsSL -o /tmp/testssl.tar.gz https://github.com/testssl/testssl.sh/archive/refs/tags/v${TESTSSL_VERSION}.tar.gz && tar -xzf /tmp/testssl.tar.gz -C /opt && ln -s /opt/testssl.sh-${TESTSSL_VERSION}/testssl.sh /usr/local/bin/testssl.sh && rm /tmp/testssl.tar.gz \
+    && GRYPE_VERSION=0.104.0 && curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin v${GRYPE_VERSION} \
+    && SYFT_VERSION=1.38.0 && curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin v${SYFT_VERSION} \
+    && GITLEAKS_VERSION=8.30.0 && curl -fsSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && chmod 0755 /usr/local/bin/gitleaks && rm /tmp/gitleaks.tar.gz \
+    && KUBESCAPE_VERSION=3.0.47 && curl -fsSL -o /usr/local/bin/kubescape https://github.com/kubescape/kubescape/releases/download/v${KUBESCAPE_VERSION}/kubescape-ubuntu-latest && chmod 0755 /usr/local/bin/kubescape \
     && python3 -m venv /opt/semgrep && /opt/semgrep/bin/pip install --no-cache-dir semgrep==1.179.0 \
     && ln -s /opt/semgrep/bin/semgrep /usr/local/bin/semgrep \
     && NUCLEI_VERSION=3.4.10 && curl -fsSL -o /tmp/nuclei.zip https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip \

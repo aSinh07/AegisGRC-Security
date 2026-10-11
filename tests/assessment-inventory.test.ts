@@ -49,3 +49,6 @@ test('all assurance layers reject manual completion',async()=>{const s=await rea
 
 test('coverage cannot claim vulnerability-free assurance',async()=>{const s=await readFile(new URL('../src/assessment-coverage.ts',import.meta.url),'utf8');assert.match(s,/vulnerabilityFreeGuaranteed:false/);assert.match(s,/not a guarantee that no vulnerability exists/);assert.match(s,/coveragePercent:required.length\?Math.round/);});
 test('assessment evidence uploads are classified and audited',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/ARCHITECTURE/);assert.match(s,/DATA_FLOW/);assert.match(s,/FIREWALL_CONFIGURATION/);assert.match(s,/LOG_EXPORT/);assert.match(s,/PENTEST_REPORT/);assert.match(s,/documentType,description/);});
+
+test('real attack-surface scans carry scope provenance',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/attackSurfaceAssessed:tool==='nmap'\|\|tool==='nuclei'/);assert.match(s,/attackSurfaceAssetId:t\.url\.origin/);});
+test('scoped coverage binds exact asset id or asset key',async()=>{const s=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(s,/covered\.has\(String\(a\.asset_key\)\)/);});

@@ -23,3 +23,10 @@ test('continuous compliance requires evidence and independent exception approval
  assert.match(s,/status='EXPIRED'/);
  assert.match(s,/overdueObligations/);
 });
+
+test('enterprise acceptance gate cannot represent workflow completion as certification',async()=>{
+ const s=await readFile(new URL('../src/enterprise-acceptance.ts',import.meta.url),'utf8');
+ assert.match(s,/ACCEPTANCE_READY/);assert.match(s,/ACTION_REQUIRED/);
+ assert.match(s,/not a certification/);assert.match(s,/proof that no vulnerability exists/);
+ assert.match(s,/ARCHITECTURE_FIREWALL/);assert.match(s,/THIRD_PARTY_RISK/);assert.match(s,/CONTINUOUS_COMPLIANCE/);
+});

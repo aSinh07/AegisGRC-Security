@@ -92,7 +92,6 @@ async function execute(client:any,org:string,kind:Kind,config:any){
    RETURNING id,risk_key,owner_user_id`,[org])).rows;
   for(const x of changed)if(x.owner_user_id)await client.query(`INSERT INTO grc_notifications(id,organization_id,user_id,severity,title,message,record_type,record_id,dedupe_key) VALUES($1,$2,$3,'HIGH',$4,$5,'RISK',$6,$7) ON CONFLICT(organization_id,user_id,dedupe_key) DO NOTHING`,[crypto.randomUUID(),org,x.owner_user_id,'Risk acceptance expired: '+x.risk_key,'Risk acceptance has expired and requires a new independent review.',x.id,'RISK_ACCEPTANCE_EXPIRED:'+x.id]);
   events.push({expiredAcceptances:changed.length,riskIds:changed.map((x:any)=>x.id)});
- }
  }else if(kind==='OBLIGATION_DUE'){
   const rows=(await client.query("SELECT id,title,owner_user_id FROM grc_compliance_obligations WHERE organization_id=$1 AND status<>'COMPLETE' AND due_at<=now()",[org])).rows;
   events.push({dueObligations:rows.length,obligationIds:rows.map((x:any)=>x.id)});

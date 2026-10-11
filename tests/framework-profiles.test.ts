@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {frameworkProfile,frameworkEffectiveOn} from '../src/framework-profiles.js';
+test('priority frameworks are versioned and sourced',()=>{for(const id of ['ISO27001','ISO42001','DPDP']){const p=frameworkProfile(id)!;assert.ok(p.version);assert.match(p.sourceUrl,/^https:\/\//);assert.ok(p.notes.length)}});
+test('ISO profiles do not invent a single effective date',()=>{assert.equal(frameworkEffectiveOn('ISO27001','2026-10-11').effective,null);assert.equal(frameworkEffectiveOn('ISO42001','2026-10-11').effective,null)});
+test('DPDP profile preserves phased applicability warning',()=>{const x=frameworkEffectiveOn('DPDP','2026-10-11');assert.equal(x.effective,true);assert.match(x.reason,/phased/i);assert.match(frameworkProfile('DPDP')!.notes.join(' '),/provision-specific/i)});

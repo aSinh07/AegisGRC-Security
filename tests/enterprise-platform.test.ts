@@ -78,3 +78,11 @@ test('architecture scope and firewall evidence validation are enforced',async()=
  assert.match(s,/Firewall rule counts must be non-negative integers/);
  assert.match(s,/Firewall review scope must match the security gateway scope/);
 });
+
+test('third-party approvals require immutable independent evidence-backed review',async()=>{
+ const s=await readFile(new URL('../src/third-party-risk.ts',import.meta.url),'utf8');
+ assert.match(s,/Third-party assessment already reviewed/);
+ assert.match(s,/Approval requires residual risk and supporting evidence/);
+ assert.match(s,/Vendor findings and evidence must be arrays/);
+ assert.match(s,/Invalid vendor contract or review dates/);
+});

@@ -20,8 +20,8 @@ export async function initScannerJobs(){await pool.query(`
   assessment_id text NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,engine text NOT NULL,target text NOT NULL,
   state text NOT NULL CHECK(state IN ('QUEUED','RUNNING','SUCCEEDED','FAILED','TIMEOUT','TRUNCATED','UNAVAILABLE')),
   requested_by uuid REFERENCES app_users(id) ON DELETE SET NULL,evidence_id uuid,evidence_hash text,error text,
-  created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,completed_at timestamptz
- );CREATE INDEX IF NOT EXISTS scanner_jobs_assessment_idx ON scanner_jobs(organization_id,assessment_id,created_at DESC);
+  created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,completed_at timestamptz,attempts integer NOT NULL DEFAULT 0
+ );ALTER TABLE scanner_jobs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;CREATE INDEX IF NOT EXISTS scanner_jobs_assessment_idx ON scanner_jobs(organization_id,assessment_id,created_at DESC);
 `)}
 
 function engine(v:string){const e=String(v||'').toUpperCase() as ScannerEngine;if(!engines.has(e))throw new Error('Unsupported defense scanner');return e}
@@ -37,9 +37,10 @@ export async function listScannerJobs(userId:string,assessmentId:string){
  FROM scanner_jobs WHERE organization_id=$1 AND assessment_id=$2 ORDER BY created_at DESC LIMIT 200`,[access.organization_id,assessmentId])).rows
 }
 async function execute(e:ScannerEngine,target:string){switch(e){case'TESTSSL':return scanTls(target);case'LYNIS':return scanHostHardening(target);case'GRYPE':return scanImageWithGrype(target);case'SYFT':return generateSbom(target);case'KUBESCAPE':return scanKubernetes(target);case'CHECKOV':return scanIac(target);case'GITLEAKS':return scanSecrets(target)}}
+export async function recoverStaleScannerJobs(){const lease=Math.max(60,Number(process.env.SCANNER_JOB_LEASE_SECONDS||900)),maxAttempts=Math.max(1,Number(process.env.SCANNER_JOB_MAX_ATTEMPTS||2));return (await pool.query(`UPDATE scanner_jobs SET state=CASE WHEN attempts >= $2 THEN 'FAILED' ELSE 'QUEUED' END,error=CASE WHEN attempts >= $2 THEN 'Scanner worker lease expired after maximum attempts' ELSE error END,started_at=NULL,completed_at=CASE WHEN attempts >= $2 THEN now() ELSE NULL END WHERE state='RUNNING' AND started_at < now()-($1::text||' seconds')::interval RETURNING id,state`,[lease,maxAttempts])).rows}
 export async function claimScannerJob(){
  const c=await pool.connect();try{await c.query('BEGIN');const row=(await c.query(`SELECT * FROM scanner_jobs WHERE state='QUEUED' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1`)).rows[0];
- if(!row){await c.query('COMMIT');return null}await c.query(`UPDATE scanner_jobs SET state='RUNNING',started_at=now() WHERE id=$1`,[row.id]);await c.query('COMMIT');return row
+ if(!row){await c.query('COMMIT');return null}await c.query(`UPDATE scanner_jobs SET state='RUNNING',started_at=now(),attempts=attempts+1 WHERE id=$1`,[row.id]);await c.query('COMMIT');return row
  }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
 }
 export async function executeClaimedScannerJob(job:any,saveEvidence:(x:any)=>Promise<void>,saveAudit:(x:any)=>Promise<void>){

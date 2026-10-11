@@ -1,0 +1,23 @@
+import crypto from 'node:crypto';
+
+export type IntegrationKind='SCANNER'|'CLOUD'|'SIEM'|'EDR'|'FIREWALL'|'REPOSITORY'|'WORKFLOW'|'IDENTITY'|'CUSTOM_API'|'WEBHOOK';
+export type IntegrationState='AVAILABLE'|'CONFIGURED'|'AUTHENTICATED'|'VERIFIED'|'DEGRADED'|'UNAVAILABLE'|'DISABLED';
+export type AuthMode='NONE'|'API_KEY'|'OAUTH2'|'SERVICE_ACCOUNT'|'TOKEN'|'MTLS'|'LOCAL_EXECUTION'|'WEBHOOK_SIGNATURE';
+export type EvidenceProvenance={integrationId:string;integrationKind:IntegrationKind;collectorVersion:string;collectedAt:string;sourceRef:string;sha256:string;verified:boolean;verificationMethod:'LOCAL_EXECUTION'|'AUTHENTICATED_API'|'SIGNED_WEBHOOK'|'IMPORTED_REPORT';limitations:string[]};
+export type IntegrationCapability={id:string;name:string;kind:IntegrationKind;auth:AuthMode[];capabilities:string[];state:IntegrationState;implemented:boolean;activeCollection:boolean;lastVerifiedAt?:string;limitations:string[]};
+
+export const integrationCatalog:ReadonlyArray<IntegrationCapability>=Object.freeze([
+ {id:'nmap',name:'Nmap',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['NETWORK_DISCOVERY','PORTS','SERVICES'],state:'AVAILABLE',implemented:true,activeCollection:true,limitations:[]},
+ {id:'zap',name:'OWASP ZAP',kind:'SCANNER',auth:['API_KEY'],capabilities:['WEB_DAST'],state:'AVAILABLE',implemented:true,activeCollection:true,limitations:[]},
+ {id:'nuclei',name:'Nuclei',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['TEMPLATE_FINDINGS','CVE_SIGNALS'],state:'AVAILABLE',implemented:true,activeCollection:true,limitations:[]},
+ {id:'trivy',name:'Trivy',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['DEPENDENCY_VULNERABILITIES','CONTAINER','MISCONFIGURATION'],state:'AVAILABLE',implemented:true,activeCollection:true,limitations:[]},
+ {id:'semgrep',name:'Semgrep',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['SAST'],state:'AVAILABLE',implemented:true,activeCollection:true,limitations:[]},
+ {id:'prowler',name:'Prowler',kind:'CLOUD',auth:['LOCAL_EXECUTION','SERVICE_ACCOUNT'],capabilities:['CLOUD_POSTURE'],state:'AVAILABLE',implemented:true,activeCollection:false,limitations:['Authenticated cloud scope is deployment-specific']},
+ {id:'wazuh',name:'Wazuh',kind:'SIEM',auth:['API_KEY','TOKEN'],capabilities:['ENDPOINT_ALERTS','SIEM_FINDINGS'],state:'AVAILABLE',implemented:true,activeCollection:false,limitations:['Current ingestion supports evidence/report input; live API verification is deployment-specific']},
+ {id:'openvas',name:'Greenbone/OpenVAS',kind:'SCANNER',auth:['TOKEN','LOCAL_EXECUTION'],capabilities:['VULNERABILITY_MANAGEMENT'],state:'AVAILABLE',implemented:true,activeCollection:false,limitations:['Current ingestion supports scanner report evidence']}
+]);
+
+export function integrationById(id:string){return integrationCatalog.find(x=>x.id===String(id||'').toLowerCase())||null}
+export function assertEvidenceProvenance(x:EvidenceProvenance){if(!integrationById(x.integrationId))throw new Error('Unknown evidence integration');if(!/^[a-f0-9]{64}$/.test(x.sha256))throw new Error('Evidence provenance requires lowercase SHA-256');if(!x.sourceRef||!x.collectorVersion||!x.collectedAt)throw new Error('Evidence provenance is incomplete');if(x.verified&&!['LOCAL_EXECUTION','AUTHENTICATED_API','SIGNED_WEBHOOK','IMPORTED_REPORT'].includes(x.verificationMethod))throw new Error('Invalid evidence verification method');return x}
+export function evidenceTrust(x:EvidenceProvenance){assertEvidenceProvenance(x);return x.verified&&x.limitations.length===0?'VERIFIED':x.verified?'VERIFIED_WITH_LIMITATIONS':'UNVERIFIED'}
+export function provenanceFingerprint(x:EvidenceProvenance){assertEvidenceProvenance(x);return crypto.createHash('sha256').update(JSON.stringify({integrationId:x.integrationId,collectorVersion:x.collectorVersion,collectedAt:x.collectedAt,sourceRef:x.sourceRef,sha256:x.sha256,verificationMethod:x.verificationMethod})).digest('hex')}

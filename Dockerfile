@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends nmap tshark sql
     && GRYPE_VERSION=0.104.0 && curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin v${GRYPE_VERSION} \
     && SYFT_VERSION=1.38.0 && curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin v${SYFT_VERSION} \
     && GITLEAKS_VERSION=8.30.0 && curl -fsSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && chmod 0755 /usr/local/bin/gitleaks && rm /tmp/gitleaks.tar.gz \
-    && KUBESCAPE_VERSION=3.0.47 && curl -fsSL -o /usr/local/bin/kubescape https://github.com/kubescape/kubescape/releases/download/v${KUBESCAPE_VERSION}/kubescape-ubuntu-latest && chmod 0755 /usr/local/bin/kubescape \
+    && KUBESCAPE_VERSION=3.0.47 && curl -fsSL -o /usr/local/bin/kubescape https://github.com/kubescape/kubescape/releases/download/v${KUBESCAPE_VERSION}/kubescape_${KUBESCAPE_VERSION}_linux_amd64 && chmod 0755 /usr/local/bin/kubescape \
     && python3 -m venv /opt/semgrep && /opt/semgrep/bin/pip install --no-cache-dir semgrep==1.179.0 \
     && ln -s /opt/semgrep/bin/semgrep /usr/local/bin/semgrep \
     && NUCLEI_VERSION=3.4.10 && curl -fsSL -o /tmp/nuclei.zip https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip \

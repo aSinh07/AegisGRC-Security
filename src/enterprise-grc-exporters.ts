@@ -31,6 +31,15 @@ export async function enterpriseGrcDocx(m:any){
   docTable(['Risk','Title','Rating','Treatment','Status','Acceptance Expiry'],risks),
   new Paragraph({text:'Issue Register',heading:HeadingLevel.HEADING_1}),
   docTable(['Issue','Title','Priority','Status','Due'],issues),
+  new Paragraph({text:'Third-Party, Architecture & Continuous Compliance',heading:HeadingLevel.HEADING_1}),
+  new Paragraph('Vendors: '+s(m.thirdPartyRisk?.summary?.vendors||0)+' | Architecture gaps: '+s(m.architectureAssurance?.summary?.gaps||0)+' | Overdue obligations: '+s(m.continuousCompliance?.summary?.overdueObligations||0)),
+  new Paragraph({text:'Operational Resilience',heading:HeadingLevel.HEADING_1}),
+  new Paragraph('Business services: '+s(m.operationalResilience?.summary?.services||0)+' | Tested: '+s(m.operationalResilience?.summary?.tested||0)+' | Resilience gaps: '+s(m.operationalResilience?.summary?.gaps||0)),
+  docTable(['Service','Gap','Severity'],(m.operationalResilience?.gaps||[]).map((x:any)=>[x.service,x.type,x.severity])),
+  new Paragraph({text:'Policy Governance',heading:HeadingLevel.HEADING_1}),
+  new Paragraph('Policies: '+s(m.policyGovernance?.summary?.total||0)+' | Approved: '+s(m.policyGovernance?.summary?.approved||0)+' | Overdue review: '+s(m.policyGovernance?.summary?.overdueReview||0)+' | Unmapped: '+s(m.policyGovernance?.summary?.unmapped||0)),
+  new Paragraph({text:'Audit Management',heading:HeadingLevel.HEADING_1}),
+  new Paragraph('Audits: '+s(m.auditManagement?.summary?.total||0)+' | Active: '+s(m.auditManagement?.summary?.active||0)+' | Complete: '+s(m.auditManagement?.summary?.complete||0)+' | Unreviewed workpapers: '+s(m.auditManagement?.summary?.unreviewed||0)),
   new Paragraph({text:'Priority Management Actions',heading:HeadingLevel.HEADING_1}),
   ...(m.priorityActions||[]).map((x:any)=>new Paragraph('• ['+s(x.priority)+'] '+s(x.type)+' '+s(x.key)+': '+s(x.action))),
   new Paragraph({text:'Assurance Boundary & Limitations',heading:HeadingLevel.HEADING_1}),
@@ -56,6 +65,11 @@ export function enterpriseGrcXlsx(m:any){
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.architectureAssurance?.gaps||[]),'Architecture Gaps');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.continuousCompliance?.obligations||[]),'Obligations');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.continuousCompliance?.exceptions||[]),'Exceptions');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.operationalResilience?.services||[]),'Resilience Services');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.operationalResilience?.latestExercises||[]),'Resilience Tests');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.operationalResilience?.gaps||[]),'Resilience Gaps');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.policyGovernance?.policies||[]),'Policies');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.auditManagement?.audits||[]),'Audits');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.priorityActions||[]),'Priority Actions');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((m.assuranceBoundary||[]).map((x:string)=>({Limitation:x}))),'Limitations');
  return Buffer.from(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}));
@@ -97,7 +111,10 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
  for(const g of m.architectureAssurance?.gaps||[])d.fontSize(8).text('• '+s(g.severity)+' '+s(g.type)+' '+s(g.component||g.componentId||g.edgeId||''));
  h('10.','Continuous Compliance, Obligations & Exceptions');
  d.fontSize(9).text('Obligations: '+s(m.continuousCompliance?.summary?.obligations||0)+' | Overdue: '+s(m.continuousCompliance?.summary?.overdueObligations||0)+' | Open exceptions: '+s(m.continuousCompliance?.summary?.openExceptions||0)+' | Expired exceptions: '+s(m.continuousCompliance?.summary?.expiredExceptions||0));
- h('11.','Priority Management Actions');for(const x of m.priorityActions||[])d.fontSize(9).text('• ['+s(x.priority)+'] '+s(x.type)+' '+s(x.key)+': '+s(x.action));
- h('12.','Assurance Boundary & Limitations');for(const x of m.assuranceBoundary||[])d.fontSize(9).text('• '+x);
+ h('11.','Operational Resilience');d.fontSize(9).text('Business services: '+s(m.operationalResilience?.summary?.services||0)+' | Tested: '+s(m.operationalResilience?.summary?.tested||0)+' | Gaps: '+s(m.operationalResilience?.summary?.gaps||0));for(const g of m.operationalResilience?.gaps||[])d.fontSize(8).text('• '+s(g.severity)+' '+s(g.service)+' '+s(g.type));
+ h('12.','Policy Governance');d.fontSize(9).text('Policies: '+s(m.policyGovernance?.summary?.total||0)+' | Approved: '+s(m.policyGovernance?.summary?.approved||0)+' | Overdue review: '+s(m.policyGovernance?.summary?.overdueReview||0)+' | Unmapped: '+s(m.policyGovernance?.summary?.unmapped||0));
+ h('13.','Audit Management');d.fontSize(9).text('Audits: '+s(m.auditManagement?.summary?.total||0)+' | Active: '+s(m.auditManagement?.summary?.active||0)+' | Complete: '+s(m.auditManagement?.summary?.complete||0)+' | Unreviewed workpapers: '+s(m.auditManagement?.summary?.unreviewed||0));
+ h('14.','Priority Management Actions');for(const x of m.priorityActions||[])d.fontSize(9).text('• ['+s(x.priority)+'] '+s(x.type)+' '+s(x.key)+': '+s(x.action));
+ h('15.','Assurance Boundary & Limitations');for(const x of m.assuranceBoundary||[])d.fontSize(9).text('• '+x);
  d.end();
 })}

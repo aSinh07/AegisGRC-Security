@@ -9,6 +9,7 @@ export type CorrelatedFinding={
  fingerprint:string;asset:string;identifier:string;title:string;
  severity:Severity;sourceCount:number;sources:string[];evidenceHashes:string[];
  findingIds:string[];statuses:string[];confidence:'IDENTIFIER_MATCH'|'UNVERIFIED_SINGLE';
+ corroboration:'MULTI_SOURCE'|'SINGLE_SOURCE'|'NONE';severityConflict:boolean;observedSeverities:Severity[];
 };
 const ranks:Record<Severity,number>={INFO:0,LOW:1,MEDIUM:2,HIGH:3,CRITICAL:4};
 function identifier(f:Finding):string|null{
@@ -43,7 +44,10 @@ export function correlateFindings(findings:Finding[]):CorrelatedFinding[]{
    sources:[...new Set(fs.map(f=>f.source))].sort(),
    evidenceHashes:[...new Set(fs.map(f=>f.evidenceHash).filter(Boolean))].sort(),
    findingIds:fs.map(f=>f.id),statuses:[...new Set(fs.map(f=>f.status||'UNREVIEWED'))],
-   confidence:(id==='UNVERIFIED'?'UNVERIFIED_SINGLE':'IDENTIFIER_MATCH') as CorrelatedFinding['confidence']
+   confidence:(id==='UNVERIFIED'?'UNVERIFIED_SINGLE':'IDENTIFIER_MATCH') as CorrelatedFinding['confidence'],
+   corroboration:(id==='UNVERIFIED'?'NONE':new Set(fs.map(f=>f.source)).size>1?'MULTI_SOURCE':'SINGLE_SOURCE') as CorrelatedFinding['corroboration'],
+   severityConflict:new Set(fs.map(f=>f.severity)).size>1,
+   observedSeverities:[...new Set(fs.map(f=>f.severity))].sort((a,b)=>ranks[b]-ranks[a])
   };
  }).sort((a,b)=>ranks[b.severity]-ranks[a.severity]||a.asset.localeCompare(b.asset));
 }
@@ -51,6 +55,8 @@ export function correlationSummary(findings:Finding[]){
  const groups=correlateFindings(findings);
  return {rawFindings:findings.length,correlatedGroups:groups.length,
   groupedObservations:findings.length-groups.length,
+  multiSourceCorroborated:groups.filter(g=>g.corroboration==='MULTI_SOURCE').length,
+  severityConflicts:groups.filter(g=>g.severityConflict).length,
   evidenceSources:[...new Set(findings.map(f=>f.source))].sort(),
-  limitations:'Only explicit CVE plus normalized asset can group observations automatically. CWE is classification only and never a deduplication key. Analyst confirmation is required before closure.'};
+  limitations:'Only explicit CVE plus normalized asset can group observations automatically. CWE is classification only and never a deduplication key. Multi-source agreement is corroboration, not automatic confirmation. Severity disagreements are retained for analyst review. Analyst confirmation is required before closure.'};
 }

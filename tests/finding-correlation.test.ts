@@ -13,6 +13,9 @@ test('same asset and CVE link scanner sources but preserve evidence',()=>{
  assert.equal(groups.length,1);assert.equal(groups[0].sourceCount,2);
  assert.equal(groups[0].severity,'HIGH');assert.equal(groups[0].evidenceHashes.length,2);
  assert.equal(groups[0].findingIds.length,2);
+ assert.equal(groups[0].corroboration,'MULTI_SOURCE');
+ assert.equal(groups[0].severityConflict,true);
+ assert.deepEqual(groups[0].observedSeverities,['HIGH','MEDIUM']);
 });
 test('different assets are not combined',()=>{
  assert.equal(correlateFindings([make('one','zap'),make('two','zap',{asset:'other.example'})]).length,2);
@@ -37,4 +40,15 @@ test('same CWE on same asset is not sufficient to merge distinct observations',(
  const groups=correlateFindings([a,b]);
  assert.equal(groups.length,2);
  assert.ok(groups.every(g=>g.confidence==='UNVERIFIED_SINGLE'));
+});
+
+test('same scanner observations do not count as multi-source corroboration',()=>{
+ const groups=correlateFindings([make('same-a','zap'),make('same-b','zap')]);
+ assert.equal(groups.length,1);assert.equal(groups[0].corroboration,'SINGLE_SOURCE');
+ assert.equal(groups[0].severityConflict,false);
+});
+test('summary exposes corroboration and severity disagreement',()=>{
+ const s=correlationSummary([make('sum-a','semgrep'),make('sum-b','zap',{severity:'CRITICAL'})]);
+ assert.equal(s.multiSourceCorroborated,1);assert.equal(s.severityConflicts,1);
+ assert.match(s.limitations,/not automatic confirmation/i);
 });

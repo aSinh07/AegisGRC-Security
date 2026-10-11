@@ -60,3 +60,13 @@ test('failed deterministic control tests preserve scope-control traceability',as
  assert.match(s,/INSERT INTO grc_issues\(id,organization_id,scope_control_id/);
  assert.match(s,/t\.scope_control_id/);
 });
+
+test('enterprise acceptance uses persisted layer runs and audit assurance',async()=>{
+ const s=await readFile(new URL('../src/enterprise-acceptance.ts',import.meta.url),'utf8');
+ assert.match(s,/assessment_layer_runs/);
+ assert.doesNotMatch(s,/assessment_layer_coverage/);
+ assert.match(s,/AUDIT_ASSURANCE/);
+ assert.match(s,/NOT_STARTED/);
+ assert.match(s,/PARTIAL/);
+ assert.match(s,/FAILED/);
+});

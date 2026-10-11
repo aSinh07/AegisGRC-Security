@@ -26,10 +26,10 @@ CREATE INDEX IF NOT EXISTS grc_arch_component_scope_idx ON grc_architecture_comp
 CREATE INDEX IF NOT EXISTS grc_firewall_review_scope_idx ON grc_firewall_reviews(organization_id,scope_id,reviewed_at DESC);
 `)}
 export async function createArchitectureComponent(user:string,org:string,input:any){
- await requireOrgPermission(user,org,'manageScope');const type=String(input.componentType||'').toUpperCase();if(!assetTypes.has(type))throw new Error('Unsupported architecture component type');
- const key=String(input.componentKey||'').trim().toUpperCase(),name=String(input.name||'').trim();if(!key||!name)throw new Error('Component key and name required');
+ await requireOrgPermission(user,org,'manageScope');if(input.scopeId){const s=(await pool.query('SELECT 1 FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,org])).rows[0];if(!s)throw Object.assign(new Error('Scope not found in organization'),{statusCode:404})}const type=String(input.componentType||'').toUpperCase();if(!assetTypes.has(type))throw new Error('Unsupported architecture component type');
+ const key=String(input.componentKey||'').trim().toUpperCase(),name=String(input.name||'').trim(),criticality=String(input.criticality||'MEDIUM').toUpperCase();if(!key||!name)throw new Error('Component key and name required');if(!['LOW','MEDIUM','HIGH','CRITICAL'].includes(criticality))throw new Error('Invalid architecture criticality');if(input.metadata!==undefined&&(typeof input.metadata!=='object'||Array.isArray(input.metadata)||input.metadata===null))throw new Error('Architecture metadata must be an object');
  return (await pool.query(`INSERT INTO grc_architecture_components(id,organization_id,scope_id,component_key,name,component_type,criticality,internet_exposed,owner,metadata,created_by)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),org,input.scopeId||null,key,name,type,String(input.criticality||'MEDIUM').toUpperCase(),Boolean(input.internetExposed),input.owner||null,input.metadata||{},user])).rows[0]
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),org,input.scopeId||null,key,name,type,criticality,Boolean(input.internetExposed),input.owner||null,input.metadata||{},user])).rows[0]
 }
 export async function createArchitectureEdge(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'manageScope');if(input.sourceComponentId===input.targetComponentId)throw new Error('Architecture edge requires different components');
@@ -40,7 +40,7 @@ export async function createArchitectureEdge(user:string,org:string,input:any){
 export async function recordFirewallReview(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'review');const c=(await pool.query("SELECT * FROM grc_architecture_components WHERE id=$1 AND organization_id=$2 AND component_type IN ('FIREWALL','WAF','ROUTER','VPN_GATEWAY','IDS_IPS')",[input.componentId,org])).rows[0];if(!c)throw Object.assign(new Error('Firewall/security gateway component not found'),{statusCode:404});
  const sha=String(input.sha256||'').toLowerCase();if(!/^[a-f0-9]{64}$/.test(sha))throw new Error('Valid SHA-256 required for firewall report');
- const counts=['rulesTotal','anyAnyRules','disabledRules','staleRules','shadowedRules','expiredRules'].map(k=>Math.max(0,Number(input[k]||0)));
+ const rawCounts=['rulesTotal','anyAnyRules','disabledRules','staleRules','shadowedRules','expiredRules'].map(k=>Number(input[k]||0));if(rawCounts.some(x=>!Number.isInteger(x)||x<0))throw new Error('Firewall rule counts must be non-negative integers');const counts=rawCounts;if(input.scopeId&&input.scopeId!==c.scope_id)throw Object.assign(new Error('Firewall review scope must match the security gateway scope'),{statusCode:409});
  let rs=String(input.reviewStatus||'').toUpperCase();const gapCount=counts.slice(1).some(x=>x>0);if(!['PASS','FAIL','PARTIAL','NOT_TESTED'].includes(rs))rs=(gapCount?'FAIL':'PARTIAL');if(rs==='PASS'&&(gapCount||counts[0]===0))throw Object.assign(new Error('Firewall review cannot PASS with rule gaps or an empty rule set'),{statusCode:409});
  return (await pool.query(`INSERT INTO grc_firewall_reviews(id,organization_id,scope_id,component_id,source_ref,sha256,review_status,rules_total,any_any_rules,disabled_rules,stale_rules,shadowed_rules,expired_rules,findings,reviewed_by)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,[crypto.randomUUID(),org,input.scopeId||c.scope_id,c.id,input.sourceRef||null,sha,rs,...counts,input.findings||[],user])).rows[0]

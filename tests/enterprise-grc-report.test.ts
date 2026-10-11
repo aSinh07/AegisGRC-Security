@@ -34,3 +34,9 @@ test('technical scanner and firewall-style evidence remains evidence, not confor
  assert.equal(r.technicalAssuranceCoverage[0].endpoint,'COMPLETE');
  assert.ok(r.assuranceBoundary.some((x:string)=>/firewall observation is technical evidence/i.test(x)));
 });
+
+test('enterprise workflow gaps prevent an audit-ready management opinion',()=>{
+ const r=buildEnterpriseGrcReport({organization:{id:'o',name:'Acme'},scope:{id:'s',name:'Production'},readiness:{controls:[complete]},soa:{controls:[complete]},risks:[],issues:[],capa:[],assessmentTraces:[],architecture:{summary:{gaps:1}},resilience:{summary:{gaps:0}},policy:{summary:{overdueReview:0,unmapped:0}},audit:{summary:{unreviewed:0}},continuousCompliance:{summary:{overdueObligations:0,expiredExceptions:0}},thirdParty:{summary:{criticalIncidents:0,dueReview:0}}});
+ assert.equal(r.managementOpinion.conclusion,'SIGNIFICANT_GAPS');
+ assert.equal(r.executiveSummary.enterpriseWorkflowGaps,1);
+});

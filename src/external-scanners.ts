@@ -11,7 +11,7 @@ function image(v:string){const x=safe(v,'image reference');if(!/^[A-Za-z0-9][A-Z
 export async function toolVersion(command:string,args:string[]=['--version']){return run(command,args,{tool:command,target:'version'},30000)}
 export async function run(command:string,args:string[],meta:Record<string,unknown>,timeoutMs=TIMEOUT){
  return new Promise<any>((resolve)=>{const started=Date.now();let out='',err='',truncated=false,timedOut=false,settled=false;const p=spawn(command,args,{shell:false,stdio:['ignore','pipe','pipe']});
- const add=(base:string,d:Buffer)=>{const n=base+d.toString();if(Buffer.byteLength(n)>MAX)truncated=true;return n.slice(0,MAX)};
+ const add=(base:string,d:Buffer)=>{const prior=Buffer.from(base,'utf8'),room=Math.max(0,MAX-prior.length);if(d.length>room)truncated=true;if(room===0)return base;return Buffer.concat([prior,d.subarray(0,room)]).toString('utf8')};
  const timer=setTimeout(()=>{timedOut=true;p.kill('SIGKILL')},timeoutMs);
  p.stdout?.on('data',(d:Buffer)=>out=add(out,d));p.stderr?.on('data',(d:Buffer)=>err=add(err,d));
  p.on('error',(e:any)=>{if(settled)return;settled=true;clearTimeout(timer);const raw=JSON.stringify({command,args,meta,error:String(e?.message||e)});resolve({execution:'REAL_TOOL_EXECUTION',tool:String(meta.tool||command),command,args,exitCode:null,stdout:out,stderr:err||String(e?.message||e),timedOut,truncated,state:'UNAVAILABLE',durationMs:Date.now()-started,evidence:{sha256:crypto.createHash('sha256').update(raw).digest('hex')}})});

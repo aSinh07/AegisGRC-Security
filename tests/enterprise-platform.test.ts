@@ -36,3 +36,9 @@ test('business continuity records RTO RPO MTD and evidence-backed exercises',asy
  assert.match(s,/rto_minutes/);assert.match(s,/rpo_minutes/);assert.match(s,/mtd_minutes/);
  assert.match(s,/evidence reference required/i);assert.match(s,/Independent reviewer required for resilience exercise/);assert.match(s,/RECOVERY_EXERCISE_UNREVIEWED/);assert.match(s,/RTO_BREACH/);assert.match(s,/RPO_BREACH/);assert.match(s,/BIA_OVERDUE/);
 });
+
+test('policy governance requires independent approval and control traceability',async()=>{
+ const s=await readFile(new URL('../src/policy-governance.ts',import.meta.url),'utf8');
+ assert.match(s,/Independent approver required for policy/);assert.match(s,/grc_policy_control_links/);
+ assert.match(s,/grc_policy_attestations/);assert.match(s,/overdueReview/);assert.match(s,/unmapped/);
+});

@@ -15,9 +15,10 @@ export async function initControlRegistry(){
  );
  CREATE TABLE IF NOT EXISTS grc_framework_requirements(
   id uuid PRIMARY KEY,framework text NOT NULL,framework_version text NOT NULL,requirement_key text NOT NULL,
-  title text NOT NULL,summary text NOT NULL DEFAULT '',active boolean NOT NULL DEFAULT true,
+  title text NOT NULL,summary text NOT NULL DEFAULT '',effective_from date,effective_to date,source_url text,active boolean NOT NULL DEFAULT true,
   UNIQUE(framework,framework_version,requirement_key)
  );
+ ALTER TABLE grc_framework_requirements ADD COLUMN IF NOT EXISTS effective_from date;ALTER TABLE grc_framework_requirements ADD COLUMN IF NOT EXISTS effective_to date;ALTER TABLE grc_framework_requirements ADD COLUMN IF NOT EXISTS source_url text;
  CREATE TABLE IF NOT EXISTS grc_control_framework_mappings(
   control_id uuid NOT NULL REFERENCES grc_canonical_controls(id) ON DELETE CASCADE,
   requirement_id uuid NOT NULL REFERENCES grc_framework_requirements(id) ON DELETE CASCADE,
@@ -49,13 +50,13 @@ export async function createCanonicalControl(userId:string,orgId:string,input:{c
  VALUES($1,$2,$3,$4,$5) ON CONFLICT(control_key) DO UPDATE SET title=EXCLUDED.title,description=EXCLUDED.description,domain=EXCLUDED.domain,updated_at=now() RETURNING *`,
  [crypto.randomUUID(),key,title,String(input.description||'').trim(),String(input.domain||'GENERAL').trim().toUpperCase()])).rows[0];
 }
-export async function createFrameworkRequirement(userId:string,orgId:string,input:{framework:string;frameworkVersion:string;requirementKey:string;title:string;summary?:string}){
+export async function createFrameworkRequirement(userId:string,orgId:string,input:{framework:string;frameworkVersion:string;requirementKey:string;title:string;summary?:string;effectiveFrom?:string;effectiveTo?:string;sourceUrl?:string}){
  await requireOrgPermission(userId,orgId,'manageControl');
  const f=String(input.framework||'').trim().toUpperCase(),v=String(input.frameworkVersion||'').trim(),k=String(input.requirementKey||'').trim(),title=String(input.title||'').trim();
  if(!f||!v||!k||title.length<3)throw new Error('Framework, version, requirement key and title are required');
- return (await pool.query(`INSERT INTO grc_framework_requirements(id,framework,framework_version,requirement_key,title,summary)
- VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(framework,framework_version,requirement_key) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary RETURNING *`,
- [crypto.randomUUID(),f,v,k,title,String(input.summary||'').trim()])).rows[0];
+ return (await pool.query(`INSERT INTO grc_framework_requirements(id,framework,framework_version,requirement_key,title,summary,effective_from,effective_to,source_url)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(framework,framework_version,requirement_key) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,effective_from=EXCLUDED.effective_from,effective_to=EXCLUDED.effective_to,source_url=EXCLUDED.source_url RETURNING *`,
+ [crypto.randomUUID(),f,v,k,title,String(input.summary||'').trim(),input.effectiveFrom||null,input.effectiveTo||null,String(input.sourceUrl||'').trim()||null])).rows[0];
 }
 export async function mapControl(userId:string,orgId:string,input:{controlId:string;requirementId:string;mappingType?:string}){
  await requireOrgPermission(userId,orgId,'manageControl');
@@ -122,6 +123,6 @@ export async function listCanonicalControls(userId:string,orgId:string){
 }
 export async function listFrameworkRequirements(userId:string,orgId:string){
  await requireOrgPermission(userId,orgId,'read');
- return (await pool.query(`SELECT id,framework,framework_version,requirement_key,title,summary,active
+ return (await pool.query(`SELECT id,framework,framework_version,requirement_key,title,summary,effective_from,effective_to,source_url,active
  FROM grc_framework_requirements WHERE active=true ORDER BY framework,framework_version,requirement_key`)).rows;
 }

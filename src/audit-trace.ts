@@ -17,6 +17,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
     [assessmentId]
   )).rows;
   const layerCoverage = (await pool.query('SELECT layer,status,required,engines,evidence_count,failure_reasons,completed_at FROM assessment_layer_runs WHERE assessment_id=$1 ORDER BY layer',[assessmentId])).rows;
+  const breachAssessments = (await pool.query('SELECT id,asset_id,status,impact_score,impact_band,requires_human_review,fingerprint,evidence,created_at FROM breach_assessments WHERE assessment_id=$1 ORDER BY created_at DESC',[assessmentId])).rows;
   const reviews = (await pool.query(
     'SELECT finding_id,decision,rationale,created_at FROM finding_reviews WHERE assessment_id=$1 ORDER BY created_at',
     [assessmentId]
@@ -95,8 +96,11 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       capa: capas.length,
       closedCapa: capas.filter((x:any) => x.status === 'CLOSED').length,
       controlsWithDeterministicTests: controlAssurance.filter((x:any)=>['PASS','FAIL'].includes(x.test_result)).length,
-      controlsNotTested: controlAssurance.filter((x:any)=>!['PASS','FAIL'].includes(x.test_result)).length
+      controlsNotTested: controlAssurance.filter((x:any)=>!['PASS','FAIL'].includes(x.test_result)).length,
+      breachAssessments: breachAssessments.length,
+      breachAssessmentsRequiringReview: breachAssessments.filter((x:any)=>x.requires_human_review).length
     },
+    breachImpactAssessments:breachAssessments,
     breachTelemetryAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='BREACH_TELEMETRY');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['WAZUH'],evidenceCount:0,failureReasons:['Breach telemetry has not been reconciled'],completedAt:null}})(),
     privacyAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='PRIVACY');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['PROWLER'],evidenceCount:0,failureReasons:['Privacy coverage has not been reconciled'],completedAt:null}})(),
     attackSurfaceAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='ATTACK_SURFACE');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['NMAP','NUCLEI'],evidenceCount:0,failureReasons:['Attack-surface coverage has not been reconciled'],completedAt:null}})(),
@@ -130,6 +134,7 @@ export function auditPackageModel(trace:any){
    openIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED').length,
    overdueIssues:chains.filter((x:any)=>x.issue&&x.issue.status!=='CLOSED'&&x.issue.due_at&&new Date(x.issue.due_at)<new Date()).length
   },
+  breachImpactAssessments:trace?.breachImpactAssessments||[],
   breachTelemetryAssurance:trace?.breachTelemetryAssurance||{status:'NOT_STARTED',required:true,engines:['WAZUH'],evidenceCount:0,failureReasons:['Breach telemetry unavailable']},
   privacyAssurance:trace?.privacyAssurance||{status:'NOT_STARTED',required:true,engines:['PROWLER'],evidenceCount:0,failureReasons:['Privacy coverage unavailable']},
   attackSurfaceAssurance:trace?.attackSurfaceAssurance||{status:'NOT_STARTED',required:true,engines:['NMAP','NUCLEI'],evidenceCount:0,failureReasons:['Attack-surface coverage unavailable']},
@@ -149,6 +154,7 @@ export function auditPackageModel(trace:any){
    findingStatus:x.status,analystDecisions:x.reviews||[],issue:x.issue||null,controlAssurance:x.controlAssurance||null,risks:x.risks||[],capa:x.capa||[]
   })),
   limitations:[
+   'Automated breach-impact correlation is not a forensic or legal breach determination; records marked for review require accountable human assessment.',
    'Scanner or imported observations require analyst validation before escalation.',
    'Framework mappings are CONTROL_RELEVANCE cross-references only. They do not establish a control failure, pass, conformity or certification.',
    'Control effectiveness is reported only from the latest separately executed deterministic control test. Missing tests remain NOT_TESTED.',

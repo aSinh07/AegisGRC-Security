@@ -41,3 +41,12 @@ test('login supports profile enrollment MFA recovery and password visibility',as
  for(const marker of ['Welcome!','Full name','Designation','Company name','Google Authenticator','Microsoft Authenticator','Forgot password?','togglePassword','/api/auth/reset-password','/aegis-logo.svg'])assert.equal(html.includes(marker),true,marker);
  assert.doesNotMatch(html,/Welcome back!/i);
 });
+
+test('audit dashboard exposes conservative breach impact review',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ assert.match(html,/Breach & Data Exposure Review/);
+ assert.match(html,/id="breachImpactRows"/);
+ assert.match(html,/renderBreachImpact/);
+ assert.match(html,/breachAssessmentsRequiringReview/);
+ assert.match(html,/never treats this panel as forensic or regulatory confirmation/);
+});

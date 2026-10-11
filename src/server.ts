@@ -11,6 +11,8 @@ import {nucleiJsonlFindings,trivyJsonFindings,openvasJsonFindings} from './infra
 import {wazuhJsonFindings} from './endpoint-parsers.js';
 import {prowlerEvidence} from './prowler.js';
 import {scanFilesystemWithTrivy,scanContainerImageWithTrivy} from './trivy.js';
+import {scanTls,scanHostHardening,scanImageWithGrype,generateSbom,scanKubernetes,scanIac,scanSecrets} from './external-scanners.js';
+
 import { assessmentReport } from './reports.js';
 import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
@@ -596,6 +598,15 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
   res.setHeader('Content-Disposition',`attachment; filename="aegis-${kind}-${a.id}.${format}"`);res.type(mime).send(body);
  }catch(e:any){res.status(500).json({error:e.message})}
 });
+
+
+app.post('/api/grc/assessments/:assessmentId/defense-scan',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');
+ const engine=String(req.body?.engine||'').toUpperCase(),target=String(req.body?.target||'');let out:any;
+ if(engine==='TESTSSL')out=await scanTls(target);else if(engine==='LYNIS')out=await scanHostHardening(target);else if(engine==='GRYPE')out=await scanImageWithGrype(target);else if(engine==='SYFT')out=await generateSbom(target);else if(engine==='KUBESCAPE')out=await scanKubernetes(target);else if(engine==='CHECKOV')out=await scanIac(target);else if(engine==='GITLEAKS')out=await scanSecrets(target);else return res.status(400).json({error:'Unsupported defense scanner'});
+ const source=engine.toLowerCase(),createdAt=new Date().toISOString();const evidence:Evidence={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,source,sha256:out.evidence.sha256,exitCode:out.exitCode,stdout:out.stdout,stderr:out.stderr,metadata:{...out.metadata,engine,state:out.state,timedOut:out.timedOut,truncated:out.truncated,durationMs:out.durationMs,corroborative:true},createdAt};await db.saveEvidence(evidence);await db.saveAudit({id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'CORROBORATIVE_SCANNER_EVIDENCE_CAPTURED',actor:u.userId,createdAt,metadata:{engine,target,state:out.state,evidenceHash:out.evidence.sha256}});
+ res.status(out.state==='SUCCESS'?201:422).json({engine,state:out.state,evidenceId:evidence.id,evidenceHash:out.evidence.sha256,exitCode:out.exitCode,timedOut:out.timedOut,truncated:out.truncated});
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));app.post('/api/grc/assessments/:assessmentId/trivy-image',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');const assetId=String(req.body?.assetId||''),imageRef=String(req.body?.imageRef||'');const asset=await activeContainerAsset(u.userId,access.organization_id,assetId);if(!asset)return res.status(400).json({error:'Active container asset required'});const out=await scanContainerImageWithTrivy(imageRef);const evidenceHash=out.evidence.sha256;const findings=trivyJsonFindings(req.params.assessmentId,asset.asset_key,evidenceHash,out.stdout);const evidence:Evidence={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,source:'trivy',sha256:evidenceHash,exitCode:out.exitCode,stdout:out.stdout,stderr:out.stderr,metadata:{scanType:'IMAGE',assetId,imageRef,timedOut:out.timedOut,truncated:out.truncated,durationMs:out.durationMs},createdAt:new Date().toISOString()};await db.saveFindingImport(evidence,findings,{id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'TRIVY_CONTAINER_EVIDENCE_INGESTED',actor:u.userId,createdAt:new Date().toISOString(),metadata:{assetId,imageRef,evidenceHash,findingCount:findings.length}});res.status(out.exitCode===0&&!out.timedOut&&!out.truncated?201:422).json({evidenceHash,findings:findings.length,exitCode:out.exitCode,timedOut:out.timedOut,truncated:out.truncated})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 

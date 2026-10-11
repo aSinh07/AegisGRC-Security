@@ -8,7 +8,7 @@ export function scannerEvidenceRecord(x:ScannerExecution){
   successful:x.state==='SUCCESS'&&x.exitCode===0};
 }
 export function coverageStateForExecutions(xs:ScannerExecution[],requiredEngines:string[]){
- const by=new Map(xs.map(x=>[x.engine,x]));const missing=requiredEngines.filter(e=>!by.has(e));const failed=requiredEngines.filter(e=>by.has(e)&&!(by.get(e)!.state==='SUCCESS'&&by.get(e)!.exitCode===0&&String(by.get(e)!.rawEvidence||'').length>0));
+ const by=new Map<string,ScannerExecution[]>();for(const x of xs){const a=by.get(x.engine)||[];a.push(x);by.set(x.engine,a)}const missing=requiredEngines.filter(e=>!by.has(e));const failed=requiredEngines.filter(e=>by.has(e)&&!by.get(e)!.some(x=>x.state==='SUCCESS'&&x.exitCode===0&&String(x.rawEvidence||'').length>0));
  if(!requiredEngines.length)return {status:'NOT_APPLICABLE' as const,reasons:[]};
  if(!missing.length&&!failed.length)return {status:'COMPLETE' as const,reasons:[]};
  return {status:'PARTIAL' as const,reasons:[...missing.map(e=>e+': not executed'),...failed.map(e=>e+': failed, incomplete, or produced no evidence')]};

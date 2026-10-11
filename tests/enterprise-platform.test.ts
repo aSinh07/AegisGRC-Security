@@ -48,3 +48,9 @@ test('audit management requires evidence and independent workpaper review',async
  assert.match(s,/Independent workpaper reviewer required/);assert.match(s,/Tested result, conclusion and evidence required before review/);
  assert.match(s,/All audit workpapers require independent review before completion/);assert.match(s,/Completed audit is immutable/);
 });
+
+test('enterprise modules initialize only after organization and control dependencies',async()=>{
+ const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const org=s.indexOf('await initOrganizations()'),control=s.indexOf('await initControlRegistry()'),vendor=s.indexOf('await initThirdPartyRisk()'),arch=s.indexOf('await initArchitectureAssurance()'),continuity=s.indexOf('await initBusinessContinuity()');
+ assert.ok(org>=0&&control>org&&vendor>control&&arch>control&&continuity>control,'enterprise schema initialization order must satisfy foreign-key dependencies');
+});

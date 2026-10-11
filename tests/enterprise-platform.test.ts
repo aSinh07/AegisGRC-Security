@@ -46,7 +46,7 @@ test('policy governance requires independent approval and control traceability',
 test('audit management requires evidence and independent workpaper review',async()=>{
  const s=await readFile(new URL('../src/audit-management.ts',import.meta.url),'utf8');
  assert.match(s,/Independent workpaper reviewer required/);assert.match(s,/Tested result, conclusion and evidence required before review/);
- assert.match(s,/All audit workpapers require independent review before completion/);assert.match(s,/Completed audit is immutable/);
+ assert.match(s,/All audit workpapers require independent review before completion/);assert.match(s,/Completed or cancelled audit is immutable/);assert.match(s,/Invalid audit status transition/);assert.match(s,/Workpaper already independently reviewed/);assert.match(s,/Invalid audit schedule/);
 });
 
 test('enterprise modules initialize only after organization and control dependencies',async()=>{

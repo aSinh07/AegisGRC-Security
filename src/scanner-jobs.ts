@@ -48,7 +48,7 @@ export async function executeClaimedScannerJob(job:any,saveEvidence:(x:any)=>Pro
   await saveEvidence({id:evidenceId,assessmentId:job.assessment_id,source:String(job.engine).toLowerCase(),sha256:out.evidence.sha256,exitCode:out.exitCode,stdout:out.stdout,stderr:out.stderr,metadata:{...out.metadata,engine:job.engine,state:out.state,timedOut:out.timedOut,truncated:out.truncated,durationMs:out.durationMs,corroborative:true,scannerJobId:job.id},createdAt});
   const state:ScannerJobState=out.state==='SUCCESS'?'SUCCEEDED':out.state;
   await pool.query(`UPDATE scanner_jobs SET state=$2,evidence_id=$3,evidence_hash=$4,completed_at=now() WHERE id=$1`,[job.id,state,evidenceId,out.evidence.sha256]);
-  await saveAudit({id:crypto.randomUUID(),assessmentId:job.assessment_id,action:'SCANNER_JOB_COMPLETED',actor:job.requested_by||'system',createdAt,metadata:{jobId:job.id,engine:job.engine,state,evidenceHash:out.evidence.sha256}});
+  await saveAudit({id:crypto.randomUUID(),assessmentId:job.assessment_id,action:'SCANNER_JOB_COMPLETED',actor:job.requested_by||'system',createdAt,metadata:{jobId:job.id,engine:job.engine,state,evidenceHash:out.evidence.sha256}});await saveAudit({id:crypto.randomUUID(),assessmentId:job.assessment_id,action:'CORROBORATIVE_SCANNER_EVIDENCE_CAPTURED',actor:job.requested_by||'system',createdAt,metadata:{jobId:job.id,engine:job.engine,target:job.target,state,evidenceHash:out.evidence.sha256}});
   return {id:job.id,state,evidenceId,evidenceHash:out.evidence.sha256}
  }catch(e:any){await pool.query(`UPDATE scanner_jobs SET state='FAILED',error=$2,completed_at=now() WHERE id=$1`,[job.id,String(e?.message||e).slice(0,2000)]);throw e}
 }

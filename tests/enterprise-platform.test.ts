@@ -70,3 +70,11 @@ test('enterprise acceptance uses persisted layer runs and audit assurance',async
  assert.match(s,/PARTIAL/);
  assert.match(s,/FAILED/);
 });
+
+test('architecture scope and firewall evidence validation are enforced',async()=>{
+ const s=await readFile(new URL('../src/architecture-assurance.ts',import.meta.url),'utf8');
+ assert.match(s,/Scope not found in organization/);
+ assert.match(s,/Invalid architecture criticality/);
+ assert.match(s,/Firewall rule counts must be non-negative integers/);
+ assert.match(s,/Firewall review scope must match the security gateway scope/);
+});

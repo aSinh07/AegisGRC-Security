@@ -21,7 +21,7 @@ export async function initScannerJobs(){await pool.query(`
   state text NOT NULL CHECK(state IN ('QUEUED','RUNNING','SUCCEEDED','FAILED','TIMEOUT','TRUNCATED','UNAVAILABLE')),
   requested_by uuid REFERENCES app_users(id) ON DELETE SET NULL,evidence_id uuid,evidence_hash text,error text,
   created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,completed_at timestamptz,attempts integer NOT NULL DEFAULT 0
- );ALTER TABLE scanner_jobs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;CREATE INDEX IF NOT EXISTS scanner_jobs_assessment_idx ON scanner_jobs(organization_id,assessment_id,created_at DESC);
+ );ALTER TABLE scanner_jobs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;CREATE INDEX IF NOT EXISTS scanner_jobs_assessment_idx ON scanner_jobs(organization_id,assessment_id,created_at DESC);CREATE UNIQUE INDEX IF NOT EXISTS scanner_jobs_active_unique_idx ON scanner_jobs(organization_id,assessment_id,engine,target) WHERE state IN ('QUEUED','RUNNING');
 `)}
 
 function engine(v:string){const e=String(v||'').toUpperCase() as ScannerEngine;if(!engines.has(e))throw new Error('Unsupported defense scanner');return e}
@@ -29,7 +29,7 @@ export async function enqueueScannerJob(userId:string,assessmentId:string,input:
  const access=await requireAssessmentAccess(userId,assessmentId);await requireOrgPermission(userId,access.organization_id,'manageAssessment');
  const e=engine(input.engine),target=String(input.target||'').trim();if(!target||target.length>500)throw new Error('Scanner target is required');
  const id=crypto.randomUUID();return (await pool.query(`INSERT INTO scanner_jobs(id,organization_id,assessment_id,engine,target,state,requested_by)
- VALUES($1,$2,$3,$4,$5,'QUEUED',$6) RETURNING id,organization_id,assessment_id,engine,target,state,created_at`,[id,access.organization_id,assessmentId,e,target,userId])).rows[0]
+ VALUES($1,$2,$3,$4,$5,'QUEUED',$6) ON CONFLICT (organization_id,assessment_id,engine,target) WHERE state IN ('QUEUED','RUNNING') DO NOTHING RETURNING id,organization_id,assessment_id,engine,target,state,created_at`,[id,access.organization_id,assessmentId,e,target,userId])).rows[0]|| (await pool.query(`SELECT id,organization_id,assessment_id,engine,target,state,created_at FROM scanner_jobs WHERE organization_id=$1 AND assessment_id=$2 AND engine=$3 AND target=$4 AND state IN ('QUEUED','RUNNING') ORDER BY created_at DESC LIMIT 1`,[access.organization_id,assessmentId,e,target])).rows[0]
 }
 export async function listScannerJobs(userId:string,assessmentId:string){
  const access=await requireAssessmentAccess(userId,assessmentId);await requireOrgPermission(userId,access.organization_id,'read');
@@ -47,8 +47,8 @@ export async function executeClaimedScannerJob(job:any,saveEvidence:(x:any)=>Pro
  try{const out=await execute(engine(job.engine),String(job.target));const evidenceId=crypto.randomUUID(),createdAt=new Date().toISOString();
   await saveEvidence({id:evidenceId,assessmentId:job.assessment_id,source:String(job.engine).toLowerCase(),sha256:out.evidence.sha256,exitCode:out.exitCode,stdout:out.stdout,stderr:out.stderr,metadata:{...out.metadata,engine:job.engine,state:out.state,timedOut:out.timedOut,truncated:out.truncated,durationMs:out.durationMs,corroborative:true,scannerJobId:job.id},createdAt});
   const state:ScannerJobState=out.state==='SUCCESS'?'SUCCEEDED':out.state;
-  await pool.query(`UPDATE scanner_jobs SET state=$2,evidence_id=$3,evidence_hash=$4,completed_at=now() WHERE id=$1 AND state='RUNNING'`,[job.id,state,evidenceId,out.evidence.sha256]);
+  await pool.query(`UPDATE scanner_jobs SET state=$2,evidence_id=$3,evidence_hash=$4,completed_at=now() WHERE id=$1 AND state='RUNNING' AND attempts=$5`,[job.id,state,evidenceId,out.evidence.sha256,job.attempts]);
   await saveAudit({id:crypto.randomUUID(),assessmentId:job.assessment_id,action:'SCANNER_JOB_COMPLETED',actor:job.requested_by||'system',createdAt,metadata:{jobId:job.id,engine:job.engine,state,evidenceHash:out.evidence.sha256}});await saveAudit({id:crypto.randomUUID(),assessmentId:job.assessment_id,action:'CORROBORATIVE_SCANNER_EVIDENCE_CAPTURED',actor:job.requested_by||'system',createdAt,metadata:{jobId:job.id,engine:job.engine,target:job.target,state,evidenceHash:out.evidence.sha256}});
   return {id:job.id,state,evidenceId,evidenceHash:out.evidence.sha256}
- }catch(e:any){await pool.query(`UPDATE scanner_jobs SET state='FAILED',error=$2,completed_at=now() WHERE id=$1 AND state='RUNNING'`,[job.id,String(e?.message||e).slice(0,2000)]);throw e}
+ }catch(e:any){await pool.query(`UPDATE scanner_jobs SET state='FAILED',error=$2,completed_at=now() WHERE id=$1 AND state='RUNNING' AND attempts=$3`,[job.id,String(e?.message||e).slice(0,2000),job.attempts]);throw e}
 }

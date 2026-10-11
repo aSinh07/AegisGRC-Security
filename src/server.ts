@@ -51,6 +51,7 @@ import {initThirdPartyRisk,createThirdParty,listThirdParties,assessThirdParty,re
 import {initArchitectureAssurance,createArchitectureComponent,createArchitectureEdge,recordFirewallReview,architectureAssurance} from './architecture-assurance.js';
 import {initContinuousCompliance,createObligation,completeObligation,createException,approveException,continuousComplianceDashboard} from './continuous-compliance.js';
 import {enterpriseAcceptance} from './enterprise-acceptance.js';
+import {initBusinessContinuity,createBusinessService,recordResilienceExercise,resilienceDashboard} from './business-continuity.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
@@ -69,6 +70,7 @@ await initGrcCore();
 await initThirdPartyRisk();
 await initArchitectureAssurance();
 await initContinuousCompliance();
+await initBusinessContinuity();
 await initOrganizations();
 await initControlRegistry();
 await initEvidenceEngine();
@@ -271,6 +273,9 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness.:format',
 
 
 
+app.get('/api/grc/organizations/:orgId/resilience',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await resilienceDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/business-services',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createBusinessService(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/business-services/:serviceId/exercises',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await recordResilienceExercise(u.userId,req.params.orgId,req.params.serviceId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-acceptance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await enterpriseAcceptance(u.userId,req.params.orgId,req.params.scopeId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/continuous-compliance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await continuousComplianceDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/obligations',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createObligation(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

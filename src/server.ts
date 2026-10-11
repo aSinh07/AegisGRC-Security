@@ -49,6 +49,7 @@ import {enterpriseGrcPdf,enterpriseGrcDocx,enterpriseGrcXlsx} from './enterprise
 import {reportSnapshotDigest} from './report-auth.js';
 import {initThirdPartyRisk,createThirdParty,listThirdParties,assessThirdParty,reviewThirdParty,recordThirdPartyIncident,thirdPartyDashboard} from './third-party-risk.js';
 import {initArchitectureAssurance,createArchitectureComponent,createArchitectureEdge,recordFirewallReview,architectureAssurance} from './architecture-assurance.js';
+import {initContinuousCompliance,createObligation,completeObligation,createException,approveException,continuousComplianceDashboard} from './continuous-compliance.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
@@ -66,6 +67,7 @@ await initGrcReviews();
 await initGrcCore();
 await initThirdPartyRisk();
 await initArchitectureAssurance();
+await initContinuousCompliance();
 await initOrganizations();
 await initControlRegistry();
 await initEvidenceEngine();
@@ -267,6 +269,13 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness.:format',
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 
+
+app.get('/api/grc/organizations/:orgId/continuous-compliance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await continuousComplianceDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/obligations',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createObligation(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/obligations/:id/complete',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await completeObligation(u.userId,req.params.orgId,req.params.id,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/exceptions',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createException(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/exceptions/:id/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await approveException(u.userId,req.params.orgId,req.params.id,String(req.body?.decision||'')))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
 app.get('/api/grc/organizations/:orgId/third-parties',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({vendors:await listThirdParties(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/third-parties',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createThirdParty(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/third-party-dashboard',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await thirdPartyDashboard(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
@@ -284,9 +293,9 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-report.:format
  const readiness=await organizationAuditReadiness(u.userId,req.params.orgId,req.params.scopeId);
  const soa=await statementOfApplicability(u.userId,req.params.orgId,req.params.scopeId);
  const dashboard=await operationsDashboard(u.userId,req.params.orgId),slaState=await sla(u.userId,req.params.orgId);
- const thirdParty=await thirdPartyDashboard(u.userId,req.params.orgId),architecture=await architectureAssurance(u.userId,req.params.orgId,req.params.scopeId);
+ const thirdParty=await thirdPartyDashboard(u.userId,req.params.orgId),architecture=await architectureAssurance(u.userId,req.params.orgId,req.params.scopeId),continuousCompliance=await continuousComplianceDashboard(u.userId,req.params.orgId,req.params.scopeId);
  const traces=[];for(const a of base.assessments){try{traces.push(await assessmentTrace(u.userId,a.id))}catch{}}
- const model=buildEnterpriseGrcReport({...base,readiness,soa,dashboard,sla:slaState,thirdParty,architecture,assessmentTraces:traces});
+ const model=buildEnterpriseGrcReport({...base,readiness,soa,dashboard,sla:slaState,thirdParty,architecture,continuousCompliance,assessmentTraces:traces});
  const format=String(req.params.format||'json').toLowerCase();let body:Buffer,contentType='application/json',ext=format;
  if(format==='pdf'){body=await enterpriseGrcPdf(model);contentType='application/pdf'}
  else if(format==='docx'){body=await enterpriseGrcDocx(model);contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}

@@ -11,7 +11,7 @@ const patterns:[string,RegExp][]=[
  ['CLIENT',/\b(browser|end user|client|frontend|mobile app)\b/i],
  ['NETWORK',/\b(router|switch|subnet|vpn|dns)\b/i]
 ];
-const sanitize=(s:string)=>s.replace(/[<>\x00-\x1f]/g,' ').replace(/\s+/g,' ').trim().slice(0,100);
+const sanitize=(s:string)=>s.replace(/[\x00-\x1f]/g,' ').replace(/\s+/g,' ').trim().slice(0,100);
 export function inferArchitecture(text:string){
  const lines=text.split(/\r?\n/).slice(0,4000);
  const nodes:ArchitectureNode[]=[],edges:ArchitectureEdge[]=[];

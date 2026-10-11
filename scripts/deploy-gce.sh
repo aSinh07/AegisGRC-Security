@@ -15,7 +15,7 @@ mkdir -p "$BACKUP_DIR"
 if docker compose -f docker-compose.production.yml ps --status running postgres 2>/dev/null | grep -q postgres; then
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   echo "Creating pre-deploy PostgreSQL backup..."
-  docker compose -f docker-compose.production.yml exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > "$BACKUP_DIR/aegis-$stamp.dump"
+  docker compose -f docker-compose.production.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$BACKUP_DIR/aegis-$stamp.dump"
 fi
 
 echo "Pulling release..."

@@ -9,3 +9,5 @@ test('scanner orchestration recovers interrupted work with bounded attempts',asy
 test('scanner worker guards ownership of state transitions',async()=>{const src=await readFile(new URL('../src/scanner-jobs.ts',import.meta.url),'utf8');assert.match(src,/WHERE id=\$1 AND state='QUEUED' RETURNING \*/);assert.match(src,/WHERE id=\$1 AND state='RUNNING'/);});
 
 test('scanner jobs use the production UUID assessment foreign key',async()=>{const src=await readFile(new URL('../src/scanner-jobs.ts',import.meta.url),'utf8');assert.match(src,/assessment_id uuid NOT NULL REFERENCES assessments\(id\)/);assert.doesNotMatch(src,/assessment_id text NOT NULL REFERENCES assessments\(id\)/);});
+
+test('scanner completion is bound to the claim attempt generation',async()=>{const src=await readFile(new URL('../src/scanner-jobs.ts',import.meta.url),'utf8');assert.match(src,/state='RUNNING' AND attempts=\$5/);assert.match(src,/state='RUNNING' AND attempts=\$3/);assert.match(src,/job\.attempts/);});

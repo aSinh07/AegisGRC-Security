@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {normalizeNvdCveResponse} from '../src/cyber-intel.js';
+const at='2026-10-11T12:00:00.000Z';
+const metric=(version:string,score:number,source='nvd@nist.gov')=>({source,type:'Primary',cvssData:{version,baseScore:score,baseSeverity:'HIGH',vectorString:'CVSS:'+version+'/AV:N'}});
+test('prefers CVSS 4.0 and records provenance',()=>{const d={vulnerabilities:[{cve:{id:'CVE-2026-12345',metrics:{cvssMetricV31:[metric('3.1',8.1)],cvssMetricV40:[metric('4.0',9.2)]},descriptions:[{lang:'en',value:'Example'}],references:[]}}]};const x:any=normalizeNvdCveResponse('cve-2026-12345',d,at);assert.equal(x.cvss.version,'4.0');assert.equal(x.cvss.score,9.2);assert.equal(x.cvss.metricSource,'nvd@nist.gov');assert.deepEqual(x.provenance,{provider:'NIST_NVD',api:'CVE_API_2_0',retrievedAt:at,queryCve:'CVE-2026-12345'});});
+test('falls back deterministically and never invents a metric',()=>{const d={vulnerabilities:[{cve:{id:'CVE-2026-54321',metrics:{cvssMetricV30:[metric('3.0',7.5)]},descriptions:[],references:[]}}]};const x:any=normalizeNvdCveResponse('CVE-2026-54321',d,at);assert.equal(x.cvss.version,'3.0');assert.equal(x.cvss.score,7.5);const y:any=normalizeNvdCveResponse('CVE-2026-99999',{vulnerabilities:[{cve:{id:'CVE-2026-99999',metrics:{},references:[]}}]},at);assert.equal(y.cvss.version,null);assert.equal(y.cvss.score,null);assert.equal(y.cvss.vector,null);});
+test('empty NVD result remains not found with lookup provenance',()=>{const x:any=normalizeNvdCveResponse('CVE-2026-11111',{vulnerabilities:[]},at);assert.equal(x.found,false);assert.equal(x.cve,'CVE-2026-11111');assert.equal(x.provenance.retrievedAt,at);});

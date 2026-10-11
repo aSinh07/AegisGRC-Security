@@ -30,9 +30,10 @@ export function buildEnterpriseGrcReport(input:{
  const frameworkSet=new Set<string>();
  for(const c of controls)for(const m of rows(c.mappings))if(m.framework)frameworkSet.add(s(m.framework)+' '+s(m.version||'').trim());
  const total=controls.length,coverage=total?Math.round(ready.length*100/total):0;
+ const enterpriseGaps=Number(input.architecture?.summary?.gaps||0)+Number(input.resilience?.summary?.gaps||0)+Number(input.continuousCompliance?.summary?.overdueObligations||0)+Number(input.continuousCompliance?.summary?.expiredExceptions||0)+Number(input.policy?.summary?.overdueReview||0)+Number(input.policy?.summary?.unmapped||0)+Number(input.audit?.summary?.unreviewed||0)+Number(input.thirdParty?.summary?.criticalIncidents||0)+Number(input.thirdParty?.summary?.dueReview||0);
  let opinion:ConsultantOpinion='AUDIT_READY';
  if(!total||!soaControls.length)opinion='INSUFFICIENT_EVIDENCE';
- else if(highRisks.length||overdueIssues.length||overdueCapa.length||actionRequired.length>Math.max(3,Math.ceil(total*.2)))opinion='SIGNIFICANT_GAPS';
+ else if(highRisks.length||overdueIssues.length||overdueCapa.length||enterpriseGaps>0||actionRequired.length>Math.max(3,Math.ceil(total*.2)))opinion='SIGNIFICANT_GAPS';
  else if(actionRequired.length||openIssues.length||openCapa.length||expiredAcceptance.length)opinion='CONDITIONAL';
  const sourceRegister=traces.flatMap((t:any)=>rows(t.evidenceProvenance||t.evidence).map((e:any)=>({
   assessmentId:t.assessmentId,id:e.id,source:e.source,sha256:e.sha256,createdAt:e.createdAt||e.created_at,
@@ -70,7 +71,7 @@ export function buildEnterpriseGrcReport(input:{
    controlsTotal:total,controlsApplicable:applicable.length,controlsEvidenceReady:ready.length,controlsActionRequired:actionRequired.length,
    openIssues:openIssues.length,overdueIssues:overdueIssues.length,openRisks:openRisks.length,highCriticalRisks:highRisks.length,
    acceptedRisks:acceptedRisks.length,expiredRiskAcceptances:expiredAcceptance.length,openCapa:openCapa.length,overdueCapa:overdueCapa.length,
-   evidenceSources:sourceRegister.length
+   evidenceSources:sourceRegister.length,enterpriseWorkflowGaps:enterpriseGaps
   },
   methodology:[
    'Assess scope and applicability before control effectiveness.',

@@ -40,15 +40,15 @@ async function execute(e:ScannerEngine,target:string){switch(e){case'TESTSSL':re
 export async function recoverStaleScannerJobs(){const lease=Math.max(60,Number(process.env.SCANNER_JOB_LEASE_SECONDS||900)),maxAttempts=Math.max(1,Number(process.env.SCANNER_JOB_MAX_ATTEMPTS||2));return (await pool.query(`UPDATE scanner_jobs SET state=CASE WHEN attempts >= $2 THEN 'FAILED' ELSE 'QUEUED' END,error=CASE WHEN attempts >= $2 THEN 'Scanner worker lease expired after maximum attempts' ELSE error END,started_at=NULL,completed_at=CASE WHEN attempts >= $2 THEN now() ELSE NULL END WHERE state='RUNNING' AND started_at < now()-($1::text||' seconds')::interval RETURNING id,state`,[lease,maxAttempts])).rows}
 export async function claimScannerJob(){
  const c=await pool.connect();try{await c.query('BEGIN');const row=(await c.query(`SELECT * FROM scanner_jobs WHERE state='QUEUED' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1`)).rows[0];
- if(!row){await c.query('COMMIT');return null}await c.query(`UPDATE scanner_jobs SET state='RUNNING',started_at=now(),attempts=attempts+1 WHERE id=$1`,[row.id]);await c.query('COMMIT');return row
+ if(!row){await c.query('COMMIT');return null}const claimed=(await c.query(`UPDATE scanner_jobs SET state='RUNNING',started_at=now(),attempts=attempts+1 WHERE id=$1 AND state='QUEUED' RETURNING *`,[row.id])).rows[0];await c.query('COMMIT');return claimed||null
  }catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
 }
 export async function executeClaimedScannerJob(job:any,saveEvidence:(x:any)=>Promise<void>,saveAudit:(x:any)=>Promise<void>){
  try{const out=await execute(engine(job.engine),String(job.target));const evidenceId=crypto.randomUUID(),createdAt=new Date().toISOString();
   await saveEvidence({id:evidenceId,assessmentId:job.assessment_id,source:String(job.engine).toLowerCase(),sha256:out.evidence.sha256,exitCode:out.exitCode,stdout:out.stdout,stderr:out.stderr,metadata:{...out.metadata,engine:job.engine,state:out.state,timedOut:out.timedOut,truncated:out.truncated,durationMs:out.durationMs,corroborative:true,scannerJobId:job.id},createdAt});
   const state:ScannerJobState=out.state==='SUCCESS'?'SUCCEEDED':out.state;
-  await pool.query(`UPDATE scanner_jobs SET state=$2,evidence_id=$3,evidence_hash=$4,completed_at=now() WHERE id=$1`,[job.id,state,evidenceId,out.evidence.sha256]);
+  await pool.query(`UPDATE scanner_jobs SET state=$2,evidence_id=$3,evidence_hash=$4,completed_at=now() WHERE id=$1 AND state='RUNNING'`,[job.id,state,evidenceId,out.evidence.sha256]);
   await saveAudit({id:crypto.randomUUID(),assessmentId:job.assessment_id,action:'SCANNER_JOB_COMPLETED',actor:job.requested_by||'system',createdAt,metadata:{jobId:job.id,engine:job.engine,state,evidenceHash:out.evidence.sha256}});await saveAudit({id:crypto.randomUUID(),assessmentId:job.assessment_id,action:'CORROBORATIVE_SCANNER_EVIDENCE_CAPTURED',actor:job.requested_by||'system',createdAt,metadata:{jobId:job.id,engine:job.engine,target:job.target,state,evidenceHash:out.evidence.sha256}});
   return {id:job.id,state,evidenceId,evidenceHash:out.evidence.sha256}
- }catch(e:any){await pool.query(`UPDATE scanner_jobs SET state='FAILED',error=$2,completed_at=now() WHERE id=$1`,[job.id,String(e?.message||e).slice(0,2000)]);throw e}
+ }catch(e:any){await pool.query(`UPDATE scanner_jobs SET state='FAILED',error=$2,completed_at=now() WHERE id=$1 AND state='RUNNING'`,[job.id,String(e?.message||e).slice(0,2000)]);throw e}
 }

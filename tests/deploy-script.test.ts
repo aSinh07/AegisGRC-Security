@@ -15,3 +15,13 @@ test('production deploy requires encrypted MFA storage and secure cookie mode',a
  const env=await readFile(new URL('../.env.production.example',import.meta.url),'utf8');
  assert.match(env,/TOTP_ENCRYPTION_KEY=REPLACE_WITH_BASE64_ENCODED_32_BYTE_KEY/);
 });
+
+
+test('backup restore drill uses an isolated temporary PostgreSQL container',async()=>{
+ const s=await readFile(new URL('../scripts/verify-backup-restore.sh',import.meta.url),'utf8');
+ assert.match(s,/postgres:16-alpine/);
+ assert.match(s,/pg_restore --no-owner --no-privileges/);
+ assert.match(s,/information_schema\.tables/);
+ assert.match(s,/trap cleanup EXIT/);
+ assert.doesNotMatch(s,/aegisgrc-security_aegis-db/);
+});

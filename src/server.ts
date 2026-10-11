@@ -47,6 +47,7 @@ import { auditPackageModel } from './audit-trace.js';
 import {reportSnapshotDigest} from './report-auth.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
+import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
 import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage,reconcileContainerCoverage,activeContainerAsset,reconcileCloudCoverage,activeCloudAsset,reconcileIdentityCoverage,reconcileDataSecurityCoverage,reconcileAttackSurfaceCoverage,reconcilePrivacyCoverage,reconcileBreachTelemetryCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import {initBreachAssessment,deriveBreachAssessment,listBreachAssessments} from './breach-assessment.js';
@@ -173,6 +174,13 @@ app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review',async(r
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
  const result=await reviewFinding(u.userId,req.params.assessmentId,req.params.findingId,req.body||{});
  res.json(result);
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/assessments/:assessmentId/findings/:findingId/grc-recommendation',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ await requireAssessmentAccess(u.userId,req.params.assessmentId);
+ const finding=(await db.findingsForAssessment(req.params.assessmentId)).find((x:any)=>x.id===req.params.findingId);
+ if(!finding)return res.status(404).json({error:'Finding not found'});
+ res.json({assessmentId:req.params.assessmentId,recommendation:recommendFindingGrcLinkage(finding)});
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/assessments/:assessmentId/findings/:findingId/reviews',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});

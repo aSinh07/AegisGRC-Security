@@ -343,3 +343,5 @@ test('automation only auto-runs deterministic evidence-present tests',async()=>{
 });
 
 test('Semgrep findings retain stable scanner identity for targeted remediation',async()=>{const s=await readFile(new URL('../src/parsers.ts',import.meta.url),'utf8');assert.match(s,/scannerId:String\(r\.check_id\|\|'semgrep'\)/);assert.match(s,/confidence:'SCANNER_REPORTED'/)});
+
+test('GRC recommendation endpoint is access-controlled and non-mutating',async()=>{const server=await readFile('src/server.ts','utf8');const start=server.indexOf("app.get('/api/grc/assessments/:assessmentId/findings/:findingId/grc-recommendation'");assert.ok(start>=0);const end=server.indexOf("app.get('/api/grc/assessments/:assessmentId/findings/:findingId/reviews'",start);const route=server.slice(start,end);assert.match(route,/currentUser/);assert.match(route,/requireAssessmentAccess/);assert.match(route,/recommendFindingGrcLinkage/);assert.doesNotMatch(route,/promoteFindingToIssue|INSERT INTO|UPDATE grc_/);});

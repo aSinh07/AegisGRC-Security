@@ -9,7 +9,7 @@ const pool = new pg.Pool({
 export async function assessmentTrace(userId:string, assessmentId:string) {
   const access = await requireAssessmentAccess(userId, assessmentId);
   const evidence = (await pool.query(
-    'SELECT id,source,sha256,created_at,byte_length,integrity_verified_at FROM evidence WHERE assessment_id=$1 ORDER BY created_at',
+    'SELECT id,source,sha256,created_at,byte_length,integrity_verified_at,payload FROM evidence WHERE assessment_id=$1 ORDER BY created_at',
     [assessmentId]
   )).rows;
   const findings = (await pool.query(
@@ -88,6 +88,9 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
     assuranceBoundary: 'Traceability records provenance and workflow state. It is not certification or proof of control effectiveness.',
     summary: {
       evidence: evidence.length,
+      verifiedEvidence: evidence.filter((x:any)=>x.payload?.metadata?.evidenceTrust==='VERIFIED').length,
+      verifiedEvidenceWithLimitations: evidence.filter((x:any)=>x.payload?.metadata?.evidenceTrust==='VERIFIED_WITH_LIMITATIONS').length,
+      unverifiedEvidence: evidence.filter((x:any)=>!['VERIFIED','VERIFIED_WITH_LIMITATIONS'].includes(x.payload?.metadata?.evidenceTrust)).length,
       findings: findings.length,
       reviewed: chains.filter((x:any) => x.reviews.length > 0).length,
       confirmed: chains.filter((x:any) => x.reviews.length > 0 && x.reviews[x.reviews.length-1].decision === 'CONFIRMED').length,
@@ -100,6 +103,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       breachAssessments: breachAssessments.length,
       breachAssessmentsRequiringReview: breachAssessments.filter((x:any)=>x.requires_human_review).length
     },
+    evidenceProvenance:evidence.map((x:any)=>({id:x.id,source:x.source,sha256:x.sha256,createdAt:x.created_at,byteLength:x.byte_length,integrityVerifiedAt:x.integrity_verified_at,trust:x.payload?.metadata?.evidenceTrust||'UNVERIFIED',provenance:x.payload?.metadata?.provenance||null,provenanceFingerprint:x.payload?.metadata?.provenanceFingerprint||null})),
     breachImpactAssessments:breachAssessments,
     breachTelemetryAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='BREACH_TELEMETRY');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['WAZUH'],evidenceCount:0,failureReasons:['Breach telemetry has not been reconciled'],completedAt:null}})(),
     privacyAssurance:(()=>{const x=layerCoverage.find((r:any)=>r.layer==='PRIVACY');return x?{status:x.status,required:x.required,engines:x.engines||[],evidenceCount:Number(x.evidence_count||0),failureReasons:x.failure_reasons||[],completedAt:x.completed_at}:{status:'NOT_STARTED',required:true,engines:['PROWLER'],evidenceCount:0,failureReasons:['Privacy coverage has not been reconciled'],completedAt:null}})(),

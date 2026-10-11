@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';import path from 'node:path';import pg from 'pg';
 import type { Assessment,Evidence,Finding,AuditEvent } from './models.js';
 import {findingFingerprint} from './finding-correlation.js';
+import {integrationById,evidenceTrust,provenanceFingerprint,type EvidenceProvenance} from './integration-contract.js';
 const dir=process.env.DATA_DIR||'/tmp/aegis-data'; const url=process.env.DATABASE_URL;
 const production=process.env.NODE_ENV==='production';
 if(production&&!url) throw new Error('DATABASE_URL is required in production');
@@ -11,6 +12,16 @@ const allowedTables={assessments:'authorized_at',evidence:'created_at',findings:
 async function qPayload<T>(table:keyof typeof allowedTables){if(!pool)return null;const order=allowedTables[table];const r=await pool.query(`SELECT payload FROM ${table} ORDER BY ${order} ASC`);return r.rows.map(x=>x.payload as T)}
 async function upsertAssessment(x:Assessment){if(!pool)return rw<Assessment>('assessments.json',a=>[...a.filter(v=>v.id!==x.id),x]);await pool.query(`INSERT INTO assessments(id,target,authorized_at,status,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO UPDATE SET target=EXCLUDED.target,status=EXCLUDED.status,payload=EXCLUDED.payload`,[x.id,x.target,x.authorizedAt,x.status,x]);return []}
 async function insert(table:string,x:any,cols:string[],vals:any[]){if(!pool)return null;await pool.query(`INSERT INTO ${table}(${cols.join(',')}) VALUES(${cols.map((_,i)=>'$'+(i+1)).join(',')}) ON CONFLICT(id) DO NOTHING`,vals)}
+function withEvidenceProvenance(x:Evidence):Evidence{
+ const existing=(x.metadata as any)?.provenance as EvidenceProvenance|undefined;
+ if(existing){const trust=evidenceTrust(existing);return {...x,metadata:{...x.metadata,provenance:existing,evidenceTrust:trust,provenanceFingerprint:provenanceFingerprint(existing)}}}
+ const integration=integrationById(String(x.source||'').toLowerCase());
+ if(!integration)return {...x,metadata:{...x.metadata,evidenceTrust:'UNVERIFIED',provenanceLimitations:['Evidence source is not registered in the integration catalog']}};
+ const method:EvidenceProvenance['verificationMethod']=integration.kind==='SCANNER'?'LOCAL_EXECUTION':'IMPORTED_REPORT';
+ const verified=Boolean((x.metadata as any)?.reportRecognized)||integration.activeCollection;
+ const p:EvidenceProvenance={integrationId:integration.id,integrationKind:integration.kind,collectorVersion:String((x.metadata as any)?.collectorVersion||(x.metadata as any)?.scannerVersion||'unspecified'),collectedAt:x.createdAt,sourceRef:String((x.metadata as any)?.target||(x.metadata as any)?.assetId||x.assessmentId),sha256:x.sha256,verified,verificationMethod:method,limitations:[...integration.limitations,...(!verified?['Collection authenticity was not independently verified']:[])]};
+ return {...x,metadata:{...x.metadata,provenance:p,evidenceTrust:evidenceTrust(p),provenanceFingerprint:provenanceFingerprint(p)}};
+}
 export const db={
  mode:()=>pool?'postgres':'file',
  ready:async()=>{if(!pool){if(production)throw new Error('PostgreSQL is required in production');return {ok:true,mode:'file'}};await pool.query('SELECT 1');return {ok:true,mode:'postgres'}},
@@ -26,6 +37,7 @@ export const db={
  audits:async()=>pool?(await qPayload<AuditEvent>('audit_events'))!:read<AuditEvent>('audit.json'),
  saveAssessment:upsertAssessment,
  saveFindingImport:async(evidence:Evidence,findings:Finding[],audit:AuditEvent)=>{
+  evidence=withEvidenceProvenance(evidence);
   if(!pool)throw new Error('Atomic finding import requires PostgreSQL');
   if(!/^[0-9a-f]{64}$/.test(evidence.sha256))throw new Error('Evidence SHA-256 must be a server-computed lowercase 64-character digest');
   const byteLength=Buffer.byteLength(JSON.stringify({stdout:evidence.stdout||'',stderr:evidence.stderr||'',metadata:evidence.metadata||{}}));
@@ -37,7 +49,7 @@ export const db={
   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
  },
  saveFindingRetest:async(x:{id:string;findingId:string;assessmentId:string;evidenceId:string;fingerprint:string;scannerSource:string;scannerId?:string|null;createdBy:string},audit:AuditEvent)=>{if(!pool)throw new Error('Targeted retest binding requires PostgreSQL');const client=await pool.connect();try{await client.query('BEGIN');const finding=(await client.query('SELECT 1 FROM findings WHERE id=$1 AND assessment_id=$2',[x.findingId,x.assessmentId])).rows[0],evidence=(await client.query('SELECT 1 FROM evidence WHERE id=$1 AND assessment_id=$2 AND source=$3',[x.evidenceId,x.assessmentId,x.scannerSource])).rows[0];if(!finding||!evidence)throw new Error('Retest linkage assessment/source integrity check failed');await client.query('INSERT INTO finding_retests(id,finding_id,assessment_id,evidence_id,fingerprint,scanner_source,scanner_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[x.id,x.findingId,x.assessmentId,x.evidenceId,x.fingerprint,x.scannerSource,x.scannerId||null,x.createdBy]);await client.query('INSERT INTO audit_events(id,assessment_id,action,created_at,payload) VALUES($1,$2,$3,$4,$5)',[audit.id,audit.assessmentId||null,audit.action,audit.createdAt,audit]);await client.query('COMMIT');return x}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}},
- saveEvidence:async(x:Evidence)=>{if(!pool)return rw<Evidence>('evidence.json',a=>[...a,x]);if(!/^[0-9a-f]{64}$/.test(x.sha256))throw new Error('Evidence SHA-256 must be a server-computed lowercase 64-character digest');const byteLength=Buffer.byteLength(JSON.stringify({stdout:x.stdout||'',stderr:x.stderr||'',metadata:x.metadata||{}}));await pool.query(`INSERT INTO evidence(id,assessment_id,source,sha256,created_at,payload,byte_length,integrity_verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,now()) ON CONFLICT(id) DO NOTHING`,[x.id,x.assessmentId,x.source,x.sha256,x.createdAt,x,byteLength]);return []},
+ saveEvidence:async(x:Evidence)=>{x=withEvidenceProvenance(x);if(!pool)return rw<Evidence>('evidence.json',a=>[...a,x]);if(!/^[0-9a-f]{64}$/.test(x.sha256))throw new Error('Evidence SHA-256 must be a server-computed lowercase 64-character digest');const byteLength=Buffer.byteLength(JSON.stringify({stdout:x.stdout||'',stderr:x.stderr||'',metadata:x.metadata||{}}));await pool.query(`INSERT INTO evidence(id,assessment_id,source,sha256,created_at,payload,byte_length,integrity_verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,now()) ON CONFLICT(id) DO NOTHING`,[x.id,x.assessmentId,x.source,x.sha256,x.createdAt,x,byteLength]);return []},
  saveFindings:async(xs:Finding[])=>{xs=xs.map(x=>({...x,fingerprint:x.fingerprint||findingFingerprint(x)}));if(!pool)return rw<Finding>('findings.json',a=>[...a,...xs.filter(x=>!a.some(v=>v.id===x.id))]);for(const x of xs)await insert('findings',x,['id','assessment_id','severity','source','created_at','payload'],[x.id,x.assessmentId,x.severity,x.source,x.createdAt,x]);return []},
  saveAudit:async(x:AuditEvent)=>{if(!pool)return rw<AuditEvent>('audit.json',a=>[...a,x]);await insert('audit_events',x,['id','assessment_id','action','created_at','payload'],[x.id,x.assessmentId||null,x.action,x.createdAt,x]);return []},
  saveDocument:async(x:{id:string,assessmentId:string,filename:string,mimeType:string,size:number,sha256:string,createdAt:string,content:Buffer,documentType?:string,description?:string})=>{if(!pool)throw new Error('Document vault requires PostgreSQL');await pool.query('INSERT INTO documents(id,assessment_id,filename,mime_type,size_bytes,sha256,created_at,content) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[x.id,x.assessmentId,x.filename,x.mimeType,x.size,x.sha256,x.createdAt,x.content])},

@@ -284,8 +284,9 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-report.:format
  const readiness=await organizationAuditReadiness(u.userId,req.params.orgId,req.params.scopeId);
  const soa=await statementOfApplicability(u.userId,req.params.orgId,req.params.scopeId);
  const dashboard=await operationsDashboard(u.userId,req.params.orgId),slaState=await sla(u.userId,req.params.orgId);
+ const thirdParty=await thirdPartyDashboard(u.userId,req.params.orgId),architecture=await architectureAssurance(u.userId,req.params.orgId,req.params.scopeId);
  const traces=[];for(const a of base.assessments){try{traces.push(await assessmentTrace(u.userId,a.id))}catch{}}
- const model=buildEnterpriseGrcReport({...base,readiness,soa,dashboard,sla:slaState,assessmentTraces:traces});
+ const model=buildEnterpriseGrcReport({...base,readiness,soa,dashboard,sla:slaState,thirdParty,architecture,assessmentTraces:traces});
  const format=String(req.params.format||'json').toLowerCase();let body:Buffer,contentType='application/json',ext=format;
  if(format==='pdf'){body=await enterpriseGrcPdf(model);contentType='application/pdf'}
  else if(format==='docx'){body=await enterpriseGrcDocx(model);contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}

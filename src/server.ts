@@ -38,6 +38,7 @@ import { zapReady,zapScan,zapFindings } from './zap.js';
 import { askCopilot } from './copilot.js';
 import { knowledgeCatalog } from './knowledge.js';
 import { extractDocument } from './document-extract.js';
+import { inferArchitecture } from './architecture-document-model.js';
 import { parseFindingImport } from './finding-import.js';
 import { initFindingReview,reviewFinding,findingReviewHistory } from './finding-review.js';
 import { initFindingRisk,slaPolicy,setSlaPolicy,promoteFindingToIssue } from './finding-risk.js';
@@ -474,6 +475,19 @@ app.post('/api/scans/trivy',async(req,res)=>{try{
  const scanStatus=result.exitCode===0?'SUCCEEDED':'FAILED';await db.saveAssessment({...assessment,evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
  res.status(result.exitCode===0?200:502).json({execution:'REAL_TRIVY_FILESYSTEM_SCAN',scanStatus,assessmentId,sourcePath,evidence:{sha256:ev.sha256},findings});
 }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
+// Document-to-3D architecture: authenticated, bounded, in-memory only; never scan supplied URLs.
+app.post('/api/architecture/document-model',upload.single('file'),async(req,res)=>{
+ try{
+  const file=req.file;
+  if(!file)return res.status(400).json({error:'Upload an architecture PDF, DOCX, TXT, Markdown, CSV, JSON, or XLSX file.'});
+  if(!/\.(pdf|docx|txt|md|csv|json|xlsx|xls)$/i.test(file.originalname))return res.status(415).json({error:'Unsupported document type. Legacy DOC must be converted to DOCX.'});
+  const extracted=await extractDocument(file.originalname,file.mimetype,file.buffer);
+  if(!extracted.text.trim())return res.status(422).json({error:'No extractable text found. Scanned diagrams need OCR or a text description before modelling.'});
+  const graph=inferArchitecture(extracted.text.slice(0,200000));
+  res.json({filename:file.originalname,sha256:crypto.createHash('sha256').update(file.buffer).digest('hex'),pages:'pages' in extracted?extracted.pages:null,...graph});
+ }catch(e:any){res.status(400).json({error:e.message})}
+});
 app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
 async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei',assessmentId:string,t:{url:URL,addresses:string[]}){
  t=await revalidateTarget(t);

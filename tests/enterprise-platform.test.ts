@@ -86,3 +86,9 @@ test('third-party approvals require immutable independent evidence-backed review
  assert.match(s,/Vendor findings and evidence must be arrays/);
  assert.match(s,/Invalid vendor contract or review dates/);
 });
+
+
+test('enterprise audit assurance requires a completed audit and no active work',async()=>{
+ const s=await readFile(new URL('../src/enterprise-acceptance.ts',import.meta.url),'utf8');
+ assert.match(s,/audits\.summary\.complete>0&&audits\.summary\.unreviewed===0&&audits\.summary\.active===0/);
+});

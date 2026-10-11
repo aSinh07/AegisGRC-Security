@@ -3,13 +3,13 @@ import pg from 'pg';
 import {requireOrgPermission} from './grc-organizations.js';
 
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
-const kinds=['EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY'] as const;
+const kinds=['EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY','OBLIGATION_DUE','EXCEPTION_EXPIRY','THIRD_PARTY_REVIEW_DUE','BIA_DUE','POLICY_REVIEW_DUE'] as const;
 type Kind=typeof kinds[number];
 
 export async function initGrcAutomation(){await pool.query(`
 CREATE TABLE IF NOT EXISTS grc_automation_rules(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
- name text NOT NULL,kind text NOT NULL CHECK(kind IN ('EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY')),
+ name text NOT NULL,kind text NOT NULL CHECK(kind IN ('EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY','OBLIGATION_DUE','EXCEPTION_EXPIRY','THIRD_PARTY_REVIEW_DUE','BIA_DUE','POLICY_REVIEW_DUE')),
  enabled boolean NOT NULL DEFAULT true,interval_hours integer NOT NULL DEFAULT 24 CHECK(interval_hours BETWEEN 1 AND 8760),
  config jsonb NOT NULL DEFAULT '{}'::jsonb,last_run_at timestamptz,next_run_at timestamptz NOT NULL DEFAULT now(),
  created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
@@ -93,6 +93,21 @@ async function execute(client:any,org:string,kind:Kind,config:any){
   for(const x of changed)if(x.owner_user_id)await client.query(`INSERT INTO grc_notifications(id,organization_id,user_id,severity,title,message,record_type,record_id,dedupe_key) VALUES($1,$2,$3,'HIGH',$4,$5,'RISK',$6,$7) ON CONFLICT(organization_id,user_id,dedupe_key) DO NOTHING`,[crypto.randomUUID(),org,x.owner_user_id,'Risk acceptance expired: '+x.risk_key,'Risk acceptance has expired and requires a new independent review.',x.id,'RISK_ACCEPTANCE_EXPIRED:'+x.id]);
   events.push({expiredAcceptances:changed.length,riskIds:changed.map((x:any)=>x.id)});
  }
+ }else if(kind==='OBLIGATION_DUE'){
+  const rows=(await client.query("SELECT id,title,owner_user_id FROM grc_compliance_obligations WHERE organization_id=$1 AND status<>'COMPLETE' AND due_at<=now()",[org])).rows;
+  events.push({dueObligations:rows.length,obligationIds:rows.map((x:any)=>x.id)});
+ }else if(kind==='EXCEPTION_EXPIRY'){
+  const rows=(await client.query("UPDATE grc_compliance_exceptions SET status='EXPIRED',updated_at=now() WHERE organization_id=$1 AND status='APPROVED' AND expires_at<=now() RETURNING id",[org])).rows;
+  events.push({expiredExceptions:rows.length,exceptionIds:rows.map((x:any)=>x.id)});
+ }else if(kind==='THIRD_PARTY_REVIEW_DUE'){
+  const rows=(await client.query("SELECT id,name FROM grc_third_parties WHERE organization_id=$1 AND status='ACTIVE' AND next_review_at IS NOT NULL AND next_review_at<=now()",[org])).rows;
+  events.push({thirdPartyReviewsDue:rows.length,thirdPartyIds:rows.map((x:any)=>x.id)});
+ }else if(kind==='BIA_DUE'){
+  const rows=(await client.query("SELECT id,name FROM grc_business_services WHERE organization_id=$1 AND next_bia_at IS NOT NULL AND next_bia_at<=now()",[org])).rows;
+  events.push({biaDue:rows.length,businessServiceIds:rows.map((x:any)=>x.id)});
+ }else if(kind==='POLICY_REVIEW_DUE'){
+  const rows=(await client.query("SELECT id,title FROM grc_policies WHERE organization_id=$1 AND status='APPROVED' AND next_review_at IS NOT NULL AND next_review_at<=now()",[org])).rows;
+  events.push({policyReviewsDue:rows.length,policyIds:rows.map((x:any)=>x.id)});
  return events;
 }
 

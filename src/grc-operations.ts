@@ -72,3 +72,20 @@ export async function markNotification(user:string,org:string,id:string,status:s
  const row=(await pool.query("UPDATE grc_notifications SET status=$4,read_at=CASE WHEN $4='READ' THEN now() ELSE read_at END WHERE id=$1 AND organization_id=$2 AND user_id=$3 RETURNING *",[id,org,user,status])).rows[0];
  if(!row)throw Object.assign(new Error('Notification not found'),{statusCode:404});return row;
 }
+
+
+export async function enterpriseReportData(user:string,org:string,scopeId:string){
+ await requireOrgPermission(user,org,'read');
+ const scope=(await pool.query('SELECT id,organization_id,name,description,status,created_at,updated_at FROM grc_scopes WHERE id=$1 AND organization_id=$2',[scopeId,org])).rows[0];
+ if(!scope)throw Object.assign(new Error('Scope not found in organization'),{statusCode:404});
+ const organization=(await pool.query('SELECT id,name,industry,status,created_at,updated_at FROM grc_organizations WHERE id=$1',[org])).rows[0];
+ const [risks,issues,capa,assessments]=await Promise.all([
+  pool.query('SELECT * FROM grc_enterprise_risks WHERE organization_id=$1 ORDER BY inherent_score DESC,created_at DESC',[org]),
+  pool.query(`SELECT i.* FROM grc_issues i LEFT JOIN grc_scope_controls sc ON sc.id=i.scope_control_id
+   WHERE i.organization_id=$1 AND (sc.scope_id=$2 OR i.scope_control_id IS NULL) ORDER BY i.created_at DESC`,[org,scopeId]),
+  pool.query(`SELECT c.* FROM grc_capa c JOIN grc_issues i ON i.id=c.issue_id LEFT JOIN grc_scope_controls sc ON sc.id=i.scope_control_id
+   WHERE c.organization_id=$1 AND (sc.scope_id=$2 OR i.scope_control_id IS NULL) ORDER BY c.created_at DESC`,[org,scopeId]),
+  pool.query('SELECT id,target,status,authorized_at,updated_at FROM assessments WHERE organization_id=$1 ORDER BY authorized_at DESC',[org])
+ ]);
+ return {organization,scope,risks:risks.rows,issues:issues.rows,capa:capa.rows,assessments:assessments.rows};
+}

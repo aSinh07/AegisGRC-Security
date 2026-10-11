@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {correlateExposure,exposurePriority} from '../src/exposure-prioritization.js';
+test('exposure context raises actionable vulnerability priority',()=>{const base={id:'1',asset:'api',fingerprint:'f1',severity:'HIGH' as const,cvss:9};const a=exposurePriority(base),b=exposurePriority({...base,kev:true,internetExposed:true,exploitObserved:true,epss:.95});assert.ok(b.score>a.score);assert.equal(b.band,'P0')});
+test('effective compensating control reduces but never erases vulnerability',()=>{const x=exposurePriority({id:'1',asset:'db',fingerprint:'f',severity:'CRITICAL',cvss:10,kev:true,controlCoverage:'EFFECTIVE'});assert.ok(x.score>0)});
+test('stable fingerprint deduplicates scanner overlap',()=>{const x=correlateExposure([{id:'1',asset:'a',fingerprint:'same',severity:'HIGH'},{id:'2',asset:'a',fingerprint:'same',severity:'CRITICAL'}]);assert.equal(x.length,1)});

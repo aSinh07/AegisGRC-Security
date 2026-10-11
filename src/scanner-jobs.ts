@@ -21,7 +21,7 @@ export async function initScannerJobs(){await pool.query(`
   state text NOT NULL CHECK(state IN ('QUEUED','RUNNING','SUCCEEDED','FAILED','TIMEOUT','TRUNCATED','UNAVAILABLE')),
   requested_by uuid REFERENCES app_users(id) ON DELETE SET NULL,evidence_id uuid,evidence_hash text,error text,
   created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,completed_at timestamptz,attempts integer NOT NULL DEFAULT 0
- );ALTER TABLE scanner_jobs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;CREATE INDEX IF NOT EXISTS scanner_jobs_assessment_idx ON scanner_jobs(organization_id,assessment_id,created_at DESC);
+ );ALTER TABLE scanner_jobs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;CREATE INDEX IF NOT EXISTS scanner_jobs_assessment_idx ON scanner_jobs(organization_id,assessment_id,created_at DESC);CREATE UNIQUE INDEX IF NOT EXISTS scanner_jobs_active_unique_idx ON scanner_jobs(organization_id,assessment_id,engine,target) WHERE state IN ('QUEUED','RUNNING');
 `)}
 
 function engine(v:string){const e=String(v||'').toUpperCase() as ScannerEngine;if(!engines.has(e))throw new Error('Unsupported defense scanner');return e}
@@ -29,7 +29,7 @@ export async function enqueueScannerJob(userId:string,assessmentId:string,input:
  const access=await requireAssessmentAccess(userId,assessmentId);await requireOrgPermission(userId,access.organization_id,'manageAssessment');
  const e=engine(input.engine),target=String(input.target||'').trim();if(!target||target.length>500)throw new Error('Scanner target is required');
  const id=crypto.randomUUID();return (await pool.query(`INSERT INTO scanner_jobs(id,organization_id,assessment_id,engine,target,state,requested_by)
- VALUES($1,$2,$3,$4,$5,'QUEUED',$6) RETURNING id,organization_id,assessment_id,engine,target,state,created_at`,[id,access.organization_id,assessmentId,e,target,userId])).rows[0]
+ VALUES($1,$2,$3,$4,$5,'QUEUED',$6) ON CONFLICT (organization_id,assessment_id,engine,target) WHERE state IN ('QUEUED','RUNNING') DO NOTHING RETURNING id,organization_id,assessment_id,engine,target,state,created_at`,[id,access.organization_id,assessmentId,e,target,userId])).rows[0]|| (await pool.query(`SELECT id,organization_id,assessment_id,engine,target,state,created_at FROM scanner_jobs WHERE organization_id=$1 AND assessment_id=$2 AND engine=$3 AND target=$4 AND state IN ('QUEUED','RUNNING') ORDER BY created_at DESC LIMIT 1`,[access.organization_id,assessmentId,e,target])).rows[0]
 }
 export async function listScannerJobs(userId:string,assessmentId:string){
  const access=await requireAssessmentAccess(userId,assessmentId);await requireOrgPermission(userId,access.organization_id,'read');

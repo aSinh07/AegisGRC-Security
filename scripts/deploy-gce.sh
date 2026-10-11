@@ -13,7 +13,11 @@ fi
 required=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL ASSESSMENT_SESSION_SECRET EVIDENCE_HMAC_KEY REPORT_SIGNING_KEY GRC_AUTOMATION_SECRET)
 for key in "${required[@]}"; do
   value="$(grep -E "^${key}=" .env.production | tail -1 | cut -d= -f2- || true)"
-  if [ -z "$value" ] || [[ "$value" == REPLACE_* ]] || [[ "$value" == replace-* ]]; then echo "Missing or placeholder production secret: $key"; exit 1; fi
+  normalized="$(printf '%s' "$value" | tr '[:lower:]' '[:upper:]')"
+  if [ -z "$value" ] || [[ "$normalized" == REPLACE_* ]] || [[ "$normalized" == CHANGE_THIS* ]] || [[ "$normalized" == CHANGEME* ]]; then
+    echo "Missing or placeholder production secret: $key"
+    exit 1
+  fi
 done
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
@@ -21,7 +25,12 @@ mkdir -p "$BACKUP_DIR"
 if docker compose -f docker-compose.production.yml ps --status running postgres 2>/dev/null | grep -q postgres; then
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   echo "Creating pre-deploy PostgreSQL backup..."
-  docker compose -f docker-compose.production.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$BACKUP_DIR/aegis-$stamp.dump"
+  backup_path="$BACKUP_DIR/aegis-$stamp.dump"
+  docker compose -f docker-compose.production.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$backup_path"
+  test -s "$backup_path" || { echo "PostgreSQL backup is empty; refusing deployment."; rm -f "$backup_path"; exit 1; }
+  docker compose -f docker-compose.production.yml exec -T postgres sh -c 'pg_restore --version' >/dev/null
+  docker run --rm -i postgres:16-alpine pg_restore -l < "$backup_path" >/dev/null || { echo "PostgreSQL backup validation failed; refusing deployment."; exit 1; }
+  echo "Verified pre-deploy backup: $backup_path"
 fi
 
 echo "Pulling release..."

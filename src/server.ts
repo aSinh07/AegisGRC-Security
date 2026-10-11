@@ -73,6 +73,17 @@ await initBreachAssessment();
 await initScannerJobs();
 await recoverStaleScannerJobs();
 
+app.disable('x-powered-by');
+app.use((req,res,next)=>{
+ res.setHeader('X-Content-Type-Options','nosniff');
+ res.setHeader('X-Frame-Options','DENY');
+ res.setHeader('Referrer-Policy','no-referrer');
+ res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');
+ res.setHeader('Cross-Origin-Opener-Policy','same-origin');
+ res.setHeader('Cross-Origin-Resource-Policy','same-origin');
+ if(req.secure)res.setHeader('Strict-Transport-Security','max-age=31536000; includeSubDomains');
+ next();
+});
 app.use(express.json({limit:'1mb'}));
 // The HTML shell must never be served stale after a UI release. Static assets can be revalidated.
 app.use((req,res,next)=>{
@@ -100,7 +111,7 @@ app.post('/api/auth/reset-password',async(req,res)=>{try{const email=String(req.
 }catch(e:any){res.status(400).json({error:e.message})}});
 app.post('/api/auth/logout',async(req,res)=>{const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';logout(token);const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';await userLogout(ut);res.setHeader('Set-Cookie',['aegis_auth=; HttpOnly; SameSite=Strict; Max-Age=0; Path=/','aegis_user=; HttpOnly; SameSite=Strict; Max-Age=0; Path=/']);res.json({ok:true})});
 app.get('/api/auth/status',async(req,res)=>{const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';res.json({authenticated:Boolean(await userSession(ut)),configured:true,legacyAdminConfigured:authConfigured()})});
-app.use('/api',async(req,res,next)=>{if(['/ready','/health','/integrations','/auth/login','/auth/user-login','/auth/register','/auth/register/confirm','/auth/reset-password','/auth/status'].includes(req.path))return next();const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';if(!await userSession(ut))return res.status(401).json({error:'User login required'});next()});
+app.use('/api',async(req,res,next)=>{if(['/ready','/auth/login','/auth/user-login','/auth/register','/auth/register/confirm','/auth/reset-password','/auth/status'].includes(req.path))return next();const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';if(!await userSession(ut))return res.status(401).json({error:'User login required'});next()});
 
 // Tenant-safe GRC organization and scope onboarding. Higher-risk GRC modules remain fail-closed.
 app.get('/api/grc/organizations',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({organizations:await memberships(u.userId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

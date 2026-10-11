@@ -24,10 +24,17 @@ export async function initScannerJobs(){await pool.query(`
  );ALTER TABLE scanner_jobs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;CREATE INDEX IF NOT EXISTS scanner_jobs_assessment_idx ON scanner_jobs(organization_id,assessment_id,created_at DESC);CREATE UNIQUE INDEX IF NOT EXISTS scanner_jobs_active_unique_idx ON scanner_jobs(organization_id,assessment_id,engine,target) WHERE state IN ('QUEUED','RUNNING');
 `)}
 
+export function assertActiveScannerScope(engineName:ScannerEngine,target:string,authorizedTarget:string){
+ if(engineName!=='TESTSSL')return;
+ let requested:URL,authorized:URL;
+ try{requested=new URL(target);authorized=new URL(authorizedTarget)}catch{throw new Error('Active scanner requires an authorized HTTPS origin')}
+ if(authorized.protocol!=='https:'||requested.protocol!=='https:'||requested.origin!==authorized.origin||requested.pathname!=='/'||requested.search||requested.hash||requested.username||requested.password||authorized.username||authorized.password)
+  throw Object.assign(new Error('Active scanner target is outside the authorized HTTPS assessment origin'),{statusCode:403});
+}
 function engine(v:string){const e=String(v||'').toUpperCase() as ScannerEngine;if(!engines.has(e))throw new Error('Unsupported defense scanner');return e}
 export async function enqueueScannerJob(userId:string,assessmentId:string,input:{engine:string;target:string}){
  const access=await requireAssessmentAccess(userId,assessmentId);await requireOrgPermission(userId,access.organization_id,'manageAssessment');
- const e=engine(input.engine),target=String(input.target||'').trim();if(!target||target.length>500)throw new Error('Scanner target is required');
+ const e=engine(input.engine),target=String(input.target||'').trim();if(!target||target.length>500)throw new Error('Scanner target is required');assertActiveScannerScope(e,target,String(access.target||''));
  const id=crypto.randomUUID();return (await pool.query(`INSERT INTO scanner_jobs(id,organization_id,assessment_id,engine,target,state,requested_by)
  VALUES($1,$2,$3,$4,$5,'QUEUED',$6) ON CONFLICT (organization_id,assessment_id,engine,target) WHERE state IN ('QUEUED','RUNNING') DO NOTHING RETURNING id,organization_id,assessment_id,engine,target,state,created_at`,[id,access.organization_id,assessmentId,e,target,userId])).rows[0]|| (await pool.query(`SELECT id,organization_id,assessment_id,engine,target,state,created_at FROM scanner_jobs WHERE organization_id=$1 AND assessment_id=$2 AND engine=$3 AND target=$4 AND state IN ('QUEUED','RUNNING') ORDER BY created_at DESC LIMIT 1`,[access.organization_id,assessmentId,e,target])).rows[0]
 }

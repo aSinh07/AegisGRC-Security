@@ -33,15 +33,15 @@ export async function createArchitectureComponent(user:string,org:string,input:a
 }
 export async function createArchitectureEdge(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'manageScope');if(input.sourceComponentId===input.targetComponentId)throw new Error('Architecture edge requires different components');
- const valid=(await pool.query('SELECT count(*) c FROM grc_architecture_components WHERE organization_id=$1 AND id=ANY($2::uuid[])',[org,[input.sourceComponentId,input.targetComponentId]])).rows[0];if(Number(valid.c)!==2)throw new Error('Architecture components not found');
+ const comps=(await pool.query('SELECT id,scope_id FROM grc_architecture_components WHERE organization_id=$1 AND id=ANY($2::uuid[])',[org,[input.sourceComponentId,input.targetComponentId]])).rows;if(comps.length!==2)throw new Error('Architecture components not found');const requestedScope=input.scopeId||comps[0].scope_id;if(comps.some((x:any)=>x.scope_id!==requestedScope))throw Object.assign(new Error('Architecture edge components must belong to the same requested scope'),{statusCode:409});
  return (await pool.query(`INSERT INTO grc_architecture_edges(id,organization_id,scope_id,source_component_id,target_component_id,protocol,port,encrypted,authenticated,description,created_by)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),org,input.scopeId||null,input.sourceComponentId,input.targetComponentId,input.protocol||null,input.port||null,input.encrypted??null,input.authenticated??null,String(input.description||''),user])).rows[0]
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),org,requestedScope,input.sourceComponentId,input.targetComponentId,input.protocol||null,input.port||null,input.encrypted??null,input.authenticated??null,String(input.description||''),user])).rows[0]
 }
 export async function recordFirewallReview(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'review');const c=(await pool.query("SELECT * FROM grc_architecture_components WHERE id=$1 AND organization_id=$2 AND component_type IN ('FIREWALL','WAF','ROUTER','VPN_GATEWAY','IDS_IPS')",[input.componentId,org])).rows[0];if(!c)throw Object.assign(new Error('Firewall/security gateway component not found'),{statusCode:404});
  const sha=String(input.sha256||'').toLowerCase();if(!/^[a-f0-9]{64}$/.test(sha))throw new Error('Valid SHA-256 required for firewall report');
  const counts=['rulesTotal','anyAnyRules','disabledRules','staleRules','shadowedRules','expiredRules'].map(k=>Math.max(0,Number(input[k]||0)));
- let rs=String(input.reviewStatus||'').toUpperCase();if(!['PASS','FAIL','PARTIAL','NOT_TESTED'].includes(rs))rs=(counts.slice(1).some(x=>x>0)?'FAIL':'PARTIAL');
+ let rs=String(input.reviewStatus||'').toUpperCase();const gapCount=counts.slice(1).some(x=>x>0);if(!['PASS','FAIL','PARTIAL','NOT_TESTED'].includes(rs))rs=(gapCount?'FAIL':'PARTIAL');if(rs==='PASS'&&(gapCount||counts[0]===0))throw Object.assign(new Error('Firewall review cannot PASS with rule gaps or an empty rule set'),{statusCode:409});
  return (await pool.query(`INSERT INTO grc_firewall_reviews(id,organization_id,scope_id,component_id,source_ref,sha256,review_status,rules_total,any_any_rules,disabled_rules,stale_rules,shadowed_rules,expired_rules,findings,reviewed_by)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,[crypto.randomUUID(),org,input.scopeId||c.scope_id,c.id,input.sourceRef||null,sha,rs,...counts,input.findings||[],user])).rows[0]
 }

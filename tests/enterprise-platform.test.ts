@@ -15,3 +15,11 @@ test('architecture assurance supports security gateways and never silently passe
  assert.match(s,/FIREWALL_REVIEW_MISSING/);assert.match(s,/UNENCRYPTED_FLOW/);assert.match(s,/UNAUTHENTICATED_FLOW/);
  assert.match(s,/any_any_rules/);assert.match(s,/shadowed_rules/);assert.match(s,/stale_rules/);assert.match(s,/expired_rules/);
 });
+
+test('continuous compliance requires evidence and independent exception approval',async()=>{
+ const s=await readFile(new URL('../src/continuous-compliance.ts',import.meta.url),'utf8');
+ assert.match(s,/Evidence reference required to complete obligation/);
+ assert.match(s,/Independent approver required for exception/);
+ assert.match(s,/status='EXPIRED'/);
+ assert.match(s,/overdueObligations/);
+});

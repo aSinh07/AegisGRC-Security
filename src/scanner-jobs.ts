@@ -17,7 +17,7 @@ export const scannerRegistry=Object.freeze({
 export async function initScannerJobs(){await pool.query(`
  CREATE TABLE IF NOT EXISTS scanner_jobs(
   id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
-  assessment_id text NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,engine text NOT NULL,target text NOT NULL,
+  assessment_id uuid NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,engine text NOT NULL,target text NOT NULL,
   state text NOT NULL CHECK(state IN ('QUEUED','RUNNING','SUCCEEDED','FAILED','TIMEOUT','TRUNCATED','UNAVAILABLE')),
   requested_by uuid REFERENCES app_users(id) ON DELETE SET NULL,evidence_id uuid,evidence_hash text,error text,
   created_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,completed_at timestamptz,attempts integer NOT NULL DEFAULT 0

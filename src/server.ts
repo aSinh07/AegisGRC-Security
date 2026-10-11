@@ -84,6 +84,11 @@ app.use((req,res,next)=>{
  if(req.secure)res.setHeader('Strict-Transport-Security','max-age=31536000; includeSubDomains');
  next();
 });
+app.use((req,res,next)=>{
+ const unsafe=!['GET','HEAD','OPTIONS'].includes(req.method);
+ if(unsafe&&String(req.headers['sec-fetch-site']||'').toLowerCase()==='cross-site')return res.status(403).json({error:'Cross-site state-changing requests are not allowed'});
+ next();
+});
 app.use(express.json({limit:'1mb'}));
 // The HTML shell must never be served stale after a UI release. Static assets can be revalidated.
 app.use((req,res,next)=>{

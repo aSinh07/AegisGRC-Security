@@ -12,7 +12,7 @@ test('third-party workflow enforces independent review and bounded risk',async()
 });
 test('architecture assurance supports security gateways and never silently passes missing firewall review',async()=>{
  const s=await readFile(new URL('../src/architecture-assurance.ts',import.meta.url),'utf8');
- assert.match(s,/FIREWALL_REVIEW_MISSING/);assert.match(s,/UNENCRYPTED_FLOW/);assert.match(s,/UNAUTHENTICATED_FLOW/);
+ assert.match(s,/FIREWALL_REVIEW_MISSING/);assert.match(s,/cannot PASS with rule gaps or an empty rule set/);assert.match(s,/components must belong to the same requested scope/);assert.match(s,/UNENCRYPTED_FLOW/);assert.match(s,/UNAUTHENTICATED_FLOW/);
  assert.match(s,/any_any_rules/);assert.match(s,/shadowed_rules/);assert.match(s,/stale_rules/);assert.match(s,/expired_rules/);
 });
 

@@ -54,6 +54,8 @@ export function enterpriseGrcXlsx(m:any){
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.architectureAssurance?.components||[]),'Architecture');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.architectureAssurance?.firewallReviews||[]),'Firewall Reviews');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.architectureAssurance?.gaps||[]),'Architecture Gaps');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.continuousCompliance?.obligations||[]),'Obligations');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.continuousCompliance?.exceptions||[]),'Exceptions');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.priorityActions||[]),'Priority Actions');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((m.assuranceBoundary||[]).map((x:string)=>({Limitation:x}))),'Limitations');
  return Buffer.from(XLSX.write(wb,{type:'buffer',bookType:'xlsx'}));
@@ -93,7 +95,9 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
  h('9.','Architecture & Firewall Assurance');
  d.fontSize(9).text('Components: '+s(m.architectureAssurance?.summary?.components||0)+' | Flows: '+s(m.architectureAssurance?.summary?.flows||0)+' | Security gateways: '+s(m.architectureAssurance?.summary?.securityGateways||0)+' | Reviewed gateways: '+s(m.architectureAssurance?.summary?.reviewedGateways||0));
  for(const g of m.architectureAssurance?.gaps||[])d.fontSize(8).text('• '+s(g.severity)+' '+s(g.type)+' '+s(g.component||g.componentId||g.edgeId||''));
- h('10.','Priority Management Actions');for(const x of m.priorityActions||[])d.fontSize(9).text('• ['+s(x.priority)+'] '+s(x.type)+' '+s(x.key)+': '+s(x.action));
- h('11.','Assurance Boundary & Limitations');for(const x of m.assuranceBoundary||[])d.fontSize(9).text('• '+x);
+ h('10.','Continuous Compliance, Obligations & Exceptions');
+ d.fontSize(9).text('Obligations: '+s(m.continuousCompliance?.summary?.obligations||0)+' | Overdue: '+s(m.continuousCompliance?.summary?.overdueObligations||0)+' | Open exceptions: '+s(m.continuousCompliance?.summary?.openExceptions||0)+' | Expired exceptions: '+s(m.continuousCompliance?.summary?.expiredExceptions||0));
+ h('11.','Priority Management Actions');for(const x of m.priorityActions||[])d.fontSize(9).text('• ['+s(x.priority)+'] '+s(x.type)+' '+s(x.key)+': '+s(x.action));
+ h('12.','Assurance Boundary & Limitations');for(const x of m.assuranceBoundary||[])d.fontSize(9).text('• '+x);
  d.end();
 })}

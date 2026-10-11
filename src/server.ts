@@ -52,6 +52,7 @@ import {initArchitectureAssurance,createArchitectureComponent,createArchitecture
 import {initContinuousCompliance,createObligation,completeObligation,createException,approveException,continuousComplianceDashboard} from './continuous-compliance.js';
 import {enterpriseAcceptance} from './enterprise-acceptance.js';
 import {initBusinessContinuity,createBusinessService,recordResilienceExercise,reviewResilienceExercise,resilienceDashboard} from './business-continuity.js';
+import {initPolicyGovernance,createPolicy,submitPolicy,approvePolicy,attestPolicy,linkPolicyControl,policyDashboard} from './policy-governance.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
@@ -71,6 +72,7 @@ await initThirdPartyRisk();
 await initArchitectureAssurance();
 await initContinuousCompliance();
 await initBusinessContinuity();
+await initPolicyGovernance();
 await initOrganizations();
 await initControlRegistry();
 await initEvidenceEngine();
@@ -273,6 +275,12 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/audit-readiness.:format',
 
 
 
+app.get('/api/grc/organizations/:orgId/policies',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await policyDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createPolicy(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies/:id/submit',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await submitPolicy(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies/:id/approve',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await approvePolicy(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies/:id/attest',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await attestPolicy(u.userId,req.params.orgId,req.params.id,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/policies/:id/controls/:controlId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await linkPolicyControl(u.userId,req.params.orgId,req.params.id,req.params.controlId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/resilience-exercises/:exerciseId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reviewResilienceExercise(u.userId,req.params.orgId,req.params.exerciseId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/resilience',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await resilienceDashboard(u.userId,req.params.orgId,String(req.query.scopeId||'')||undefined))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/business-services',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createBusinessService(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

@@ -1,0 +1,17 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+
+test('enterprise server initializes vendor and architecture assurance before serving',async()=>{
+ const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(s,/await initThirdPartyRisk\(\)/);assert.match(s,/await initArchitectureAssurance\(\)/);
+ assert.match(s,/third-party-dashboard/);assert.match(s,/architecture-assurance/);assert.match(s,/firewall-reviews/);
+});
+test('third-party workflow enforces independent review and bounded risk',async()=>{
+ const s=await readFile(new URL('../src/third-party-risk.ts',import.meta.url),'utf8');
+ assert.match(s,/Independent reviewer required for third-party approval/);assert.match(s,/Inherent risk must be 1-25/);
+ assert.match(s,/TIER_1/);assert.match(s,/processes_pii/);assert.match(s,/network_access/);assert.match(s,/grc_third_party_incidents/);
+});
+test('architecture assurance supports security gateways and never silently passes missing firewall review',async()=>{
+ const s=await readFile(new URL('../src/architecture-assurance.ts',import.meta.url),'utf8');
+ assert.match(s,/FIREWALL_REVIEW_MISSING/);assert.match(s,/UNENCRYPTED_FLOW/);assert.match(s,/UNAUTHENTICATED_FLOW/);
+ assert.match(s,/any_any_rules/);assert.match(s,/shadowed_rules/);assert.match(s,/stale_rules/);assert.match(s,/expired_rules/);
+});

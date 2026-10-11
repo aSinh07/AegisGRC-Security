@@ -25,7 +25,7 @@ export async function enterpriseAcceptance(user:string,org:string,scopeId:string
   {id:'CONTINUOUS_COMPLIANCE',pass:(continuous.summary.overdueObligations||0)===0&&(continuous.summary.expiredExceptions||0)===0,detail:continuous.summary},
   {id:'BUSINESS_CONTINUITY',pass:resilience.summary.services>0&&resilience.summary.gaps===0,detail:resilience.summary},
   {id:'POLICY_GOVERNANCE',pass:policies.summary.approved>0&&policies.summary.overdueReview===0&&policies.summary.unmapped===0,detail:policies.summary},
-  {id:'AUDIT_ASSURANCE',pass:audits.summary.total>0&&audits.summary.unreviewed===0,detail:audits.summary},
+  {id:'AUDIT_ASSURANCE',pass:audits.summary.complete>0&&audits.summary.unreviewed===0&&audits.summary.active===0,detail:audits.summary},
   {id:'ASSESSMENT_INVENTORY',pass:activeAssessments>0&&(assessmentCoverageRows as any).rows.length>0&&!(assessmentCoverageRows as any).rows.some((x:any)=>['NOT_STARTED','RUNNING','PARTIAL','FAILED'].includes(x.status)),detail:{assessments:activeAssessments,layerStatuses:(assessmentCoverageRows as any).rows}}
  ];
  const passed=checks.filter(x=>x.pass).length;

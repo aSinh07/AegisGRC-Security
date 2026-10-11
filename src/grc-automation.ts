@@ -107,6 +107,7 @@ async function execute(client:any,org:string,kind:Kind,config:any){
  }else if(kind==='POLICY_REVIEW_DUE'){
   const rows=(await client.query("SELECT id,title FROM grc_policies WHERE organization_id=$1 AND status='APPROVED' AND next_review_at IS NOT NULL AND next_review_at<=now()",[org])).rows;
   events.push({policyReviewsDue:rows.length,policyIds:rows.map((x:any)=>x.id)});
+ }
  return events;
 }
 

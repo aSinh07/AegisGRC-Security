@@ -2,3 +2,10 @@ node_modules/
 dist/
 .env
 *.log
+.env.*
+!.env.production.example
+backups/
+Caddyfile.backup.*
+docker-compose.yml.backup
+docker-compose.yml.before-db-fix
+.env.before-db-fix

@@ -90,6 +90,18 @@ test('TOTP secrets support authenticated encryption at rest with legacy compatib
 });
 
 
+test('authentication throttle query uses contiguous PostgreSQL parameters',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const auth=await readFile(new URL('../src/user-auth.ts',import.meta.url),'utf8');
+ const start=auth.indexOf('export async function authAttemptAllowed');
+ const end=auth.indexOf('export async function recordAuthFailure');
+ const limiter=auth.slice(start,end);
+ assert.match(limiter,/\$1/);
+ assert.match(limiter,/\$2::text/);
+ assert.doesNotMatch(limiter,/\$3/);
+ assert.match(limiter,/\[key,windowMinutes\]/);
+});
+
 test('authentication throttle state updates are atomic PostgreSQL upserts',async()=>{
  const {readFile}=await import('node:fs/promises');
  const auth=await readFile(new URL('../src/user-auth.ts',import.meta.url),'utf8');

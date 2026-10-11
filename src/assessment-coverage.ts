@@ -28,3 +28,14 @@ export function dataExposureState(x:{vulnerability:boolean;dataExposed:boolean;t
  if(x.dataExposed)return 'EXPOSURE';
  return 'VULNERABILITY';
 }
+
+export function assuranceStatement(rows:LayerCoverage[]){
+ const coverage=assessmentCoverage(rows);const allRequiredComplete=coverage.status==='COMPLETE'&&coverage.coveragePercent===100;
+ return {
+  scannerCoveragePercent:coverage.coveragePercent,
+  assuranceLevel:allRequiredComplete?'HIGH':'LIMITED',
+  claim:allRequiredComplete?'All declared required assessment layers have completed evidence-derived checks. This is high scanner coverage, not a guarantee that no vulnerability exists.':'Assessment coverage is incomplete. Security or compliance completeness must not be claimed.',
+  vulnerabilityFreeGuaranteed:false,
+  residualRiskNotice:'No combination of automated scanners can prove that a system is 100% vulnerability-free. Results are bounded by declared scope, credentials, scanner capabilities, configuration, timing, and supplied evidence.'
+ };
+}

@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {topologyScene} from '../src/architecture-topology-scene.js';
+test('topology scene is deterministic and explicitly non-CAD',()=>{const g={nodes:[{id:'a',label:'API',kind:'APPLICATION',confidence:'EXPLICIT',line:4},{id:'b',label:'DB',kind:'DATABASE',confidence:'EXPLICIT',line:5}],edges:[{from:'a',to:'b',confidence:'EXPLICIT'}]};const a=topologyScene(g),b=topologyScene(g);assert.deepEqual(a,b);assert.equal(a.geometrySemantics,'LAYOUT_ONLY_NOT_CAD');assert.equal(a.edges[0].directed,true)});
+test('invalid visual edges are discarded',()=>{const s=topologyScene({nodes:[{id:'a',label:'A'}],edges:[{from:'a',to:'missing'},{from:'a',to:'a'}]});assert.equal(s.edges.length,0)});

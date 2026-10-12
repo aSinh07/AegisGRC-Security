@@ -31,6 +31,7 @@ jobs:
       - name: Scan production image
         run: |
           docker save aegisgrc-security:test -o /tmp/aegisgrc-security.tar
+          chmod 0644 /tmp/aegisgrc-security.tar
           docker run --rm -v /tmp/aegisgrc-security.tar:/scan/image.tar:ro --entrypoint trivy aegisgrc-security:test image --input /scan/image.tar --exit-code 1 --severity CRITICAL --ignore-unfixed --scanners vuln
       - name: Verify bundled security engines
         run: |

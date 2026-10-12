@@ -29,7 +29,7 @@ test('rendered HTML has no literal escaped newline markup artifacts',async()=>{
 
 test('premium frontend release has a verifiable marker',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
- assert.match(html,/aegis-premium-20261010-v2/);
+ assert.match(html,/aegis-enterprise-20261012-v4/);
 });
 test('server prevents stale HTML shell caching',async()=>{
  const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');

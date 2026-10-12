@@ -119,7 +119,7 @@ export async function runControlTest(userId:string,orgId:string,testId:string){
   return run;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
-export async function listEvidence(userId:string,orgId:string){await requireOrgPermission(userId,orgId,'read');return (await pool.query(`SELECT r.*,v.id latest_version_id,v.version,v.sha256,v.validated_at,v.valid_until FROM grc_evidence_requests r LEFT JOIN LATERAL(SELECT * FROM grc_evidence_versions WHERE evidence_request_id=r.id ORDER BY version DESC LIMIT 1)v ON true WHERE r.organization_id=$1 ORDER BY r.created_at DESC`,[orgId])).rows}
+export async function listEvidence(userId:string,orgId:string){await requireOrgPermission(userId,orgId,'read');return (await pool.query(`SELECT r.*,v.id latest_version_id,v.version,v.sha256,v.integrity_status,v.verified_at,v.validated_at,v.valid_until FROM grc_evidence_requests r LEFT JOIN LATERAL(SELECT * FROM grc_evidence_versions WHERE evidence_request_id=r.id ORDER BY version DESC LIMIT 1)v ON true WHERE r.organization_id=$1 ORDER BY r.created_at DESC`,[orgId])).rows}
 
 export async function listControlTests(userId:string,orgId:string){
  await requireOrgPermission(userId,orgId,'read');

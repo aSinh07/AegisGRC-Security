@@ -5,3 +5,11 @@ test('evidence provenance requires known source and valid hash',()=>{const p={in
 test('verified evidence with limitations remains qualified',()=>{const p={integrationId:'wazuh',integrationKind:'SIEM' as const,collectorVersion:'import',collectedAt:'2026-10-11T00:00:00.000Z',sourceRef:'report:x',sha256:'b'.repeat(64),verified:true,verificationMethod:'IMPORTED_REPORT' as const,limitations:['Live API not verified']};assert.equal(evidenceTrust(p),'VERIFIED_WITH_LIMITATIONS')});
 
 test('store does not infer verified evidence from static catalog flags',async()=>{const {readFile}=await import('node:fs/promises');const store=await readFile('src/store.ts','utf8');const start=store.indexOf('function withEvidenceProvenance');const end=store.indexOf('export const db=',start);const block=store.slice(start,end);assert.doesNotMatch(block,/verified=.*activeCollection/);assert.doesNotMatch(block,/verified=.*reportRecognized/);assert.match(block,/const verified=false/);assert.match(block,/Trusted provenance was not explicitly supplied/);});
+
+
+test('report-import-only integrations do not advertise unused live credentials',()=>{
+ for(const id of ['openvas','wazuh','prowler']){
+  const x=integrationById(id);assert.ok(x);assert.deepEqual(x.collectionModes,['REPORT_IMPORT']);assert.deepEqual(x.auth,['NONE']);
+ }
+ const zap=integrationById('zap');assert.ok(zap);assert.deepEqual(zap.collectionModes,['LOCAL_EXECUTION']);assert.deepEqual(zap.auth,['LOCAL_EXECUTION']);
+});

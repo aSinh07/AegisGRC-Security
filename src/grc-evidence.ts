@@ -20,6 +20,14 @@ CREATE TABLE IF NOT EXISTS grc_evidence_versions(
 );
 ALTER TABLE grc_evidence_versions ADD COLUMN IF NOT EXISTS integrity_status text NOT NULL DEFAULT 'CLAIMED' CHECK(integrity_status IN ('CLAIMED','SERVER_VERIFIED'));
 ALTER TABLE grc_evidence_versions ADD COLUMN IF NOT EXISTS verified_at timestamptz;
+CREATE TABLE IF NOT EXISTS grc_evidence_objects(
+ id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+ sha256 text NOT NULL,byte_size bigint NOT NULL CHECK(byte_size>=0),content_type text,
+ content bytea NOT NULL,created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(organization_id,sha256)
+);
+ALTER TABLE grc_evidence_versions ADD COLUMN IF NOT EXISTS object_id uuid REFERENCES grc_evidence_objects(id) ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS grc_evidence_objects_org_idx ON grc_evidence_objects(organization_id,created_at DESC);
 CREATE TABLE IF NOT EXISTS grc_evidence_events(id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,evidence_request_id uuid NOT NULL REFERENCES grc_evidence_requests(id) ON DELETE CASCADE,evidence_version_id uuid REFERENCES grc_evidence_versions(id) ON DELETE SET NULL,event_type text NOT NULL,actor_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,detail jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS grc_evidence_events_org_idx ON grc_evidence_events(organization_id,evidence_request_id,created_at DESC);
 CREATE TABLE IF NOT EXISTS grc_control_test_definitions(
@@ -64,6 +72,19 @@ export async function submitEvidence(userId:string,orgId:string,requestId:string
   const row=(await client.query(`INSERT INTO grc_evidence_versions(id,evidence_request_id,version,source_type,source_ref,sha256,content_type,byte_size,metadata,integrity_status,verified_at,submitted_by)
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $10='SERVER_VERIFIED' THEN now() ELSE NULL END,$11) RETURNING *`,[crypto.randomUUID(),requestId,v,String(input.sourceType||'MANUAL').toUpperCase(),input.sourceRef||null,sha,input.contentType||null,input.byteSize||null,input.metadata||{},'CLAIMED',userId])).rows[0];
   await client.query(`UPDATE grc_evidence_requests SET status='SUBMITTED',updated_at=now() WHERE id=$1`,[requestId]);await evidenceEvent(client,orgId,requestId,row.id,'VERSION_SUBMITTED',userId,{version:v,integrityStatus:row.integrity_status,sha256:sha});
+  await client.query('COMMIT');return row;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
+export async function submitVerifiedEvidence(userId:string,orgId:string,requestId:string,input:any,bytes:Buffer){
+ await requireOrgPermission(userId,orgId,'manageControl');if(!Buffer.isBuffer(bytes)||bytes.length<1)throw new Error('Evidence file bytes are required');
+ const sha=crypto.createHash('sha256').update(bytes).digest('hex'),contentType=String(input.contentType||'application/octet-stream').slice(0,255);
+ const client=await pool.connect();
+ try{await client.query('BEGIN');const req=(await client.query('SELECT * FROM grc_evidence_requests WHERE id=$1 AND organization_id=$2 FOR UPDATE',[requestId,orgId])).rows[0];if(!req)throw Object.assign(new Error('Evidence request not found'),{statusCode:404});
+  if(req.owner_user_id&&req.owner_user_id!==userId){const m=await requireOrgPermission(userId,orgId,'manageControl');if(!['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST'].includes(m.role))throw Object.assign(new Error('Evidence owner or GRC manager required'),{statusCode:403})}
+  const objectId=crypto.randomUUID();const obj=(await client.query(`INSERT INTO grc_evidence_objects(id,organization_id,sha256,byte_size,content_type,content,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(organization_id,sha256) DO UPDATE SET sha256=EXCLUDED.sha256 RETURNING id`,[objectId,orgId,sha,bytes.length,contentType,bytes,userId])).rows[0];
+  const v=Number((await client.query('SELECT COALESCE(max(version),0)+1 v FROM grc_evidence_versions WHERE evidence_request_id=$1',[requestId])).rows[0].v),versionId=crypto.randomUUID();
+  const row=(await client.query(`INSERT INTO grc_evidence_versions(id,evidence_request_id,version,source_type,source_ref,sha256,content_type,byte_size,metadata,integrity_status,verified_at,submitted_by,object_id) VALUES($1,$2,$3,'UPLOAD',$4,$5,$6,$7,$8,'SERVER_VERIFIED',now(),$9,$10) RETURNING *`,[versionId,requestId,v,input.sourceRef||null,sha,contentType,bytes.length,input.metadata||{},userId,obj.id])).rows[0];
+  await client.query("UPDATE grc_evidence_requests SET status='SUBMITTED',updated_at=now() WHERE id=$1",[requestId]);await evidenceEvent(client,orgId,requestId,row.id,'SERVER_VERIFIED_UPLOAD',userId,{version:v,sha256:sha,byteSize:bytes.length,objectId:obj.id});
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }

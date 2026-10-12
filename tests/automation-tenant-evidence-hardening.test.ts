@@ -1,0 +1,6 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';
+const a=fs.readFileSync('src/automation-outbox.ts','utf8'),s=fs.readFileSync('src/server.ts','utf8');
+test('manual automation dispatch cannot claim another tenant jobs',()=>{assert.match(a,/claimDueAutomation\(workerId:string,organizationId\?:string\)/);assert.match(a,/organization_id=\$1 AND status IN/);assert.match(a,/claimDueAutomation\(workerId,organizationId\)/);assert.match(s,/runAutomationOutboxBatch\([^\n]+req\.params\.orgId\)/)});
+test('trusted background worker can still process global queue',()=>{assert.match(s,/runAutomationOutboxBatch\(10,'server:'\+process\.pid\)/)});
+test('evidence expiry uses actual evidence request and latest-version validity schema',()=>{assert.match(a,/grc_evidence_requests r/);assert.match(a,/grc_evidence_versions v/);assert.match(a,/v\.valid_until/);assert.match(a,/max\(v2\.version\)/);assert.doesNotMatch(a,/FROM grc_evidence WHERE/)});
+test('evidence expiry database failures are not silently converted to zero',()=>{const i=a.indexOf("if(task==='TPRM_REMEDIATION_DUE')"),j=a.indexOf("return {task,checkedAt",i+1000);const block=a.slice(i,j);assert.doesNotMatch(block,/\.catch\(\(\)=>\(\{rows:\[\{count:0\}\]\}/)});

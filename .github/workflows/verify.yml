@@ -2,14 +2,45 @@ name: verify
 on:
   push:
   pull_request:
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: 22}
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
-      - run: npm test
-      - run: docker build -t aegisgrc-security:test .
+        with: {node-version: 22, cache: npm}
+      - name: Reproducible dependency install
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript build
+        run: npm run build
+      - name: Full test suite
+        run: npm test
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build production image
+        run: docker build -t aegisgrc-security:test .
+      - name: Generate CycloneDX SBOM
+        run: docker run --rm --entrypoint syft aegisgrc-security:test dir:/app -o cyclonedx-json > aegisgrc-sbom.cdx.json
+      - name: Scan production image
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --entrypoint trivy aegisgrc-security:test image --exit-code 1 --severity CRITICAL --ignore-unfixed aegisgrc-security:test
+      - name: Verify bundled security engines
+        run: |
+          docker run --rm --entrypoint sh aegisgrc-security:test -c '
+            set -eu
+            for tool in nmap tshark sqlmap wapiti semgrep nuclei trivy lynis testssl.sh grype syft checkov gitleaks kubescape; do
+              command -v "$tool" >/dev/null || { echo "Missing scanner: $tool"; exit 1; }
+            done
+          '
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegisgrc-sbom
+          path: aegisgrc-sbom.cdx.json
+          if-no-files-found: error

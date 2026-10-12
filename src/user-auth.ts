@@ -38,8 +38,8 @@ export async function beginRegistration(email:string,password:string,profile:{fu
  if(fullName.length<2||fullName.length>120)throw Error('Full name must be 2-120 characters');
  if(designation.length<2||designation.length>120)throw Error('Designation must be 2-120 characters');
  if(companyName.length<2||companyName.length>160)throw Error('Company name must be 2-160 characters');
- if(department.length<2||department.length>120)throw Error('Department/function must be 2-120 characters');
- if(workProfile.length<2||workProfile.length>160)throw Error('Work profile must be 2-160 characters');
+ if(department.length>120)throw Error('Department/function must be at most 120 characters');
+ if(workProfile.length>160)throw Error('Work profile must be at most 160 characters');
  await pool.query("DELETE FROM app_users WHERE email=$1 AND totp_verified=false AND created_at < now()-interval '24 hours'",[email]);
  const existing=await pool.query('SELECT id FROM app_users WHERE email=$1',[email]);
  if(existing.rows[0])throw Error('Account already exists or registration is already pending; sign in or complete recovery instead');

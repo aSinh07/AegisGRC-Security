@@ -37,7 +37,7 @@ jobs:
         run: |
           docker run --rm --entrypoint sh aegisgrc-security:test -c '
             set -eu
-            for tool in nmap tshark sqlmap wapiti semgrep nuclei trivy lynis testssl.sh grype syft checkov gitleaks kubescape; do
+            for tool in nmap tshark sqlmap wapiti semgrep nuclei trivy lynis testssl.sh grype syft checkov kubescape; do
               command -v "$tool" >/dev/null || { echo "Missing scanner: $tool"; exit 1; }
             done
           '

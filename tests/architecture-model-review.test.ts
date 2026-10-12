@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {normalizeArchitectureModel,transitionArchitectureReview,architectureModelDigest} from '../src/architecture-model-review.js';
+const node:any={id:'n1',label:'API',kind:'APPLICATION',source:'DOCUMENT',confidence:'EXPLICIT',line:1};
+test('architecture model is tenant bound and starts draft',()=>{const m=normalizeArchitectureModel({nodes:[node],edges:[]},{organizationId:'o1',userId:'u1',sourceName:'a.pdf',sourceSha256:'a'.repeat(64)});assert.equal(m.organizationId,'o1');assert.equal(m.status,'DRAFT')});
+test('architecture verification requires independent reviewer',()=>{let m=normalizeArchitectureModel({nodes:[node],edges:[]},{organizationId:'o1',userId:'u1',sourceName:'a.pdf',sourceSha256:'a'.repeat(64)});m=transitionArchitectureReview(m,'IN_REVIEW','u1');assert.throws(()=>transitionArchitectureReview(m,'VERIFIED','u1'),/Independent reviewer/);assert.equal(transitionArchitectureReview(m,'VERIFIED','u2').status,'VERIFIED')});
+test('model digest binds topology and source evidence',()=>{const m=normalizeArchitectureModel({nodes:[node],edges:[]},{organizationId:'o1',userId:'u1',sourceName:'a.pdf',sourceSha256:'a'.repeat(64)});const a=architectureModelDigest(m),b=architectureModelDigest({...m,nodes:[{...node,label:'DB'}]});assert.notEqual(a,b)});

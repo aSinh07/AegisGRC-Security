@@ -69,6 +69,7 @@ import {initPolicyGovernance,createPolicy,submitPolicy,approvePolicy,attestPolic
 import {initAuditManagement,createAudit,addWorkpaper,reviewWorkpaper,setAuditStatus,auditDashboard} from './audit-management.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
+import {validatePublicHttpTarget,revalidatePublicHttpTarget} from './network-target.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
 import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage,reconcileContainerCoverage,activeContainerAsset,reconcileCloudCoverage,activeCloudAsset,reconcileIdentityCoverage,reconcileDataSecurityCoverage,reconcileAttackSurfaceCoverage,reconcilePrivacyCoverage,reconcileBreachTelemetryCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
@@ -411,32 +412,8 @@ async function reportAuthorized(req:any){const u=await currentUser(req);if(!u)re
 
 
 type Tool='nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei'|'all';
-const blocked=(ip:string)=>{
-  if(net.isIP(ip)===4){
-    const p=ip.split('.').map(Number);
-    return p[0]===10||p[0]===127||p[0]===0||(p[0]===169&&p[1]===254)||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===168)||(p[0]>=224);
-  }
-  const x=ip.toLowerCase();
-  return x==='::1'||x==='::'||x.startsWith('fc')||x.startsWith('fd')||x.startsWith('fe8')||x.startsWith('fe9')||x.startsWith('fea')||x.startsWith('feb')||x.startsWith('ff');
-};
-async function validateTarget(raw:string){
-  const u=new URL(raw);
-  if(!['http:','https:'].includes(u.protocol)) throw new Error('Only HTTP(S) targets are supported');
-  if(u.username||u.password) throw new Error('Credentials in target URLs are not allowed');
-  if(u.port&&u.port!=='80'&&u.port!=='443') throw new Error('Only standard HTTP(S) target ports are allowed');
-  if(net.isIP(u.hostname)&&blocked(u.hostname)) throw new Error('Private, local, reserved or link-local targets are blocked');
-  const records=await dns.lookup(u.hostname,{all:true,verbatim:true});
-  if(!records.length) throw new Error('Target did not resolve');
-  if(records.some(r=>blocked(r.address))) throw new Error('Private, local, reserved or link-local targets are blocked');
-  return {url:u,addresses:[...new Set(records.map(r=>r.address))]};
-}
-async function revalidateTarget(t:{url:URL,addresses:string[]}){
- const records=await dns.lookup(t.url.hostname,{all:true,verbatim:true});
- if(!records.length||records.some(r=>blocked(r.address)))throw new Error('Target DNS changed to a blocked address');
- const addresses=[...new Set(records.map(r=>r.address))];
- if(addresses.some(ip=>!t.addresses.includes(ip)))throw new Error('Target DNS changed after authorization; scan refused');
- return {...t,addresses};
-}
+const validateTarget=validatePublicHttpTarget;
+const revalidateTarget=revalidatePublicHttpTarget;
 async function quickPosture(assessmentId:string,t:{url:URL,addresses:string[]}){
  t=await revalidateTarget(t);
  const started=Date.now(),createdAt=new Date().toISOString();

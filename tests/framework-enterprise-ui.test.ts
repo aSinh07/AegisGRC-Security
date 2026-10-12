@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';const ui=fs.readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+test('framework capability is integrated into Enterprise GRC instead of separate navigation',()=>{assert.ok(ui.includes('Frameworks & Controls'));assert.ok(ui.includes('openEnterpriseFrameworks()'));assert.ok(ui.includes('id="frameworks"'));assert.ok(!ui.includes(">◎ Framework Matrix</button>"));});
+test('framework messaging does not claim certification',()=>{assert.match(ui,/Coverage is operational readiness—not certification/);});

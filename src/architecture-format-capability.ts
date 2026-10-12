@@ -17,4 +17,3 @@ export function architectureFormatCatalog(){return [
  {formats:['GLTF','GLB','OBJ'],status:'3D_SEMANTIC_MAPPING_REQUIRED'},
  {formats:['PNG','JPG','JPEG','TIF','TIFF','WEBP'],status:'OCR_AND_HUMAN_REVIEW_REQUIRED'}
  ]};
-}

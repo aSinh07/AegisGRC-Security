@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {architectureConfidence} from '../src/architecture-confidence.js';
+test('architecture confidence is explicitly not accuracy',()=>{const x=architectureConfidence({components:[{confidence:'EXPLICIT'}],connections:[{confidence:'EXPLICIT'}],sourceQuality:1,humanVerified:false});assert.equal(x.score,100);assert.equal(x.requiresReview,true);assert.match(x.meaning,/not measured extraction accuracy/)});
+test('OCR and inferred topology reduce confidence',()=>{const x=architectureConfidence({components:[{confidence:'INFERRED'}],connections:[],sourceQuality:.8,ocrUsed:true});assert.ok(x.score<50);assert.equal(x.band,'LOW')});

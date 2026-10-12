@@ -38,7 +38,7 @@ test('server prevents stale HTML shell caching',async()=>{
 
 test('login supports profile enrollment MFA recovery and password visibility',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
- for(const marker of ['Welcome!','Full name','Designation','Company name','Google Authenticator','Microsoft Authenticator','Forgot password?','togglePassword','/api/auth/reset-password','/aegis-logo.svg'])assert.equal(html.includes(marker),true,marker);
+ for(const marker of ['Welcome!','Full name','Job title / designation','Company / organization','Department / function','What do you work on?','Google Authenticator','Microsoft Authenticator','Forgot password?','togglePassword','/api/auth/reset-password','/aegis-logo.svg'])assert.equal(html.includes(marker),true,marker);
  assert.doesNotMatch(html,/Welcome back!/i);
 });
 

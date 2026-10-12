@@ -61,8 +61,8 @@ export async function submitEvidence(userId:string,orgId:string,requestId:string
    if(!['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST'].includes(m.role))throw Object.assign(new Error('Evidence owner or GRC manager required'),{statusCode:403});
   }
   const v=Number((await client.query('SELECT COALESCE(max(version),0)+1 v FROM grc_evidence_versions WHERE evidence_request_id=$1',[requestId])).rows[0].v);
-  const row=(await client.query(`INSERT INTO grc_evidence_versions(id,evidence_request_id,version,source_type,source_ref,sha256,content_type,byte_size,metadata,submitted_by)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,[crypto.randomUUID(),requestId,v,String(input.sourceType||'MANUAL').toUpperCase(),input.sourceRef||null,sha,input.contentType||null,input.byteSize||null,input.metadata||{},userId])).rows[0];
+  const row=(await client.query(`INSERT INTO grc_evidence_versions(id,evidence_request_id,version,source_type,source_ref,sha256,content_type,byte_size,metadata,integrity_status,verified_at,submitted_by)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $10='SERVER_VERIFIED' THEN now() ELSE NULL END,$11) RETURNING *`,[crypto.randomUUID(),requestId,v,String(input.sourceType||'MANUAL').toUpperCase(),input.sourceRef||null,sha,input.contentType||null,input.byteSize||null,input.metadata||{},verified?'SERVER_VERIFIED':'CLAIMED',userId])).rows[0];
   await client.query(`UPDATE grc_evidence_requests SET status='SUBMITTED',updated_at=now() WHERE id=$1`,[requestId]);await evidenceEvent(client,orgId,requestId,row.id,'VERSION_SUBMITTED',userId,{version:v,integrityStatus:row.integrity_status,sha256:sha});
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
@@ -73,7 +73,7 @@ export async function validateEvidence(userId:string,orgId:string,requestId:stri
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
-  const q=(await client.query(`SELECT r.*,v.submitted_by FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.id=$1 AND r.organization_id=$2 AND v.id=$3 FOR UPDATE OF r,v`,[requestId,orgId,versionId])).rows[0];
+  const q=(await client.query(`SELECT r.*,v.submitted_by,v.integrity_status FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.id=$1 AND r.organization_id=$2 AND v.id=$3 FOR UPDATE OF r,v`,[requestId,orgId,versionId])).rows[0];
   if(!q)throw Object.assign(new Error('Evidence version not found'),{statusCode:404});
   if(q.integrity_status!=='SERVER_VERIFIED')throw Object.assign(new Error('Evidence integrity must be server verified before validation'),{statusCode:409});
   if(q.status!=='SUBMITTED')throw Object.assign(new Error('Evidence request is not awaiting validation'),{statusCode:409});

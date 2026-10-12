@@ -1,5 +1,5 @@
 import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';const p=fs.readFileSync('src/privacy-operations.ts','utf8'),s=fs.readFileSync('src/server.ts','utf8');
 test('privacy notices are additive tenant-scoped governed records',()=>{assert.match(p,/CREATE TABLE IF NOT EXISTS grc_privacy_notices/);assert.match(p,/UNIQUE\(organization_id,notice_key,version\)/);assert.match(p,/status text NOT NULL DEFAULT 'DRAFT'/);assert.doesNotMatch(p,/DROP TABLE|TRUNCATE/i)});
 test('notice approval requires independent reviewer',()=>{assert.match(p,/Independent reviewer required for privacy notice approval/);assert.match(p,/status='APPROVED'/)});
-test('consent is bound to an approved notice version',()=>{assert.match(p,/Consent requires an independently approved privacy notice version/);assert.match(p,/organization_id=\$1 AND version=\$2 AND status='APPROVED'/)});
+test('consent is bound to an approved notice version',()=>{assert.match(p,/Consent requires an independently approved privacy notice key and version/);assert.match(p,/organization_id=\$1 AND version=\$2 AND status='APPROVED'/)});
 test('notice APIs require authenticated user and tenant route',()=>{assert.match(s,/privacy\/notices'/);assert.match(s,/privacy\/notices\/:id\/approve'/);assert.match(s,/User session required/)});

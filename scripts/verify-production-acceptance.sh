@@ -31,5 +31,10 @@ ok "Unauthenticated enterprise acceptance denied"
 report="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$PUBLIC_URL/api/grc/organizations/00000000-0000-0000-0000-000000000000/scopes/00000000-0000-0000-0000-000000000000/enterprise-report.json")" || fail "Report API unreachable"
 [ "$report" = 401 ] || fail "Unauthenticated report returned HTTP $report (expected 401)"
 ok "Unauthenticated enterprise report denied"
+if [ "${AEGIS_RUN_LOAD_SMOKE:-0}" = "1" ]; then
+  bash scripts/verify-load-smoke.sh
+  ok "Bounded readiness load smoke"
+fi
 printf '\nPASS: non-destructive production smoke checks completed.\n'
 printf 'NOTE: Authenticated TOTP, tenant isolation, evidence workflows and report exports require separate controlled test accounts.\n'
+printf 'NOTE: Independent penetration testing requires evidence from an assessor independent of implementation.\n'

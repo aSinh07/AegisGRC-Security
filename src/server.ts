@@ -1,4 +1,4 @@
-import {initPrivacyOperations,privacyDashboard,createProcessingActivity,createPrivacyRequest,verifyPrivacyRequest,closePrivacyRequest,recordConsent,withdrawConsent,createPrivacyBreach,updatePrivacyBreach,createPrivacyControlTest,reviewPrivacyControlTest,createPrivacyLegalRegisterEntry,reviewPrivacyLegalRegisterEntry} from './privacy-operations.js';
+import {initPrivacyOperations,privacyDashboard,createProcessingActivity,createPrivacyRequest,verifyPrivacyRequest,closePrivacyRequest,recordConsent,withdrawConsent,createPrivacyBreach,updatePrivacyBreach,createPrivacyControlTest,reviewPrivacyControlTest,createPrivacyLegalRegisterEntry,reviewPrivacyLegalRegisterEntry,createPrivacyNotice,approvePrivacyNotice} from './privacy-operations.js';
 import 'dotenv/config';
 import express from 'express';
 import dns from 'node:dns/promises';

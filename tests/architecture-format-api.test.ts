@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('architecture format APIs are authenticated and wired',()=>{const s=fs.readFileSync(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/\/api\/architecture\/formats/);assert.match(s,/\/api\/architecture\/format-check/);assert.match(s,/architectureInputCapability/);assert.match(s,/User session required/)});

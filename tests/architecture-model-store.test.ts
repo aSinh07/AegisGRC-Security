@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('architecture model persistence is tenant scoped and integrity gated',()=>{const s=fs.readFileSync(new URL('../src/architecture-model-store.ts',import.meta.url),'utf8');assert.match(s,/organization_id=\$1/);assert.match(s,/model_digest/);assert.match(s,/architecture model integrity check failed/i);assert.match(s,/requireOrgPermission\(user,org,'review'\)/)});

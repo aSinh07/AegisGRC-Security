@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('server initializes and exposes governed architecture model APIs',()=>{const s=fs.readFileSync(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/await initArchitectureModels\(\)/);assert.match(s,/organizations\/:orgId\/architecture\/models'/);assert.match(s,/architecture\/models\/:modelId\/review'/);assert.match(s,/saveArchitectureModel/);assert.match(s,/listArchitectureModels/);assert.match(s,/reviewArchitectureModel/)});

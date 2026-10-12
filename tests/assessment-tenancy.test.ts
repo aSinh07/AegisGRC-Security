@@ -95,3 +95,26 @@ test('finding import evidence findings and audit persist atomically',async()=>{
  assert.match(route,/db\.saveFindingImport\(ev,parsed\.findings,audit\)/);
  assert.doesNotMatch(route,/db\.saveEvidence\(ev\)/);
 });
+
+
+test('protected report exports require current user step-up before tenant data is rendered',async()=>{
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ for(const marker of ["app.get('/api/assessments/:id/framework-report/:framework/:format'","app.get('/api/assessments/:id/export/:kind/:format'"]){
+  const start=server.indexOf(marker);assert.notEqual(start,-1,marker);
+  const route=server.slice(start,start+4200);
+  const step=route.indexOf('reportAuthorized(req)');
+  const tenant=route.indexOf('assessmentForUser(u.userId,req.params.id)');
+  assert.ok(step>=0,'step-up missing');assert.ok(tenant>step,'tenant lookup must follow step-up verification');
+  for(const code of ['USER_SESSION_MISSING','PASSWORD_INVALID','TOTP_INVALID','STEP_UP_RATE_LIMITED'])assert.ok(route.includes(code),code+' structured export failure missing');
+ }
+});
+
+test('browser report download preserves same-origin session and gives actionable MFA failures',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const start=html.indexOf('async function confirmExport()');assert.notEqual(start,-1);
+ const fn=html.slice(start,start+4200);
+ assert.match(fn,/credentials:'same-origin'/);
+ assert.match(fn,/x-report-password/);assert.match(fn,/x-report-totp/);
+ assert.match(fn,/login session has expired/i);assert.match(fn,/account password is incorrect/i);assert.match(fn,/Authenticator code invalid or expired/i);
+ assert.match(fn,/if\(!b\.size\)/);
+});

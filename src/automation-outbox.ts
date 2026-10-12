@@ -61,9 +61,11 @@ function connectorConfig(){
  if(!url||token.length<16||!/^[A-Za-z0-9_]{2,80}$/.test(table))return null;
  return {base:url.origin,token,table};
 }
-export async function claimDueAutomation(workerId:string):Promise<ClaimedJob|null>{
+export async function claimDueAutomation(workerId:string,organizationId?:string):Promise<ClaimedJob|null>{
  const client=await pool.connect();try{await client.query('BEGIN');
-  const row=(await client.query(`SELECT * FROM grc_automation_outbox WHERE status IN ('PENDING','FAILED') AND next_attempt_at<=now() AND attempts<max_attempts ORDER BY next_attempt_at,created_at FOR UPDATE SKIP LOCKED LIMIT 1`)).rows[0];
+  const row=(organizationId
+   ?(await client.query(`SELECT * FROM grc_automation_outbox WHERE organization_id=$1 AND status IN ('PENDING','FAILED') AND next_attempt_at<=now() AND attempts<max_attempts ORDER BY next_attempt_at,created_at FOR UPDATE SKIP LOCKED LIMIT 1`,[organizationId])).rows[0]
+   :(await client.query(`SELECT * FROM grc_automation_outbox WHERE status IN ('PENDING','FAILED') AND next_attempt_at<=now() AND attempts<max_attempts ORDER BY next_attempt_at,created_at FOR UPDATE SKIP LOCKED LIMIT 1`)).rows[0]);
   if(!row){await client.query('COMMIT');return null}
   const claimed=(await client.query(`UPDATE grc_automation_outbox SET status='PROCESSING',attempts=attempts+1,locked_at=now(),locked_by=$2,updated_at=now() WHERE id=$1 RETURNING *`,[row.id,workerId])).rows[0];
   await client.query('COMMIT');return claimed;
@@ -98,12 +100,12 @@ async function executeScriptTask(job:ClaimedJob){
  const org=job.organization_id;
  if(task==='TPRM_REVIEW_DUE'){const r=await pool.query(`SELECT count(*)::int count FROM grc_third_parties WHERE organization_id=$1 AND next_review_at IS NOT NULL AND next_review_at<=now() AND status NOT IN ('TERMINATED')`,[org]);return {task,checkedAt:new Date().toISOString(),due:Number(r.rows[0]?.count||0),sideEffect:'NONE'};}
  if(task==='TPRM_REMEDIATION_DUE'){const r=await pool.query(`SELECT count(*)::int count FROM grc_tprm_remediations WHERE organization_id=$1 AND due_at IS NOT NULL AND due_at<=now() AND status<>'CLOSED'`,[org]);return {task,checkedAt:new Date().toISOString(),due:Number(r.rows[0]?.count||0),sideEffect:'NONE'};}
- const r=await pool.query(`SELECT count(*)::int count FROM grc_evidence WHERE organization_id=$1 AND expires_at IS NOT NULL AND expires_at<=now()`,[org]).catch(()=>({rows:[{count:0}]} as any));
+ const r=await pool.query(`SELECT count(*)::int count FROM grc_evidence_requests r WHERE r.organization_id=$1 AND r.status='VALID' AND EXISTS (SELECT 1 FROM grc_evidence_versions v WHERE v.evidence_request_id=r.id AND v.valid_until IS NOT NULL AND v.valid_until<=now() AND v.version=(SELECT max(v2.version) FROM grc_evidence_versions v2 WHERE v2.evidence_request_id=r.id))`,[org]);
  return {task,checkedAt:new Date().toISOString(),due:Number(r.rows[0]?.count||0),sideEffect:'NONE',note:'Evidence expiry check is advisory and never changes control status.'};
 }
-export async function runAutomationOutboxBatch(limit=10,workerId='aegis-worker'){
+export async function runAutomationOutboxBatch(limit=10,workerId='aegis-worker',organizationId?:string){
  const n=Math.max(1,Math.min(50,Number(limit)||10)),results:any[]=[];await recoverStaleAutomationJobs();
- for(let i=0;i<n;i++){const job=await claimDueAutomation(workerId);if(!job)break;try{const result=job.kind==='SERVICENOW_WORK_ITEM'?await deliverServiceNow(job):await executeScriptTask(job);await completeAutomationJob(job.id,result);results.push({id:job.id,status:'SUCCEEDED',result})}catch(e){const failed=await failAutomationJob(job.id,e);results.push({id:job.id,status:failed?.status||'FAILED',error:safeError(e)})}}
+ for(let i=0;i<n;i++){const job=await claimDueAutomation(workerId,organizationId);if(!job)break;try{const result=job.kind==='SERVICENOW_WORK_ITEM'?await deliverServiceNow(job):await executeScriptTask(job);await completeAutomationJob(job.id,result);results.push({id:job.id,status:'SUCCEEDED',result})}catch(e){const failed=await failAutomationJob(job.id,e);results.push({id:job.id,status:failed?.status||'FAILED',error:safeError(e)})}}
  return {processed:results.length,results};
 }
 export function automationWorkerEnabled(){return String(process.env.AUTOMATION_WORKER_ENABLED||'false').toLowerCase()==='true'}

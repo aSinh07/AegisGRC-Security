@@ -11,12 +11,12 @@ export type IntegrationRuntimeHealth={integrationId:string;state:IntegrationRunt
 
 export const integrationCatalog:ReadonlyArray<IntegrationCapability>=Object.freeze([
  {id:'nmap',name:'Nmap',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['NETWORK_DISCOVERY','PORTS','SERVICES'],availability:'AVAILABLE',implemented:true,collectionModes:['LOCAL_EXECUTION'],limitations:[]},
- {id:'zap',name:'OWASP ZAP',kind:'SCANNER',auth:['API_KEY'],capabilities:['WEB_DAST'],availability:'AVAILABLE',implemented:true,collectionModes:['LOCAL_EXECUTION'],limitations:[]},
+ {id:'zap',name:'OWASP ZAP',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['WEB_DAST'],availability:'AVAILABLE',implemented:true,collectionModes:['LOCAL_EXECUTION'],limitations:['Local scanner execution only; no remote authenticated ZAP API collection is claimed']},
  {id:'nuclei',name:'Nuclei',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['TEMPLATE_FINDINGS','CVE_SIGNALS'],availability:'AVAILABLE',implemented:true,collectionModes:['LOCAL_EXECUTION'],limitations:[]},
  {id:'trivy',name:'Trivy',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['DEPENDENCY_VULNERABILITIES','CONTAINER','MISCONFIGURATION'],availability:'AVAILABLE',implemented:true,collectionModes:['LOCAL_EXECUTION'],limitations:[]},
  {id:'semgrep',name:'Semgrep',kind:'SCANNER',auth:['LOCAL_EXECUTION'],capabilities:['SAST'],availability:'AVAILABLE',implemented:true,collectionModes:['LOCAL_EXECUTION'],limitations:[]},
- {id:'prowler',name:'Prowler',kind:'CLOUD',auth:['LOCAL_EXECUTION','SERVICE_ACCOUNT'],capabilities:['CLOUD_POSTURE'],availability:'AVAILABLE',implemented:true,collectionModes:['REPORT_IMPORT'],limitations:['Current implementation parses Prowler evidence; authenticated cloud collection is not claimed by this catalog entry']},
- {id:'wazuh',name:'Wazuh',kind:'SIEM',auth:['API_KEY','TOKEN'],capabilities:['ENDPOINT_ALERTS','SIEM_FINDINGS'],availability:'AVAILABLE',implemented:true,collectionModes:['REPORT_IMPORT'],limitations:['Current ingestion supports evidence/report input; live API verification is not implemented']},
+ {id:'prowler',name:'Prowler',kind:'CLOUD',auth:['NONE'],capabilities:['CLOUD_POSTURE'],availability:'AVAILABLE',implemented:true,collectionModes:['REPORT_IMPORT'],limitations:['Current implementation parses Prowler evidence; authenticated cloud collection is not claimed by this catalog entry']},
+ {id:'wazuh',name:'Wazuh',kind:'SIEM',auth:['NONE'],capabilities:['ENDPOINT_ALERTS','SIEM_FINDINGS'],availability:'AVAILABLE',implemented:true,collectionModes:['REPORT_IMPORT'],limitations:['Current ingestion supports evidence/report input; live API verification is not implemented']},
  {id:'openvas',name:'Greenbone/OpenVAS',kind:'SCANNER',auth:['NONE'],capabilities:['VULNERABILITY_MANAGEMENT'],availability:'AVAILABLE',implemented:true,collectionModes:['REPORT_IMPORT'],limitations:['Report import only. No authenticated GMP session, task scheduling, scan execution, polling, or remote collection is implemented']}
 ]);
 

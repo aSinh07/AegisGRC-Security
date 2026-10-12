@@ -1,0 +1,5 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';
+const src=fs.readFileSync('src/tprm-workflow.ts','utf8');
+test('questionnaire records submitter and enforces reviewer separation',()=>{assert.match(src,/submitted_by uuid REFERENCES app_users/);assert.match(src,/submitted_by=\$5/);assert.match(src,/row\.created_by===user\|\|row\.submitted_by===user/)});
+test('remediation records evidence submitter and enforces closure separation',()=>{assert.match(src,/evidence_submitted_by uuid REFERENCES app_users/);assert.match(src,/evidence_submitted_by=\$4/);assert.match(src,/row\.created_by===user\|\|row\.evidence_submitted_by===user/)});
+test('TPRM migration remains additive and evidence wording does not overclaim verification',()=>{assert.match(src,/ADD COLUMN IF NOT EXISTS submitted_by/);assert.match(src,/ADD COLUMN IF NOT EXISTS evidence_submitted_by/);assert.doesNotMatch(src,/DROP TABLE|TRUNCATE|DELETE FROM/i);assert.match(src,/Submitted evidence is required before closure/);assert.doesNotMatch(src,/Verified evidence is required before closure/)});

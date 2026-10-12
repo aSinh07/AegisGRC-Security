@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+const privacy=fs.readFileSync('src/privacy-operations.ts','utf8');const server=fs.readFileSync('src/server.ts','utf8');
+test('approved privacy notices have a governed retirement lifecycle',()=>{assert.match(privacy,/export async function retirePrivacyNotice/);assert.match(privacy,/Only approved notices can be retired/);assert.match(privacy,/Independent reviewer required for privacy notice retirement/);assert.match(privacy,/status='RETIRED'/);assert.match(privacy,/privacyEvent\(org,'NOTICE',id,'RETIRED'/)});
+test('retirement is tenant scoped and cannot silently race',()=>{assert.match(privacy,/WHERE id=\$1 AND organization_id=\$2 AND status='APPROVED' RETURNING \*/);assert.match(privacy,/Privacy notice retirement conflict/)});
+test('new consent still requires an approved exact notice key and version',()=>{assert.match(privacy,/notice_key=\$2 AND version=\$3 AND status='APPROVED'/);assert.match(privacy,/Consent requires an independently approved privacy notice key and version/)});
+test('retirement endpoint remains authenticated and tenant scoped',()=>{assert.match(server,/privacy\/notices\/:id\/retire/);assert.match(server,/retirePrivacyNotice\(u\.userId,req\.params\.orgId,req\.params\.id\)/)});

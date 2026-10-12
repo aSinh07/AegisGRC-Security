@@ -50,7 +50,7 @@ export async function createEvidenceRequest(userId:string,orgId:string,input:any
 }
 export async function submitEvidence(userId:string,orgId:string,requestId:string,input:any){
  await requireOrgPermission(userId,orgId,'manageControl');
- const sha=String(input.sha256||'').toLowerCase();if(!/^[a-f0-9]{64}$/.test(sha))throw new Error('Valid SHA-256 is required');const serverHash=String(input.serverComputedSha256||'').toLowerCase();const verified=Boolean(serverHash)&&serverHash===sha;if(serverHash&&!/^[a-f0-9]{64}$/.test(serverHash))throw new Error('Invalid server-computed SHA-256');if(serverHash&&!verified)throw Object.assign(new Error('Evidence digest mismatch'),{statusCode:409});
+ const sha=String(input.sha256||'').toLowerCase();if(!/^[a-f0-9]{64}$/.test(sha))throw new Error('Valid SHA-256 is required');const verified=false; // JSON submissions are caller claims only; server verification requires trusted bytes/collector provenance.
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
@@ -62,7 +62,7 @@ export async function submitEvidence(userId:string,orgId:string,requestId:string
   }
   const v=Number((await client.query('SELECT COALESCE(max(version),0)+1 v FROM grc_evidence_versions WHERE evidence_request_id=$1',[requestId])).rows[0].v);
   const row=(await client.query(`INSERT INTO grc_evidence_versions(id,evidence_request_id,version,source_type,source_ref,sha256,content_type,byte_size,metadata,integrity_status,verified_at,submitted_by)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $10='SERVER_VERIFIED' THEN now() ELSE NULL END,$11) RETURNING *`,[crypto.randomUUID(),requestId,v,String(input.sourceType||'MANUAL').toUpperCase(),input.sourceRef||null,sha,input.contentType||null,input.byteSize||null,input.metadata||{},verified?'SERVER_VERIFIED':'CLAIMED',userId])).rows[0];
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $10='SERVER_VERIFIED' THEN now() ELSE NULL END,$11) RETURNING *`,[crypto.randomUUID(),requestId,v,String(input.sourceType||'MANUAL').toUpperCase(),input.sourceRef||null,sha,input.contentType||null,input.byteSize||null,input.metadata||{},'CLAIMED',userId])).rows[0];
   await client.query(`UPDATE grc_evidence_requests SET status='SUBMITTED',updated_at=now() WHERE id=$1`,[requestId]);await evidenceEvent(client,orgId,requestId,row.id,'VERSION_SUBMITTED',userId,{version:v,integrityStatus:row.integrity_status,sha256:sha});
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}

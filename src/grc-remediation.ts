@@ -91,7 +91,7 @@ export async function submitCapaEvidence(user:string,org:string,capaId:string,ev
   if(!['OPEN','IN_PROGRESS','EVIDENCE_SUBMITTED','CHANGES_REQUESTED'].includes(c.status))throw Object.assign(new Error('CAPA is not accepting evidence in its current state'),{statusCode:409});
   if(c.owner_user_id&&c.owner_user_id!==user&&!['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST'].includes(m.role))throw Object.assign(new Error('CAPA owner required'),{statusCode:403});
   const issue=(await client.query('SELECT scope_control_id FROM grc_issues WHERE id=$1 AND organization_id=$2 FOR UPDATE',[c.issue_id,org])).rows[0];
-  const ev=(await client.query(`SELECT v.id,r.scope_control_id FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE v.id=$1 AND r.organization_id=$2 AND r.status='VALID' AND v.validated_at IS NOT NULL AND v.valid_until>now() FOR UPDATE OF v,r`,[evidenceVersionId,org])).rows[0];
+  const ev=(await client.query(`SELECT v.id,r.scope_control_id FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE v.id=$1 AND r.organization_id=$2 AND r.status='VALID' AND v.integrity_status='SERVER_VERIFIED' AND v.validated_at IS NOT NULL AND v.valid_until>now() FOR UPDATE OF v,r`,[evidenceVersionId,org])).rows[0];
   if(!ev)throw new Error('Current validated evidence version required');
   if(issue?.scope_control_id&&ev.scope_control_id!==issue.scope_control_id)throw Object.assign(new Error('CAPA evidence must belong to the affected control'),{statusCode:409});
   await client.query('INSERT INTO grc_capa_evidence(capa_id,evidence_version_id,linked_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[capaId,evidenceVersionId,user]);

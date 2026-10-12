@@ -1,0 +1,3 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';const s=fs.readFileSync('src/automation-outbox.ts','utf8');
+test('manual tenant dispatch scopes stale lease recovery',()=>{assert.match(s,/recoverStaleAutomationJobs\(organizationId\?:string\)/);assert.match(s,/organization_id=\$1 AND status='PROCESSING'/);assert.match(s,/await recoverStaleAutomationJobs\(organizationId\)/)});
+test('trusted global worker can retain global recovery path',()=>{assert.match(s,/if\(organizationId\).*pool\.query/s);assert.match(s,/return \(await pool\.query\(\`UPDATE grc_automation_outbox \$\{setClause\} WHERE status='PROCESSING'/)});

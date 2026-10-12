@@ -80,8 +80,10 @@ export async function failAutomationJob(id:string,error:any){
  const dead=Number(row.attempts)>=Number(row.max_attempts),delay=Math.min(3600,Math.max(30,30*Math.pow(2,Math.max(0,Number(row.attempts)-1))));
  return (await pool.query(`UPDATE grc_automation_outbox SET status=$2,last_error=$3,next_attempt_at=now()+($4::text||' seconds')::interval,locked_at=NULL,locked_by=NULL,updated_at=now() WHERE id=$1 RETURNING *`,[id,dead?'DEAD_LETTER':'FAILED',safeError(error),String(delay)])).rows[0];
 }
-export async function recoverStaleAutomationJobs(){
- return (await pool.query(`UPDATE grc_automation_outbox SET status=CASE WHEN attempts>=max_attempts THEN 'DEAD_LETTER' ELSE 'FAILED' END,last_error='Worker lease expired',next_attempt_at=now(),locked_at=NULL,locked_by=NULL,updated_at=now() WHERE status='PROCESSING' AND locked_at<now()-interval '10 minutes' RETURNING id,status`)).rows;
+export async function recoverStaleAutomationJobs(organizationId?:string){
+ const setClause="SET status=CASE WHEN attempts>=max_attempts THEN 'DEAD_LETTER' ELSE 'FAILED' END,last_error='Worker lease expired',next_attempt_at=now(),locked_at=NULL,locked_by=NULL,updated_at=now()";
+ if(organizationId)return (await pool.query(`UPDATE grc_automation_outbox ${setClause} WHERE organization_id=$1 AND status='PROCESSING' AND locked_at<now()-interval '10 minutes' RETURNING id,status`,[organizationId])).rows;
+ return (await pool.query(`UPDATE grc_automation_outbox ${setClause} WHERE status='PROCESSING' AND locked_at<now()-interval '10 minutes' RETURNING id,status`)).rows;
 }
 async function deliverServiceNow(job:ClaimedJob){
  const cfg=connectorConfig();if(!cfg)throw new Error('ServiceNow connector is not safely configured');
@@ -104,7 +106,7 @@ async function executeScriptTask(job:ClaimedJob){
  return {task,checkedAt:new Date().toISOString(),due:Number(r.rows[0]?.count||0),sideEffect:'NONE',note:'Evidence expiry check is advisory and never changes control status.'};
 }
 export async function runAutomationOutboxBatch(limit=10,workerId='aegis-worker',organizationId?:string){
- const n=Math.max(1,Math.min(50,Number(limit)||10)),results:any[]=[];await recoverStaleAutomationJobs();
+ const n=Math.max(1,Math.min(50,Number(limit)||10)),results:any[]=[];await recoverStaleAutomationJobs(organizationId);
  for(let i=0;i<n;i++){const job=await claimDueAutomation(workerId,organizationId);if(!job)break;try{const result=job.kind==='SERVICENOW_WORK_ITEM'?await deliverServiceNow(job):await executeScriptTask(job);await completeAutomationJob(job.id,result);results.push({id:job.id,status:'SUCCEEDED',result})}catch(e){const failed=await failAutomationJob(job.id,e);results.push({id:job.id,status:failed?.status||'FAILED',error:safeError(e)})}}
  return {processed:results.length,results};
 }

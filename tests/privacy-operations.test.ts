@@ -1,0 +1,9 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';
+const p=fs.readFileSync('src/privacy-operations.ts','utf8'),s=fs.readFileSync('src/server.ts','utf8');
+test('DPDPA operations cover inventory rights consent and breach lifecycle',()=>{for(const x of ['grc_privacy_processing_inventory','grc_privacy_requests','grc_privacy_consents','grc_privacy_breaches','processing_ground','retention_rule','notice_version','processor_actions','board_notification','principal_notification'])assert.ok(p.includes(x),x)});
+test('privacy operations are tenant scoped and role governed',()=>{assert.match(p,/requireOrgPermission/);assert.match(p,/organization_id=\$2|organization_id=\$1/);for(const x of ['manageControl','manageRisk','review'])assert.ok(p.includes("'"+x+"'"),x)});
+test('rights closure requires identity, evidence and independent review',()=>{assert.match(p,/Identity must be verified before fulfilment/);assert.match(p,/Independent reviewer required for privacy request closure/);assert.match(p,/Outcome and completion evidence required/)});
+test('consent is purpose and notice-version specific with withdrawal state',()=>{for(const x of ['purpose','notice_version','mechanism','WITHDRAWN','withdrawn_at'])assert.ok(p.includes(x),x)});
+test('breach closure requires documented assessment and containment',()=>{assert.match(p,/Assessment and containment evidence required before closure/);assert.match(p,/NOTIFYING/);assert.match(p,/REMEDIATING/)});
+test('server initializes and exposes privacy APIs',()=>{assert.match(s,/await initPrivacyOperations\(\)/);for(const x of ['/privacy/processing-activities','/privacy/requests','/privacy/consents','/privacy/breaches'])assert.ok(s.includes(x),x)});
+test('migration is additive',()=>{assert.doesNotMatch(p,/DROP TABLE|TRUNCATE|DELETE FROM/i);assert.match(p,/CREATE TABLE IF NOT EXISTS/)});

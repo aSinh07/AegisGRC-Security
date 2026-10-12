@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {architectureInputCapability,architectureFormatCatalog} from '../src/architecture-format-capability.js';
+test('text PDF is accepted but does not claim CAD geometry',()=>{const x=architectureInputCapability('design.pdf','application/pdf');assert.equal(x.accepted,true);assert.equal(x.mode,'EXTRACT');assert.match(x.limitations.join(' '),/not treated as engineering CAD/i)});
+test('IFC and DWG are explicitly gated until real parser exists',()=>{assert.equal(architectureInputCapability('plant.ifc').accepted,false);assert.equal(architectureInputCapability('network.dwg').mode,'REQUIRES_CONVERSION')});
+test('raster diagram requires OCR and human verification',()=>{const x=architectureInputCapability('diagram.png','image/png');assert.equal(x.mode,'REQUIRES_OCR');assert.match(x.limitations.join(' '),/human verification/i)});
+test('catalog exposes CAD BIM and mesh boundaries',()=>{const c=architectureFormatCatalog();assert.ok(c.some(x=>x.formats.includes('IFC')));assert.ok(c.some(x=>x.formats.includes('GLB')))});

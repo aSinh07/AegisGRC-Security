@@ -1,0 +1,3 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';const ui=fs.readFileSync('public/index.html','utf8');
+test('privacy UI asks for pseudonymous references rather than direct identifiers',()=>{assert.match(ui,/Pseudonymous case\/reference ID/);assert.match(ui,/Pseudonymous principal\/reference ID/);assert.match(ui,/rather than a name, email, phone number or government identifier/);assert.match(ui,/internal pseudonymous reference instead of directly identifying personal data/)});
+test('privacy identifier inputs disable autocomplete',()=>{assert.match(ui,/id="privacyPrincipalRef"[^>]*autocomplete="off"/);assert.match(ui,/id="privacyConsentPrincipal"[^>]*autocomplete="off"/)});

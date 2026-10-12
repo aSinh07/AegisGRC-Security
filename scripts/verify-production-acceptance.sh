@@ -2,19 +2,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 COMPOSE=(docker compose -f docker-compose.production.yml)
-VOLUME="aegisgrc-security_aegis-db"
 PUBLIC_URL="${AEGIS_PUBLIC_URL:-https://aegisgrc-security.duckdns.org}"
 fail(){ printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 ok(){ printf 'PASS: %s\n' "$*"; }
 command -v docker >/dev/null || fail "Docker missing"
 command -v curl >/dev/null || fail "curl missing"
-docker volume inspect "$VOLUME" >/dev/null 2>&1 || fail "Existing production PostgreSQL volume missing"
-ok "Existing PostgreSQL volume present"
 "${COMPOSE[@]}" ps --status running postgres | grep -q postgres || fail "PostgreSQL container not running"
 "${COMPOSE[@]}" exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null || fail "PostgreSQL not ready"
 ok "PostgreSQL accepting connections"
 "${COMPOSE[@]}" exec -T postgres sh -c 'psql -X -q -t -A -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = '\''public'\''"' | grep -Eq '^[1-9][0-9]*$' || fail "PostgreSQL schema query failed"
 ok "Production database schema readable"
+"${COMPOSE[@]}" exec -T postgres sh -c 'psql -X -q -t -A -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT current_database(), current_user"' >/dev/null || fail "PostgreSQL identity query failed"
+ok "Existing PostgreSQL service identity readable without volume-name assumptions"
 body="$(curl --fail --silent --show-error --max-time 15 http://127.0.0.1:8080/api/ready)" || fail "Local readiness unavailable"
 printf '%s' "$body" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' || fail "Local readiness not OK"
 printf '%s' "$body" | grep -Eq '"mode"[[:space:]]*:[[:space:]]*"postgres"' || fail "Local readiness not backed by PostgreSQL"

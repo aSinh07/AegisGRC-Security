@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {randomBytes} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {reportSnapshotDigest,signApprovedReport,verifyApprovedReportSignature} from '../src/report-auth.js';
 
@@ -11,7 +12,7 @@ test('report snapshot digest changes when governed content changes',()=>{
  assert.notEqual(reportSnapshotDigest({finding:{status:'OPEN'}}),reportSnapshotDigest({finding:{status:'CLOSED'}}));
 });
 test('approval signature is bound to report snapshot digest',()=>{
- process.env.REPORT_SIGNING_KEY='test-only-report-signing-key-32-characters-minimum';
+ process.env.REPORT_SIGNING_KEY=randomBytes(32).toString('hex');
  const base={reviewId:'r1',assessmentId:'a1',framework:'ISO27001',snapshotDigest:'a'.repeat(64),reviewerId:'u1',approvedAt:'2026-10-10T12:00:00.000Z'};
  const signature=signApprovedReport(base);
  assert.equal(verifyApprovedReportSignature({...base,signature}),true);
@@ -33,7 +34,7 @@ test('governed document-control changes alter report digest while generatedAt do
  assert.notEqual(reportSnapshotDigest(base),reportSnapshotDigest({...base,documentControl:{...base.documentControl,classification:'PUBLIC'}}));
 });
 test('malformed hex approval signatures fail closed without throwing',()=>{
- process.env.REPORT_SIGNING_KEY='0123456789abcdef0123456789abcdef';
+ process.env.REPORT_SIGNING_KEY=randomBytes(32).toString('hex');
  const input:any={reviewId:'r',assessmentId:'a',framework:'ISO27001',snapshotDigest:'a'.repeat(64),reviewerId:'u',approvedAt:'2026-01-01T00:00:00Z'};
  assert.equal(verifyApprovedReportSignature({...input,signature:'z'.repeat(64)}),false);
 });

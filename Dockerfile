@@ -1,6 +1,6 @@
 FROM node:22-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends nmap tshark sqlmap python3 python3-pip python3-venv ca-certificates curl unzip git openssl lynis \
-    && python3 -m venv /opt/wapiti && /opt/wapiti/bin/pip install --no-cache-dir wapiti3==3.2.3 h11>=0.16.0 \
+    && python3 -m venv /opt/wapiti && /opt/wapiti/bin/pip install --no-cache-dir wapiti3==3.2.3 \"h11>=0.16.0\" \
     && ln -s /opt/wapiti/bin/wapiti /usr/local/bin/wapiti \
     && python3 -m venv /opt/checkov && /opt/checkov/bin/pip install --no-cache-dir checkov==3.2.490 && ln -s /opt/checkov/bin/checkov /usr/local/bin/checkov \
     && TESTSSL_VERSION=3.2.2 && curl -fsSL -o /tmp/testssl.tar.gz https://github.com/testssl/testssl.sh/archive/refs/tags/v${TESTSSL_VERSION}.tar.gz && tar -xzf /tmp/testssl.tar.gz -C /opt && ln -s /opt/testssl.sh-${TESTSSL_VERSION}/testssl.sh /usr/local/bin/testssl.sh && rm /tmp/testssl.tar.gz \

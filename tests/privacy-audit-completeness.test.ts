@@ -1,0 +1,4 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';const p=fs.readFileSync('src/privacy-operations.ts','utf8');
+test('privacy lifecycle audit covers creation and review transitions',()=>{for(const x of ["'PROCESSING_ACTIVITY',row.id,'CREATED'","'REQUEST',row.id,'CREATED'","'CONSENT',row.id,'GIVEN'","'BREACH',row.id,'CREATED'","'CONTROL_TEST',row.id,'CREATED'","'CONTROL_TEST',id,'REVIEWED'"])assert.ok(p.includes(x),x)});
+test('privacy event metadata avoids principal references and free-text outcomes',()=>{const calls=[...p.matchAll(/privacyEvent\([^;]+/g)].map(x=>x[0]).join('\n');assert.doesNotMatch(calls,/principal_ref|principalRef|\bref\b/);assert.doesNotMatch(calls,/input\.outcome|\bdesc\b|description/)});
+test('privacy lifecycle audit remains tenant scoped and additive',()=>{assert.match(p,/organization_id uuid NOT NULL REFERENCES grc_organizations/);assert.doesNotMatch(p,/DROP TABLE|TRUNCATE/i)});

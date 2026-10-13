@@ -175,3 +175,31 @@ body{letter-spacing:.005em}.side{width:252px;padding:26px 18px;background:linear
 .grc-health{margin-top:12px}
 @media(max-width:1050px){.grc-workspace-hero{align-items:flex-start;flex-direction:column}.grc-hero-chain{justify-content:flex-start}.grc-module-strip{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:620px){.grc-module-strip{grid-template-columns:1fr}}
+
+
+/* Security operations + evidence workspaces */
+.security-mode-strip{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:10px 14px;margin-bottom:12px;border:1px solid rgba(91,165,193,.13);border-radius:12px;background:rgba(6,20,33,.86)}
+.security-mode-strip span{font-size:8px;letter-spacing:.18em;color:#5f94a9}
+.security-mode-strip b{font-size:11px;color:#cce5ed}
+.security-mode-strip em{font-size:9px;font-style:normal;color:#69899d}
+.offensive-mode{border-color:rgba(222,111,86,.15)}
+.offensive-mode span{color:#c47c69}
+.defensive-mode{border-color:rgba(65,208,189,.15)}
+.defensive-mode span{color:#55bcae}
+.security-module-hero{margin-bottom:14px}
+.security-command-grid{align-items:stretch}
+.security-launch-card{background:linear-gradient(145deg,rgba(31,26,35,.94),rgba(8,21,34,.94));border-color:rgba(211,111,89,.13)}
+.findings-command-card{background:linear-gradient(145deg,rgba(9,29,44,.96),rgba(7,20,33,.92))}
+.findings-command-card .heat{margin-top:14px}
+.defense-analytics-card{background:linear-gradient(145deg,rgba(8,31,43,.96),rgba(6,21,33,.92));border-color:rgba(66,205,190,.13)}
+.defense-action-card{position:relative;overflow:hidden}
+.defense-action-card:after{content:"";position:absolute;right:0;top:0;width:70px;height:1px;background:linear-gradient(90deg,transparent,rgba(63,207,196,.5))}
+.evidence-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 24px;margin-bottom:14px;border:1px solid rgba(83,177,197,.16);border-radius:17px;background:linear-gradient(135deg,rgba(8,30,46,.97),rgba(6,20,33,.93))}
+.evidence-hero h2{margin:6px 0;font-size:24px}
+.evidence-hero p{margin:0;color:#87a3b5}
+.evidence-chain{display:flex;align-items:center;gap:7px}
+.evidence-chain span{padding:7px 9px;border:1px solid rgba(68,207,190,.16);border-radius:8px;font-size:8px;letter-spacing:.13em;color:#9bc9ca}
+.evidence-chain i{font-style:normal;color:#476f82}
+.evidence-vault-card{border-color:rgba(73,194,201,.14)}
+.scanner-evidence-card{border-color:rgba(116,145,201,.12)}
+@media(max-width:800px){.security-mode-strip{grid-template-columns:1fr;gap:5px}.evidence-hero{align-items:flex-start;flex-direction:column}.evidence-chain{flex-wrap:wrap}}

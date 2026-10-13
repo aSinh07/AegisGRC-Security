@@ -47,6 +47,15 @@ export async function initKnowledgeSources(){
  );
  CREATE INDEX IF NOT EXISTS grc_knowledge_sources_org_idx ON grc_knowledge_sources(organization_id,review_status,authority_class);
  CREATE INDEX IF NOT EXISTS grc_knowledge_items_org_idx ON grc_knowledge_items(organization_id,source_id,review_status);
+ CREATE TABLE IF NOT EXISTS grc_readiness_adoptions(
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+  readiness_key text NOT NULL,
+  source_id uuid NOT NULL REFERENCES grc_knowledge_sources(id) ON DELETE CASCADE,
+  adopted_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  adopted_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(organization_id,readiness_key)
+ );
  CREATE TABLE IF NOT EXISTS grc_assessment_packs(
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
@@ -177,4 +186,15 @@ export async function assessmentPackCatalog(userId:string,orgId:string){
  await requireOrgPermission(userId,orgId,'read');
  const packs=(await pool.query(`SELECT p.*,count(pi.knowledge_item_id)::int item_count FROM grc_assessment_packs p LEFT JOIN grc_assessment_pack_items pi ON pi.pack_id=p.id WHERE p.organization_id=$1 GROUP BY p.id ORDER BY p.created_at DESC`,[orgId])).rows;
  return {packs,guardrail:'Assessment packs are reviewed readiness content assembled from verified knowledge. They do not by themselves establish compliance, certification, or legal conformity.'};
+}
+
+
+export async function recordReadinessAdoption(userId:string,orgId:string,readinessKey:string,sourceId:string){
+ await requireOrgPermission(userId,orgId,'manageControl');
+ const source=(await pool.query('SELECT id,review_status FROM grc_knowledge_sources WHERE id=$1 AND organization_id=$2',[sourceId,orgId])).rows[0];
+ if(!source)throw Object.assign(new Error('Knowledge source not found'),{statusCode:404});
+ const key=clean(readinessKey,120).toUpperCase();if(!key)throw new Error('Readiness key required');
+ return (await pool.query(`INSERT INTO grc_readiness_adoptions(id,organization_id,readiness_key,source_id,adopted_by)
+ VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,readiness_key) DO UPDATE SET source_id=EXCLUDED.source_id,adopted_by=EXCLUDED.adopted_by,adopted_at=now() RETURNING *`,
+ [crypto.randomUUID(),orgId,key,sourceId,userId])).rows[0];
 }

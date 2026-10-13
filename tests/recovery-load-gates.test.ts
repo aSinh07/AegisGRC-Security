@@ -23,3 +23,12 @@ test('predeploy backup is optional rather than a deployment requirement',()=>{
  assert.match(deploy,/AEGIS_PREDEPLOY_BACKUP:-0/);
  assert.doesNotMatch(deploy,/PRODUCTION_DB_VOLUME/);
 });
+
+
+test('GCE deploy pins the already checked-out release and never pulls a moving main branch',()=>{
+ const deploy=fs.readFileSync('scripts/deploy-gce.sh','utf8');
+ assert.match(deploy,/AEGIS_RELEASE_SHA/);
+ assert.match(deploy,/git rev-parse HEAD/);
+ assert.doesNotMatch(deploy,/git pull/);
+ assert.match(deploy,/Release mismatch/);
+});

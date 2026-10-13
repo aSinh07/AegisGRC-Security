@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 test('premium workspace keeps reports contextual and profile driven',()=>{
- const ui=fs.readFileSync('public/index.html','utf8');
+ const html=fs.readFileSync('public/index.html','utf8');
+ const js=fs.readFileSync('public/dashboard.js','utf8');
+ const ui=html+'\n'+js;
  assert.doesNotMatch(ui,/onclick="tab\('reports',this\)"[^>]*>[^<]*Report Center/);
  assert.match(ui,/OFFENSIVE SECURITY/);
  assert.match(ui,/Export technical report/);

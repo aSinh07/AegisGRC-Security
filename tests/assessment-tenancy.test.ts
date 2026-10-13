@@ -110,9 +110,9 @@ test('protected report exports require current user step-up before tenant data i
 });
 
 test('browser report download preserves same-origin session and gives actionable MFA failures',async()=>{
- const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
- const start=html.indexOf('async function confirmExport()');assert.notEqual(start,-1);
- const fn=html.slice(start,start+4200);
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const start=js.indexOf('async function confirmExport()');assert.notEqual(start,-1);
+ const fn=js.slice(start,start+4200);
  assert.match(fn,/credentials:'same-origin'/);
  assert.match(fn,/x-report-password/);assert.match(fn,/x-report-totp/);
  assert.match(fn,/login session has expired/i);assert.match(fn,/account password is incorrect/i);assert.match(fn,/Authenticator code invalid or expired/i);

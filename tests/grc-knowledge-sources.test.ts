@@ -128,3 +128,17 @@ test('assessment pack catalog exposes stale knowledge health after review',()=>{
  assert.match(body,/i\.review_status='VERIFIED'/);
  assert.match(body,/s\.review_status='REVIEWED'/);
 });
+
+
+test('assessment pack usability guard fails closed on draft or stale packs',()=>{
+ const start=source.indexOf('export async function requireUsableAssessmentPack');
+ const end=source.indexOf('export async function assessmentPackCatalog',start);
+ const body=source.slice(start,end);
+ assert.match(body,/pack\.status!=='REVIEWED'/);
+ assert.match(body,/statusCode:409/);
+ assert.match(body,/i\.review_status='VERIFIED'/);
+ assert.match(body,/s\.review_status='REVIEWED'/);
+ assert.match(body,/total<1\|\|valid!==total/);
+ assert.match(body,/stale and must be re-reviewed before use/);
+ assert.match(body,/knowledge_health:'VALID'/);
+});

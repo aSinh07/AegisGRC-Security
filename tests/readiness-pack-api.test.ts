@@ -13,7 +13,8 @@ test('readiness catalog API is read-only and explicitly non-authoritative',()=>{
 
 test('readiness catalog does not bypass reviewed organization knowledge workflow',()=>{
  const start=server.indexOf("app.get('/api/grc/readiness-packs'");
- const end=server.indexOf("app.get('/api/grc/organizations/:orgId/knowledge-sources'",start);
+ const end=server.indexOf("app.post('/api/grc/organizations/:orgId/readiness-packs/:key/adopt'",start);
+ assert.ok(end>start);
  const routes=server.slice(start,end);
  assert.doesNotMatch(routes,/createKnowledgeItem|linkKnowledgeToControl|createAssessmentPack|setScopeControl/);
 });

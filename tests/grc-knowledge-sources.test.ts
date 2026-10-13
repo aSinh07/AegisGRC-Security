@@ -44,3 +44,22 @@ test('provenance captures page and section references and confidence',()=>{
 test('catalog explicitly avoids certification claims',()=>{
  assert.match(source,/does not establish certification or legal conformity/);
 });
+
+
+test('assessment packs accept only verified knowledge from reviewed sources',()=>{
+ assert.match(source,/CREATE TABLE IF NOT EXISTS grc_assessment_packs/);
+ assert.match(source,/CREATE TABLE IF NOT EXISTS grc_assessment_pack_items/);
+ const start=source.indexOf('export async function addKnowledgeToAssessmentPack');
+ const end=source.indexOf('export async function reviewAssessmentPack',start);
+ const body=source.slice(start,end);
+ assert.match(body,/Only reviewed and verified knowledge can enter assessment packs/);
+ assert.match(body,/pack\.status!=='DRAFT'/);
+});
+
+test('assessment pack publication requires independent review and content',()=>{
+ const start=source.indexOf('export async function reviewAssessmentPack');
+ const body=source.slice(start);
+ assert.match(body,/Independent assessment pack reviewer required/);
+ assert.match(body,/Assessment pack must contain verified knowledge/);
+ assert.match(body,/does not by themselves establish compliance|do not by themselves establish compliance/);
+});

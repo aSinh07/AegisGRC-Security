@@ -1,5 +1,5 @@
 import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';
-const src=fs.readFileSync('src/privacy-operations.ts','utf8');const html=fs.readFileSync('public/index.html','utf8');
+const src=fs.readFileSync('src/privacy-operations.ts','utf8');const html=fs.readFileSync('public/index.html','utf8')+'\n'+fs.readFileSync('public/enterprise-ops.js','utf8');
 test('consent binds to exact approved notice key and version',()=>{assert.match(src,/notice_key=\$2 AND version=\$3 AND status='APPROVED'/);assert.match(src,/notice key, notice version and affirmative mechanism required/);assert.match(src,/INSERT INTO grc_privacy_consents\(id,organization_id,principal_ref,purpose,notice_key,notice_version/);});
 test('existing consent schema is upgraded additively',()=>{assert.match(src,/ALTER TABLE grc_privacy_consents ADD COLUMN IF NOT EXISTS notice_key text/);assert.doesNotMatch(src,/DROP TABLE|TRUNCATE TABLE/);});
 test('consent UI requires approved notice key and version',()=>{assert.match(html,/privacyConsentNoticeKey/);assert.match(html,/Approved notice key/);assert.match(html,/noticeKey:privacyConsentNoticeKey\.value/);});

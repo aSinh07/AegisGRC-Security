@@ -22,8 +22,14 @@ export async function initKnowledgeSources(){
   review_status text NOT NULL DEFAULT 'PENDING' CHECK(review_status IN ('PENDING','REVIEWED','REJECTED')),
   reviewed_by uuid REFERENCES app_users(id) ON DELETE SET NULL,reviewed_at timestamptz,
   created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,created_at timestamptz NOT NULL DEFAULT now(),
+  supersedes_source_id uuid REFERENCES grc_knowledge_sources(id) ON DELETE SET NULL,
+  superseded_at timestamptz,superseded_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
   UNIQUE(organization_id,sha256)
  );
+ ALTER TABLE grc_knowledge_sources ADD COLUMN IF NOT EXISTS supersedes_source_id uuid REFERENCES grc_knowledge_sources(id) ON DELETE SET NULL;
+ ALTER TABLE grc_knowledge_sources ADD COLUMN IF NOT EXISTS superseded_at timestamptz;
+ ALTER TABLE grc_knowledge_sources ADD COLUMN IF NOT EXISTS superseded_by uuid REFERENCES app_users(id) ON DELETE SET NULL;
+ CREATE UNIQUE INDEX IF NOT EXISTS grc_knowledge_sources_one_successor_idx ON grc_knowledge_sources(organization_id,supersedes_source_id) WHERE supersedes_source_id IS NOT NULL;
  CREATE TABLE IF NOT EXISTS grc_knowledge_items(
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
@@ -89,6 +95,36 @@ export async function registerKnowledgeSource(userId:string,orgId:string,input:a
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
  ON CONFLICT(organization_id,sha256) DO UPDATE SET\n     title=CASE WHEN grc_knowledge_sources.review_status='PENDING' THEN EXCLUDED.title ELSE grc_knowledge_sources.title END,\n     source_ref=CASE WHEN grc_knowledge_sources.review_status='PENDING' THEN COALESCE(EXCLUDED.source_ref,grc_knowledge_sources.source_ref) ELSE grc_knowledge_sources.source_ref END
  RETURNING *`,[crypto.randomUUID(),orgId,sha,title,sourceType,authority,clean(input.framework,100)||null,clean(input.frameworkVersion,80)||null,clean(input.publisher,200)||null,input.publicationDate||null,clean(input.sourceRef,1000)||null,clean(input.licenseNote,1000)||null,userId])).rows[0];
+}
+
+export async function supersedeKnowledgeSource(userId:string,orgId:string,sourceId:string,input:any){
+ await requireOrgPermission(userId,orgId,'manageControl');
+ const prior=(await pool.query('SELECT * FROM grc_knowledge_sources WHERE id=$1 AND organization_id=$2',[sourceId,orgId])).rows[0];
+ if(!prior)throw Object.assign(new Error('Knowledge source not found'),{statusCode:404});
+ if(prior.review_status!=='REVIEWED')throw Object.assign(new Error('Only a reviewed source can be superseded'),{statusCode:409});
+ const sha=clean(input.sha256,64).toLowerCase();
+ if(!/^[a-f0-9]{64}$/.test(sha))throw new Error('Valid source SHA-256 is required');
+ if(sha===prior.sha256)throw Object.assign(new Error('Superseding source must have a different SHA-256'),{statusCode:409});
+ const existing=(await pool.query('SELECT id FROM grc_knowledge_sources WHERE organization_id=$1 AND supersedes_source_id=$2',[orgId,sourceId])).rows[0];
+ if(existing)throw Object.assign(new Error('Knowledge source already has a successor'),{statusCode:409});
+ const title=clean(input.title||prior.title,300);if(title.length<3)throw new Error('Source title required');
+ const authority=clean(input.authorityClass||prior.authority_class,40).toUpperCase();
+ if(!['AUTHORITATIVE','IMPLEMENTATION_AID','EDUCATIONAL','INTERNAL'].includes(authority))throw new Error('Invalid authority class');
+ const sourceType=clean(input.sourceType||prior.source_type,20).toUpperCase();
+ if(!['PDF','WEB','STANDARD','REGULATION','INTERNAL','OTHER'].includes(sourceType))throw new Error('Invalid source type');
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const successor=(await client.query(`INSERT INTO grc_knowledge_sources(id,organization_id,sha256,title,source_type,authority_class,framework,framework_version,publisher,publication_date,source_ref,license_note,created_by,supersedes_source_id)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,[crypto.randomUUID(),orgId,sha,title,sourceType,authority,clean(input.framework??prior.framework,100)||null,clean(input.frameworkVersion??prior.framework_version,80)||null,clean(input.publisher??prior.publisher,200)||null,input.publicationDate??prior.publication_date,clean(input.sourceRef,1000)||null,clean(input.licenseNote??prior.license_note,1000)||null,userId,sourceId])).rows[0];
+  await client.query('UPDATE grc_knowledge_sources SET superseded_at=now(),superseded_by=$3 WHERE id=$1 AND organization_id=$2',[sourceId,orgId,userId]);
+  await client.query(`UPDATE grc_assessment_packs p SET status='DRAFT',reviewed_by=NULL,reviewed_at=NULL
+   WHERE p.organization_id=$1 AND p.status='REVIEWED' AND EXISTS(
+    SELECT 1 FROM grc_assessment_pack_items pi JOIN grc_knowledge_items i ON i.id=pi.knowledge_item_id
+    WHERE pi.pack_id=p.id AND i.source_id=$2)`,[orgId,sourceId]);
+  await client.query('COMMIT');
+  return {predecessorId:sourceId,successor,guardrail:'The successor is PENDING and must be independently reviewed. Dependent reviewed assessment packs are reset to DRAFT for re-review.'};
+ }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
 }
 
 export async function reviewKnowledgeSource(userId:string,orgId:string,sourceId:string,decision:'REVIEWED'|'REJECTED'){

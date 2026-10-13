@@ -95,3 +95,13 @@ test('dashboard contains no executable inline event handlers after CSP migration
   assert.match(html+'\n'+js,new RegExp('data-action="'+action+'"'));
  }
 });
+
+
+test('global CSP forbids inline JavaScript while retaining temporary inline-style compatibility',async()=>{
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const csp=server.match(/Content-Security-Policy',\"([^\"]+)\"/);
+ assert.ok(csp,'CSP header must be configured');
+ assert.match(csp[1],/script-src 'self';/);
+ assert.doesNotMatch(csp[1],/script-src[^;]*'unsafe-inline'/);
+ assert.match(csp[1],/style-src 'self' 'unsafe-inline'/);
+});

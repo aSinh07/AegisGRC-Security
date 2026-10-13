@@ -39,10 +39,11 @@ if [ "${AEGIS_PREDEPLOY_BACKUP:-0}" = "1" ]; then
   test -s "$backup_path" || { echo "Backup is empty; refusing deployment."; rm -f "$backup_path"; exit 1; }
 fi
 
-echo "Pulling release..."
-git pull --ff-only origin main
 release="$(git rev-parse HEAD)"
-echo "Deploying release $release"
+if [ -n "${AEGIS_RELEASE_SHA:-}" ] && [ "$release" != "$AEGIS_RELEASE_SHA" ]; then
+  echo "Release mismatch: checked-out HEAD is $release but AEGIS_RELEASE_SHA requires $AEGIS_RELEASE_SHA"; exit 1
+fi
+echo "Deploying already checked-out release $release (deployment does not move Git HEAD)"
 
 echo "Building application image only..."
 docker compose -f docker-compose.production.yml build aegis

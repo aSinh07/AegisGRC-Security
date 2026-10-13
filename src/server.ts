@@ -66,7 +66,7 @@ import {initContinuousCompliance,createObligation,completeObligation,createExcep
 import {enterpriseAcceptance} from './enterprise-acceptance.js';
 import {initBusinessContinuity,createBusinessService,recordResilienceExercise,reviewResilienceExercise,resilienceDashboard} from './business-continuity.js';
 import {initPolicyGovernance,createPolicy,submitPolicy,approvePolicy,attestPolicy,linkPolicyControl,policyDashboard} from './policy-governance.js';
-import {initKnowledgeSources,registerKnowledgeSource,reviewKnowledgeSource,createKnowledgeItem,verifyKnowledgeItem,linkKnowledgeToControl,knowledgeSourceCatalog,createAssessmentPack,addKnowledgeToAssessmentPack,reviewAssessmentPack,assessmentPackCatalog,recordReadinessAdoption,adoptReadinessTemplate} from './grc-knowledge-sources.js';
+import {initKnowledgeSources,registerKnowledgeSource,reviewKnowledgeSource,createKnowledgeItem,verifyKnowledgeItem,linkKnowledgeToControl,knowledgeSourceCatalog,createAssessmentPack,addKnowledgeToAssessmentPack,reviewAssessmentPack,assessmentPackCatalog,recordReadinessAdoption,adoptReadinessTemplate,requireUsableAssessmentPack} from './grc-knowledge-sources.js';
 import {readinessPackCatalog,readinessPackDefinition} from './readiness-pack-definitions.js';
 import {initAuditManagement,createAudit,addWorkpaper,reviewWorkpaper,setAuditStatus,auditDashboard} from './audit-management.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
@@ -185,6 +185,12 @@ app.post('/api/grc/organizations/:orgId/knowledge-sources/:sourceId/review',asyn
 app.post('/api/grc/organizations/:orgId/knowledge-sources/:sourceId/items',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createKnowledgeItem(u.userId,req.params.orgId,req.params.sourceId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/knowledge-items/:itemId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await verifyKnowledgeItem(u.userId,req.params.orgId,req.params.itemId,String(req.body?.decision||'').toUpperCase() as any))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/knowledge-items/:itemId/controls/:controlId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await linkKnowledgeToControl(u.userId,req.params.orgId,req.params.itemId,req.params.controlId,String(req.body?.linkType||'SUPPORTS')))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/assessment-packs/:packId/usable',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ const pack=await requireUsableAssessmentPack(u.userId,req.params.orgId,req.params.packId);
+ res.json({usable:true,pack});
+ }catch(e:any){res.status(e.statusCode||400).json({usable:false,error:e.message})}});
+
 app.get('/api/grc/organizations/:orgId/assessment-packs',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await assessmentPackCatalog(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/assessment-packs',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createAssessmentPack(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/assessment-packs/:packId/items/:itemId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await addKnowledgeToAssessmentPack(u.userId,req.params.orgId,req.params.packId,req.params.itemId,Number(req.body?.ordinal||0)))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

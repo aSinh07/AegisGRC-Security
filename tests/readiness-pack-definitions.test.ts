@@ -24,3 +24,14 @@ test('readiness content does not claim automatic pass or compliance',()=>{
  const raw=fs.readFileSync('src/readiness-pack-definitions.ts','utf8');
  assert.doesNotMatch(raw,/automatic(?:ally)? compliant|guarantee(?:d)? certification|100% compliant/i);
 });
+
+
+test('readiness catalog helpers return copies and reject unknown packs',async()=>{
+ const mod=await import('../src/readiness-pack-definitions.js');
+ const catalog=mod.readinessPackCatalog();
+ assert.equal(catalog.length,4);
+ assert.equal(mod.readinessPackDefinition('missing'),null);
+ const pack=mod.readinessPackDefinition('iso27001_isms_readiness');
+ assert.equal(pack?.key,'ISO27001_ISMS_READINESS');
+ assert.ok((pack?.items.length||0)>0);
+});

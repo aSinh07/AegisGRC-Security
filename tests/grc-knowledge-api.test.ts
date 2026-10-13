@@ -13,8 +13,8 @@ test('knowledge APIs require authenticated user context',()=>{
  const end=server.indexOf("app.get('/api/grc/organizations/:orgId/assessment-packs'",start);
  assert.ok(start>=0&&end>start);
  const routes=server.slice(start,end);
- assert.equal((routes.match(/currentUser\(req\)/g)||[]).length,6);
- assert.equal((routes.match(/User session required/g)||[]).length,6);
+ assert.equal((routes.match(/currentUser\(req\)/g)||[]).length,7);
+ assert.equal((routes.match(/User session required/g)||[]).length,7);
 });
 
 test('knowledge API exposes separate register review extraction verification and linking operations',()=>{

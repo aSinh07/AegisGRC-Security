@@ -46,3 +46,18 @@ export function validateReadinessPackDefinitions(){
  }
  return {packs:SOURCE_GROUNDED_READINESS_PACKS.length,items:keys.size};
 }
+
+
+export function readinessPackCatalog(){
+ return SOURCE_GROUNDED_READINESS_PACKS.map(pack=>({
+  key:pack.key,title:pack.title,framework:pack.framework,frameworkVersion:pack.frameworkVersion,
+  sourceClass:pack.sourceClass,itemCount:pack.items.length,disclaimer:pack.disclaimer
+ }));
+}
+
+export function readinessPackDefinition(key:string){
+ const normalized=String(key||'').trim().toUpperCase();
+ const pack=SOURCE_GROUNDED_READINESS_PACKS.find(x=>x.key===normalized);
+ if(!pack)return null;
+ return {...pack,items:pack.items.map(item=>({...item}))};
+}

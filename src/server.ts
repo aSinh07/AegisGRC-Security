@@ -66,6 +66,7 @@ import {initContinuousCompliance,createObligation,completeObligation,createExcep
 import {enterpriseAcceptance} from './enterprise-acceptance.js';
 import {initBusinessContinuity,createBusinessService,recordResilienceExercise,reviewResilienceExercise,resilienceDashboard} from './business-continuity.js';
 import {initPolicyGovernance,createPolicy,submitPolicy,approvePolicy,attestPolicy,linkPolicyControl,policyDashboard} from './policy-governance.js';
+import {initKnowledgeSources,registerKnowledgeSource,reviewKnowledgeSource,createKnowledgeItem,verifyKnowledgeItem,linkKnowledgeToControl,knowledgeSourceCatalog} from './grc-knowledge-sources.js';
 import {initAuditManagement,createAudit,addWorkpaper,reviewWorkpaper,setAuditStatus,auditDashboard} from './audit-management.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
@@ -91,6 +92,7 @@ await initArchitectureModels();
 await initContinuousCompliance();
 await initBusinessContinuity();
 await initPolicyGovernance();
+await initKnowledgeSources();
 await initAuditManagement();
 await initEvidenceEngine();
 await initIssueRiskCapa();
@@ -166,6 +168,12 @@ app.post('/api/grc/organizations/:orgId/members',async(req,res)=>{try{const u=aw
 app.patch('/api/grc/organizations/:orgId/members/:userId/status',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await setMemberStatus(u.userId,req.params.orgId,req.params.userId,String(req.body?.status||'').toUpperCase() as any))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/members',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({members:await listMembers(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/controls',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({controls:await listCanonicalControls(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/knowledge-sources',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await knowledgeSourceCatalog(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/knowledge-sources',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await registerKnowledgeSource(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/knowledge-sources/:sourceId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await reviewKnowledgeSource(u.userId,req.params.orgId,req.params.sourceId,String(req.body?.decision||'').toUpperCase() as any))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/knowledge-sources/:sourceId/items',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createKnowledgeItem(u.userId,req.params.orgId,req.params.sourceId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/knowledge-items/:itemId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await verifyKnowledgeItem(u.userId,req.params.orgId,req.params.itemId,String(req.body?.decision||'').toUpperCase() as any))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/knowledge-items/:itemId/controls/:controlId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await linkKnowledgeToControl(u.userId,req.params.orgId,req.params.itemId,req.params.controlId,String(req.body?.linkType||'SUPPORTS')))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/framework-requirements',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({requirements:await listFrameworkRequirements(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/control-tests',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({tests:await listControlTests(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/controls',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createCanonicalControl(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

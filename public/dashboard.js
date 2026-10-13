@@ -76,3 +76,36 @@ function sparkle(){const c=document.createElement('canvas');c.style.cssText='pos
 function ambient(){const c=document.getElementById('ambientbg'),x=c.getContext('2d');let w,h,t=0,mouse={x:innerWidth/2,y:innerHeight/2};const pts=Array.from({length:70},(_,i)=>({a:i*2.399,r:80+(i%14)*34,z:(i%9)/9}));function size(){w=c.width=innerWidth*devicePixelRatio;h=c.height=innerHeight*devicePixelRatio;x.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);w=innerWidth;h=innerHeight}addEventListener('resize',size);addEventListener('pointermove',e=>mouse={x:e.clientX,y:e.clientY});size();function draw(){t+=.006;x.clearRect(0,0,w,h);const cx=w*.58+(mouse.x-w/2)*.018,cy=h*.48+(mouse.y-h/2)*.018;const p=pts.map(q=>{const a=q.a+t*(.35+q.z),r=q.r*(.75+.25*Math.sin(t+q.z*6));return{x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*.55,z:q.z}});for(let i=0;i<p.length;i++)for(let j=i+1;j<p.length;j++){const d=Math.hypot(p[i].x-p[j].x,p[i].y-p[j].y);if(d<105){x.beginPath();x.moveTo(p[i].x,p[i].y);x.lineTo(p[j].x,p[j].y);x.strokeStyle='rgba('+(80+Math.floor(p[i].z*100))+',180,255,'+(.11*(1-d/105))+')';x.stroke()}}p.forEach((q,i)=>{x.beginPath();x.arc(q.x,q.y,1.2+q.z*2.4,0,Math.PI*2);x.fillStyle=i%5?'#22d3ee55':'#a855f766';x.fill()});requestAnimationFrame(draw)}draw()}ambient();
 function cyber(){const c=document.getElementById('cyberbg'),x=c.getContext('2d');let w,h,ax=.25,ay=.4,drag=false,px=0,py=0;const P=(1+Math.sqrt(5))/2,V=[[-1,P,0],[1,P,0],[-1,-P,0],[1,-P,0],[0,-1,P],[0,1,P],[0,-1,-P],[0,1,-P],[P,0,-1],[P,0,1],[-P,0,-1],[-P,0,1]],E=[];for(let i=0;i<V.length;i++)for(let j=i+1;j<V.length;j++){const d=Math.hypot(V[i][0]-V[j][0],V[i][1]-V[j][1],V[i][2]-V[j][2]);if(d<2.1)E.push([i,j])}function size(){w=c.width=innerWidth*devicePixelRatio;h=c.height=innerHeight*devicePixelRatio;c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';x.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);w=innerWidth;h=innerHeight}addEventListener('resize',size);addEventListener('pointerdown',e=>{if(!login.classList.contains('hidden')){drag=true;px=e.clientX;py=e.clientY}});addEventListener('pointermove',e=>{if(drag){ay+=(e.clientX-px)*.008;ax+=(e.clientY-py)*.008;px=e.clientX;py=e.clientY}});addEventListener('pointerup',()=>drag=false);size();function rot(v){let [X,Y,Z]=v,s=Math.sin(ay),q=Math.cos(ay),xx=X*q-Z*s,zz=X*s+Z*q;X=xx;Z=zz;s=Math.sin(ax);q=Math.cos(ax);return[X,Y*q-Z*s,Y*s+Z*q]}function draw(){if(!drag){ay+=.004;ax+=.0015}x.clearRect(0,0,w,h);const g=x.createRadialGradient(w/2,h/2,10,w/2,h/2,Math.max(w,h)*.6);g.addColorStop(0,'#082f4977');g.addColorStop(.45,'#0f172a55');g.addColorStop(1,'#020617');x.fillStyle=g;x.fillRect(0,0,w,h);const S=Math.min(w,h)*.16,proj=V.map(v=>{const r=rot(v),z=r[2]*S,sc=480/(480+z);return{x:w/2+r[0]*S*sc,y:h/2+r[1]*S*sc,z,sc}});for(let ring=0;ring<4;ring++){x.beginPath();x.ellipse(w/2,h/2,S*(1.5+ring*.22),S*(.35+ring*.07),ay*(ring%2?.35:-.25),0,Math.PI*2);x.strokeStyle=ring%2?'#a855f722':'#22d3ee25';x.lineWidth=1;x.stroke()}E.forEach(([i,j])=>{const a=proj[i],b=proj[j],al=.25+Math.max(0,(a.z+b.z)/(4*S));x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.strokeStyle='rgba(34,211,238,'+al+')';x.lineWidth=1.4;x.stroke()});proj.forEach((p,i)=>{x.beginPath();x.arc(p.x,p.y,3.2*p.sc,0,Math.PI*2);x.shadowBlur=14;x.shadowColor=i%4?'#22d3ee':'#a855f7';x.fillStyle=i%4?'#67e8f9':'#c084fc';x.fill();x.shadowBlur=0});const inner=proj.map(p=>({x:w/2+(p.x-w/2)*.42,y:h/2+(p.y-h/2)*.42}));E.forEach(([i,j])=>{x.beginPath();x.moveTo(inner[i].x,inner[i].y);x.lineTo(inner[j].x,inner[j].y);x.strokeStyle='#a855f744';x.stroke()});x.fillStyle='#67e8f9';x.font='12px ui-monospace';x.fillText('INTERACTIVE ZERO-TRUST GEOMETRIC LATTICE · DRAG TO ROTATE',24,h-28);requestAnimationFrame(draw)}draw()}cyber();
 (async()=>{try{const s=await jf('/api/auth/status');if(s.authenticated)showApp();else if(!s.configured)loginMsg.textContent='Server login is not configured yet. Set ADMIN_PASSWORD and ADMIN_TOTP_SECRET.'}catch{}})();
+
+
+// CSP migration bridge: static markup actions are delegated from data attributes.
+// This preserves existing behavior while removing executable inline event attributes.
+function runAegisUiAction(code,event,element){
+ const actions=String(code||'').split(';').map(x=>x.trim()).filter(Boolean);
+ for(const action of actions){
+  const m=action.match(/^([A-Za-z_$][\w$]*)\((.*)\)$/);
+  if(!m)continue;
+  const fn=globalThis[m[1]];
+  if(typeof fn!=='function')continue;
+  const raw=m[2].trim();
+  let args=[];
+  if(raw==='this')args=[element];
+  else if(raw){
+   args=raw.split(',').map(x=>x.trim()).map(x=>{
+    if(x==='this')return element;
+    if(x==='event')return event;
+    if((x.startsWith("'")&&x.endsWith("'"))||(x.startsWith('"')&&x.endsWith('"')))return x.slice(1,-1);
+    return x;
+   });
+  }
+  fn(...args);
+ }
+}
+document.addEventListener('click',event=>{
+ const element=event.target.closest('[data-aegis-click]');
+ if(element)runAegisUiAction(element.dataset.aegisClick,event,element);
+});
+document.addEventListener('change',event=>{
+ const element=event.target.closest('[data-aegis-change]');
+ if(element)runAegisUiAction(element.dataset.aegisChange,event,element);
+});

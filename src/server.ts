@@ -75,6 +75,7 @@ import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
 import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage,reconcileContainerCoverage,activeContainerAsset,reconcileCloudCoverage,activeCloudAsset,reconcileIdentityCoverage,reconcileDataSecurityCoverage,reconcileAttackSurfaceCoverage,reconcilePrivacyCoverage,reconcileBreachTelemetryCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import {initIncidentResponse,createIncident,transitionIncident,ingestIdentitySignal,incidentDashboard} from './incident-response.js';
+import {initSecurityReportHandoffs,createSecurityReportHandoff,reviewSecurityReportHandoff,listSecurityReportHandoffs} from './security-report-handoff.js';
 import {initBreachAssessment,deriveBreachAssessment,listBreachAssessments} from './breach-assessment.js';
 import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,recoverStaleScannerJobs,executeClaimedScannerJob,scannerRegistry} from './scanner-jobs.js';
 import { analyzeIntel } from './intel-ai.js';
@@ -105,6 +106,7 @@ await initFindingRisk();
 await initAssessmentInventory();
 await initBreachAssessment();
 await initIncidentResponse();
+await initSecurityReportHandoffs();
 await initScannerJobs();
 await recoverStaleScannerJobs();
 
@@ -433,6 +435,10 @@ app.post('/api/grc/organizations/:orgId/architecture/confidence',async(req,res)=
 app.get('/api/grc/organizations/:orgId/dashboard',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await operationsDashboard(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/sla',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await sla(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/timeline/:type/:recordId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({events:await timeline(u.userId,req.params.orgId,req.params.type,req.params.recordId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/security-report-handoffs',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({items:await listSecurityReportHandoffs(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/security-report-handoffs',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json({handoff:await createSecurityReportHandoff(u.userId,req.params.orgId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/security-report-handoffs/:handoffId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({handoff:await reviewSecurityReportHandoff(u.userId,req.params.orgId,req.params.handoffId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
 app.get('/api/security/organizations/:orgId/incidents',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await incidentDashboard(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/security/organizations/:orgId/incidents',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json({incident:await createIncident(u.userId,req.params.orgId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/security/organizations/:orgId/incidents/:incidentId/transition',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({incident:await transitionIncident(u.userId,req.params.orgId,req.params.incidentId,String(req.body?.phase||'').toUpperCase() as any,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

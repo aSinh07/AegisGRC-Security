@@ -84,3 +84,12 @@ test('atomic readiness adoption remains tenant scoped and does not self-review',
  assert.match(body,/organization_id/);
  assert.doesNotMatch(body,/review_status='REVIEWED'|review_status='VERIFIED'/);
 });
+
+
+test('re-adopting readiness content cannot reset or overwrite reviewed knowledge',()=>{
+ const start=source.indexOf('export async function adoptReadinessTemplate');
+ const body=source.slice(start);
+ assert.match(body,/CASE WHEN grc_knowledge_items\.review_status='DRAFT' THEN EXCLUDED\.content ELSE grc_knowledge_items\.content END/);
+ assert.match(body,/CASE WHEN grc_knowledge_items\.review_status='DRAFT' THEN EXCLUDED\.title ELSE grc_knowledge_items\.title END/);
+ assert.doesNotMatch(body,/review_status='DRAFT',verified_by=NULL,verified_at=NULL/);
+});

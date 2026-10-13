@@ -160,3 +160,14 @@ test('re-adoption cannot mutate metadata of an already reviewed or rejected sour
  assert.match(body,/CASE WHEN grc_knowledge_sources\.review_status='PENDING' THEN EXCLUDED\.title ELSE grc_knowledge_sources\.title END/);
  assert.match(body,/CASE WHEN grc_knowledge_sources\.review_status='PENDING' THEN COALESCE\(EXCLUDED\.source_ref,grc_knowledge_sources\.source_ref\) ELSE grc_knowledge_sources\.source_ref END/);
 });
+
+
+test('reviewed knowledge supersession is versioned and invalidates dependent reviewed packs',()=>{
+ assert.match(src,/export async function supersedeKnowledgeSource/);
+ assert.match(src,/supersedes_source_id/);
+ assert.match(src,/superseded_at=now\(\)/);
+ assert.match(src,/Superseding source must have a different SHA-256/);
+ assert.match(src,/Knowledge source already has a successor/);
+ assert.match(src,/SET status='DRAFT',reviewed_by=NULL,reviewed_at=NULL/);
+ assert.match(src,/successor is PENDING and must be independently reviewed/);
+});

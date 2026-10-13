@@ -93,3 +93,13 @@ test('re-adopting readiness content cannot reset or overwrite reviewed knowledge
  assert.match(body,/CASE WHEN grc_knowledge_items\.review_status='DRAFT' THEN EXCLUDED\.title ELSE grc_knowledge_items\.title END/);
  assert.doesNotMatch(body,/review_status='DRAFT',verified_by=NULL,verified_at=NULL/);
 });
+
+
+test('readiness re-adoption cannot silently replace source provenance',()=>{
+ const start=source.indexOf('export async function adoptReadinessTemplate');
+ const body=source.slice(start);
+ assert.match(body,/SELECT source_id FROM grc_readiness_adoptions WHERE organization_id=\$1 AND readiness_key=\$2/);
+ assert.match(body,/existingSource\.sha256!==sha/);
+ assert.match(body,/already adopted from a different source hash/);
+ assert.match(body,/statusCode:409/);
+});

@@ -105,3 +105,11 @@ test('global CSP forbids inline JavaScript while retaining temporary inline-styl
  assert.doesNotMatch(csp[1],/script-src[^;]*'unsafe-inline'/);
  assert.match(csp[1],/style-src 'self' 'unsafe-inline'/);
 });
+
+
+test('main dashboard static markup contains no inline style attributes',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const css=await readFile(new URL('../public/dashboard.css',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/\sstyle\s*=/i);
+ for(const cls of ['u-mt-8','u-mt-12','u-w-full','u-justify-between','u-overflow-auto','u-table-full'])assert.match(css,new RegExp('\\.'+cls+'\\{'));
+});

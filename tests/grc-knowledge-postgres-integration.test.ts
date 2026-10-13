@@ -20,8 +20,8 @@ test('real PostgreSQL knowledge review and assessment-pack lifecycle fails close
  try{
   await initUsers();await initOrganizations();await initControlRegistry();await initKnowledgeSources();
   const suffix=crypto.randomUUID(),password='Aegis-Knowledge-'+crypto.randomBytes(10).toString('hex');
-  const creatorRegistration=await beginRegistration(`knowledge-creator-${suffix}@example.test`,password,{fullName:'Knowledge Creator'});
-  const reviewerRegistration=await beginRegistration(`knowledge-reviewer-${suffix}@example.test`,password,{fullName:'Independent Reviewer'});
+  const creatorRegistration=await beginRegistration(`knowledge-creator-${suffix}@example.test`,password,{fullName:'Knowledge Creator',designation:'GRC Analyst',companyName:'Aegis CI'});
+  const reviewerRegistration=await beginRegistration(`knowledge-reviewer-${suffix}@example.test`,password,{fullName:'Independent Reviewer',designation:'GRC Reviewer',companyName:'Aegis CI'});
   creator=creatorRegistration.userId;reviewer=reviewerRegistration.userId;
   const creatorId=creator,reviewerId=reviewer;
   const org=await createOrganization(creatorId,{name:`Knowledge lifecycle ${crypto.randomUUID()}`});orgId=org.id;

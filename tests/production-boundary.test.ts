@@ -194,3 +194,16 @@ test('mobile navigation and AI assistant remain accessible and functional',async
  assert.ok(css.includes('.copilot-controls'));
  assert.ok(html.includes('Context-aware workspace assistant'));
 });
+
+
+test('dashboard HTML has clean external-script boundaries and enterprise ops bundle',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const ops=await readFile(new URL('../public/enterprise-ops.js',import.meta.url),'utf8');
+ assert.equal((html.match(/<style\b/gi)||[]).length,0);
+ assert.equal((html.match(/<script(?![^>]*\bsrc=)[^>]*>/gi)||[]).length,0);
+ assert.equal((html.match(/<\/style>/gi)||[]).length,0);
+ assert.ok(html.includes('<script src="/architecture-3d.js" defer></script>'));
+ assert.ok(html.includes('<script src="/enterprise-ops.js"></script>'));
+ for(const fn of ['loadPrivacyOps','loadTprm','createPrivacyBreach','createTprmRemediation'])assert.ok(ops.includes('function '+fn),fn);
+ assert.ok(!html.includes('async function loadPrivacyOps'));
+});

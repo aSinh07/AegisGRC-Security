@@ -35,3 +35,15 @@ test('readiness catalog helpers return copies and reject unknown packs',async()=
  assert.equal(pack?.key,'ISO27001_ISMS_READINESS');
  assert.ok((pack?.items.length||0)>0);
 });
+
+
+test('OWASP LLM 2026 readiness pack covers all ten risk categories in order',()=>{
+ const pack=SOURCE_GROUNDED_READINESS_PACKS.find(x=>x.key==='OWASP_LLM_2026_READINESS');
+ assert.ok(pack);
+ assert.deepEqual(pack.items.map(x=>x.key),['LLM01','LLM02','LLM03','LLM04','LLM05','LLM06','LLM07','LLM08','LLM09','LLM10']);
+ assert.equal(pack.items.length,10);
+ for(const item of pack.items){
+  assert.equal(item.type,'RISK_PATTERN');
+  assert.match(item.sourceLocator,new RegExp('^OWASP '+item.key+':2026 '));
+ }
+});

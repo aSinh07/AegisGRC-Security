@@ -13,14 +13,15 @@ test('knowledge APIs require authenticated user context',()=>{
  const end=server.indexOf("app.get('/api/grc/organizations/:orgId/assessment-packs'",start);
  assert.ok(start>=0&&end>start);
  const routes=server.slice(start,end);
- assert.equal((routes.match(/currentUser\(req\)/g)||[]).length,7);
- assert.equal((routes.match(/User session required/g)||[]).length,7);
+ assert.equal((routes.match(/currentUser\(req\)/g)||[]).length,8);
+ assert.equal((routes.match(/User session required/g)||[]).length,8);
 });
 
 test('knowledge API exposes separate register review extraction verification and linking operations',()=>{
  for(const route of [
   "app.post('/api/grc/organizations/:orgId/knowledge-sources'",
   "app.post('/api/grc/organizations/:orgId/knowledge-sources/:sourceId/review'",
+  "app.post('/api/grc/organizations/:orgId/knowledge-sources/:sourceId/supersede'",
   "app.post('/api/grc/organizations/:orgId/knowledge-sources/:sourceId/items'",
   "app.post('/api/grc/organizations/:orgId/knowledge-items/:itemId/review'",
   "app.post('/api/grc/organizations/:orgId/knowledge-items/:itemId/controls/:controlId'"

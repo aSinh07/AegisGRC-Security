@@ -42,7 +42,7 @@ test('real PostgreSQL knowledge review and assessment-pack lifecycle fails close
 
   const pack=await createAssessmentPack(creatorId,org.id,{packKey:'CI-READINESS',title:'CI Readiness Pack'});
   await addKnowledgeToAssessmentPack(creatorId,org.id,pack.id,item.id,10);
-  await assert.rejects(()=>reviewAssessmentPack(creatorId,org.id,pack.id),/Independent assessment pack reviewer required/);
+  await assert.rejects(()=>reviewAssessmentPack(creatorId,org.id,pack.id),/Insufficient organization role/);
   const reviewed=await reviewAssessmentPack(reviewerId,org.id,pack.id);
   assert.equal(reviewed.status,'REVIEWED');
   const usable=await requireUsableAssessmentPack(reviewerId,org.id,pack.id);

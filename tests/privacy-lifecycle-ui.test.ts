@@ -1,4 +1,4 @@
-import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';const h=fs.readFileSync('public/index.html','utf8');
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';const h=fs.readFileSync('public/index.html','utf8')+'\n'+fs.readFileSync('public/enterprise-ops.js','utf8');
 test('privacy UI exposes governed rights lifecycle',()=>{for(const x of ['verifyPrivacyRequest','closePrivacyRequest','withdrawPrivacyConsent'])assert.ok(h.includes(x));assert.match(h,/Independent fulfilment/);assert.match(h,/Completion evidence reference/)});
 test('privacy UI exposes design and operating effectiveness separately',()=>{for(const x of ['privacyDesignResult','privacyOperatingResult','privacySampleSize','privacyTestEvidence','createPrivacyControlTest','reviewPrivacyControlTest'])assert.ok(h.includes(x));assert.match(h,/Operating PASS requires a tested sample and evidence/)});
 test('privacy UI preserves legal notification gate',()=>{assert.match(h,/does not infer legal notification automatically/);assert.doesNotMatch(h,/automatically compliant|DPDPA certified/i)});

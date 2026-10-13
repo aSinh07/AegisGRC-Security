@@ -148,3 +148,30 @@ body{letter-spacing:.005em}.side{width:252px;padding:26px 18px;background:linear
 .integration-command-card .severity-legend{justify-content:flex-end}
 @media(max-width:1050px){.overview-status-strip{grid-template-columns:repeat(2,1fr)}.overview-target-row{grid-template-columns:1fr}.authorization-check{width:max-content}.card-heading-row{flex-direction:column}.integration-command-card .severity-legend{justify-content:flex-start}}
 @media(max-width:620px){.overview-status-strip{grid-template-columns:1fr}}
+
+
+/* Enterprise GRC command center */
+.grc-workspace-hero{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px 26px;margin-bottom:12px;border:1px solid rgba(82,186,199,.17);border-radius:18px;background:radial-gradient(circle at 85% 20%,rgba(34,151,161,.12),transparent 32%),linear-gradient(135deg,rgba(9,31,47,.98),rgba(6,19,33,.94));box-shadow:0 20px 55px rgba(0,0,0,.18)}
+.grc-workspace-hero h2{margin:6px 0;font-size:25px;letter-spacing:-.025em}
+.grc-workspace-hero p{margin:0;max-width:720px;color:#89a5b7}
+.grc-hero-chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.grc-hero-chain span{padding:7px 9px;border:1px solid rgba(70,210,197,.16);border-radius:8px;background:rgba(5,20,31,.64);font-size:9px;letter-spacing:.12em;color:#a8d2d4}
+.grc-hero-chain i{font-style:normal;color:#477487}
+.grc-module-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-bottom:14px;overflow:hidden;border:1px solid rgba(91,158,187,.12);border-radius:13px;background:rgba(83,153,179,.1)}
+.grc-module-strip div{padding:10px 13px;background:rgba(6,20,33,.9)}
+.grc-module-strip span{display:block;font-size:8px;letter-spacing:.18em;color:#4f899c}
+.grc-module-strip b{display:block;margin-top:3px;font-size:11px;color:#cce3ec}
+.grc-command-grid{align-items:stretch}
+.grc-tenant-command{background:linear-gradient(145deg,rgba(9,31,47,.96),rgba(7,21,34,.92))}
+.grc-dashboard-card{border-color:rgba(68,207,190,.14)}
+.grc-domain-card{position:relative;overflow:hidden}
+.grc-domain-card:after{content:"";position:absolute;top:0;right:0;width:86px;height:1px;background:linear-gradient(90deg,transparent,rgba(65,213,202,.5))}
+.grc-domain-kicker{margin-bottom:6px;font-size:8px;letter-spacing:.18em;color:#4e92a1}
+.grc-framework-card{background:linear-gradient(135deg,rgba(8,29,43,.96),rgba(7,22,36,.92))}
+.grc-remediation-card{border-color:rgba(222,165,79,.13)}
+.grc-tprm-card{border-color:rgba(102,150,225,.14)}
+.grc-privacy-card{border-color:rgba(145,114,224,.14)}
+.grc-context{margin-top:15px}
+.grc-health{margin-top:12px}
+@media(max-width:1050px){.grc-workspace-hero{align-items:flex-start;flex-direction:column}.grc-hero-chain{justify-content:flex-start}.grc-module-strip{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.grc-module-strip{grid-template-columns:1fr}}

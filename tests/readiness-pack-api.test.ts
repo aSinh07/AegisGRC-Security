@@ -17,3 +17,25 @@ test('readiness catalog does not bypass reviewed organization knowledge workflow
  const routes=server.slice(start,end);
  assert.doesNotMatch(routes,/createKnowledgeItem|linkKnowledgeToControl|createAssessmentPack|setScopeControl/);
 });
+
+
+test('readiness adoption requires authentication and actual source hash input',()=>{
+ const start=server.indexOf("app.post('/api/grc/organizations/:orgId/readiness-packs/:key/adopt'");
+ assert.ok(start>=0);
+ const end=server.indexOf("app.get('/api/grc/organizations/:orgId/knowledge-sources'",start);
+ const route=server.slice(start,end);
+ assert.match(route,/currentUser\(req\)/);
+ assert.match(route,/sourceSha256/);
+ assert.match(route,/registerKnowledgeSource/);
+ assert.match(route,/createKnowledgeItem/);
+ assert.match(route,/recordReadinessAdoption/);
+});
+
+test('readiness adoption remains draft and cannot mutate compliance state',()=>{
+ const start=server.indexOf("app.post('/api/grc/organizations/:orgId/readiness-packs/:key/adopt'");
+ const end=server.indexOf("app.get('/api/grc/organizations/:orgId/knowledge-sources'",start);
+ const route=server.slice(start,end);
+ assert.match(route,/reviewRequired:true/);
+ assert.match(route,/does not verify evidence, implement controls, change compliance scores, or establish conformity/);
+ assert.doesNotMatch(route,/reviewKnowledgeSource|verifyKnowledgeItem|linkKnowledgeToControl|setScopeControl|approveScopeControl/);
+});

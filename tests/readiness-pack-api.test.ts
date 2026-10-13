@@ -27,9 +27,7 @@ test('readiness adoption requires authentication and actual source hash input',(
  const route=server.slice(start,end);
  assert.match(route,/currentUser\(req\)/);
  assert.match(route,/sourceSha256/);
- assert.match(route,/registerKnowledgeSource/);
- assert.match(route,/createKnowledgeItem/);
- assert.match(route,/recordReadinessAdoption/);
+ assert.match(route,/adoptReadinessTemplate/);
 });
 
 test('readiness adoption remains draft and cannot mutate compliance state',()=>{

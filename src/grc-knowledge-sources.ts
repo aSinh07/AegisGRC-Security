@@ -215,7 +215,12 @@ export async function adoptReadinessTemplate(userId:string,orgId:string,pack:any
   for(const item of pack.items){
    const row=(await client.query(`INSERT INTO grc_knowledge_items(id,organization_id,source_id,item_key,item_type,title,content,section_ref,confidence,created_by)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-    ON CONFLICT(source_id,item_key) DO UPDATE SET item_type=EXCLUDED.item_type,title=EXCLUDED.title,content=EXCLUDED.content,section_ref=EXCLUDED.section_ref,confidence=EXCLUDED.confidence,review_status='DRAFT',verified_by=NULL,verified_at=NULL
+    ON CONFLICT(source_id,item_key) DO UPDATE SET
+      item_type=CASE WHEN grc_knowledge_items.review_status='DRAFT' THEN EXCLUDED.item_type ELSE grc_knowledge_items.item_type END,
+      title=CASE WHEN grc_knowledge_items.review_status='DRAFT' THEN EXCLUDED.title ELSE grc_knowledge_items.title END,
+      content=CASE WHEN grc_knowledge_items.review_status='DRAFT' THEN EXCLUDED.content ELSE grc_knowledge_items.content END,
+      section_ref=CASE WHEN grc_knowledge_items.review_status='DRAFT' THEN EXCLUDED.section_ref ELSE grc_knowledge_items.section_ref END,
+      confidence=CASE WHEN grc_knowledge_items.review_status='DRAFT' THEN EXCLUDED.confidence ELSE grc_knowledge_items.confidence END
     RETURNING *`,[crypto.randomUUID(),orgId,source.id,clean(item.key,120).toUpperCase(),item.type,clean(item.title,300),clean(item.prompt,4000),clean(item.sourceLocator,300),null,userId])).rows[0];
    items.push(row);
   }

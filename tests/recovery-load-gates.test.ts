@@ -32,3 +32,20 @@ test('GCE deploy pins the already checked-out release and never pulls a moving m
  assert.doesNotMatch(deploy,/git pull/);
  assert.match(deploy,/Release mismatch/);
 });
+
+
+test('dependency installs are lockfile-backed across CI and production image',()=>{
+ assert.ok(fs.existsSync('package-lock.json'));
+ const dockerfile=fs.readFileSync('Dockerfile','utf8');
+ const workflows=[
+  fs.readFileSync('.github/workflows/verify.yml','utf8'),
+  fs.readFileSync('.github/workflows/ci.yml','utf8'),
+  fs.readFileSync('.github/workflows/build.yml','utf8')
+ ];
+ assert.match(dockerfile,/RUN npm ci\b/);
+ assert.doesNotMatch(dockerfile,/RUN npm install\b/);
+ for(const workflow of workflows){
+  assert.match(workflow,/npm ci\b/);
+  assert.doesNotMatch(workflow,/npm install\b/);
+ }
+});

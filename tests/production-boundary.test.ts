@@ -120,3 +120,13 @@ test('generated dashboard tables contain no inline style attributes',async()=>{
  assert.doesNotMatch(js,/style="/i);
  for(const cls of ['u-data-table','u-th','u-td','u-td-top','u-break-all'])assert.match(js,new RegExp('class="'+cls));
 });
+
+
+test('architecture workspace exposes synchronized CAD and 3D inspector UI',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/architecture-3d.js',import.meta.url),'utf8');
+ for(const id of ['architectureModelState','architectureComponentCount','architectureFlowCount','architectureInferenceCount','architectureInspectorTitle','architectureInspectorKind','architectureInspectorConfidence','architectureInspectorSource'])assert.match(html,new RegExp('id="'+id+'"'));
+ assert.match(js,/function syncInspector\(/);
+ assert.match(js,/function syncMetrics\(/);
+ assert.match(js,/Synchronized selection across technical CAD and interactive 3D views/);
+});

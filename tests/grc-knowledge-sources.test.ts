@@ -103,3 +103,16 @@ test('readiness re-adoption cannot silently replace source provenance',()=>{
  assert.match(body,/already adopted from a different source hash/);
  assert.match(body,/statusCode:409/);
 });
+
+
+test('assessment pack approval revalidates every member and source at review time',()=>{
+ const start=source.indexOf('export async function reviewAssessmentPack');
+ const end=source.indexOf('export async function assessmentPackCatalog',start);
+ const body=source.slice(start,end);
+ assert.match(body,/i\.review_status='VERIFIED'/);
+ assert.match(body,/s\.review_status='REVIEWED'/);
+ assert.match(body,/i\.organization_id=\$2/);
+ assert.match(body,/s\.organization_id=\$2/);
+ assert.match(body,/valid!==total/);
+ assert.match(body,/no longer verified or whose source is no longer reviewed/);
+});

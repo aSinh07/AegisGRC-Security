@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import {initUsers} from '../src/user-auth.js';
 import {initOrganizations,createOrganization} from '../src/grc-organizations.js';
+import {initControlRegistry} from '../src/grc-controls.js';
 import {
  initKnowledgeSources,registerKnowledgeSource,reviewKnowledgeSource,
  createKnowledgeItem,verifyKnowledgeItem,createAssessmentPack,
@@ -17,7 +18,7 @@ test('real PostgreSQL knowledge review and assessment-pack lifecycle fails close
  const creator=crypto.randomUUID(),reviewer=crypto.randomUUID();
  let orgId:string|undefined;
  try{
-  await initUsers();await initOrganizations();await initKnowledgeSources();
+  await initUsers();await initOrganizations();await initControlRegistry();await initKnowledgeSources();
   await pool.query(`INSERT INTO app_users(id,email,password_hash,full_name) VALUES
    ($1,$2,'ci-placeholder','Knowledge Creator'),($3,$4,'ci-placeholder','Independent Reviewer')`,
    [creator,`knowledge-creator-${creator}@example.test`,reviewer,`knowledge-reviewer-${reviewer}@example.test`]);

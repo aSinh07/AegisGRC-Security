@@ -66,7 +66,7 @@ import {initContinuousCompliance,createObligation,completeObligation,createExcep
 import {enterpriseAcceptance} from './enterprise-acceptance.js';
 import {initBusinessContinuity,createBusinessService,recordResilienceExercise,reviewResilienceExercise,resilienceDashboard} from './business-continuity.js';
 import {initPolicyGovernance,createPolicy,submitPolicy,approvePolicy,attestPolicy,linkPolicyControl,policyDashboard} from './policy-governance.js';
-import {initKnowledgeSources,registerKnowledgeSource,reviewKnowledgeSource,createKnowledgeItem,verifyKnowledgeItem,linkKnowledgeToControl,knowledgeSourceCatalog,createAssessmentPack,addKnowledgeToAssessmentPack,reviewAssessmentPack,assessmentPackCatalog} from './grc-knowledge-sources.js';
+import {initKnowledgeSources,registerKnowledgeSource,reviewKnowledgeSource,createKnowledgeItem,verifyKnowledgeItem,linkKnowledgeToControl,knowledgeSourceCatalog,createAssessmentPack,addKnowledgeToAssessmentPack,reviewAssessmentPack,assessmentPackCatalog,recordReadinessAdoption} from './grc-knowledge-sources.js';
 import {readinessPackCatalog,readinessPackDefinition} from './readiness-pack-definitions.js';
 import {initAuditManagement,createAudit,addWorkpaper,reviewWorkpaper,setAuditStatus,auditDashboard} from './audit-management.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
@@ -171,6 +171,15 @@ app.get('/api/grc/organizations/:orgId/members',async(req,res)=>{try{const u=awa
 app.get('/api/grc/organizations/:orgId/controls',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({controls:await listCanonicalControls(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/readiness-packs',(req,res)=>{res.json({packs:readinessPackCatalog(),guardrail:'Reference readiness content only. Use the reviewed knowledge workflow before linking derived material to organization controls.'})});
 app.get('/api/grc/readiness-packs/:key',(req,res)=>{const pack=readinessPackDefinition(req.params.key);if(!pack)return res.status(404).json({error:'Readiness pack not found'});res.json(pack)});
+
+app.post('/api/grc/organizations/:orgId/readiness-packs/:key/adopt',async(req,res)=>{try{
+ const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
+ const pack=readinessPackDefinition(req.params.key);if(!pack)return res.status(404).json({error:'Readiness pack not found'});
+ const source=await registerKnowledgeSource(u.userId,req.params.orgId,{sha256:String(req.body?.sourceSha256||''),title:String(req.body?.sourceTitle||pack.title),sourceType:String(req.body?.sourceType||'PDF'),authorityClass:pack.sourceClass,framework:pack.framework,frameworkVersion:pack.frameworkVersion,publisher:req.body?.publisher,publicationDate:req.body?.publicationDate,sourceRef:req.body?.sourceRef,licenseNote:req.body?.licenseNote});
+ const items=[];for(const item of pack.items)items.push(await createKnowledgeItem(u.userId,req.params.orgId,source.id,{itemKey:item.key,itemType:item.type,title:item.title,content:item.prompt,sectionRef:item.sourceLocator,confidence:null}));
+ const adoption=await recordReadinessAdoption(u.userId,req.params.orgId,pack.key,source.id);
+ res.status(201).json({adoption,source,items,reviewRequired:true,guardrail:'Imported readiness material remains unreviewed draft knowledge. Adoption does not verify evidence, implement controls, change compliance scores, or establish conformity.'});
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 app.get('/api/grc/organizations/:orgId/knowledge-sources',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await knowledgeSourceCatalog(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/knowledge-sources',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await registerKnowledgeSource(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

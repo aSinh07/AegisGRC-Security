@@ -189,6 +189,22 @@ export async function reviewAssessmentPack(userId:string,orgId:string,packId:str
  return (await pool.query("UPDATE grc_assessment_packs SET status='REVIEWED',reviewed_by=$3,reviewed_at=now() WHERE id=$1 AND organization_id=$2 RETURNING *",[packId,orgId,userId])).rows[0];
 }
 
+export async function requireUsableAssessmentPack(userId:string,orgId:string,packId:string){
+ await requireOrgPermission(userId,orgId,'read');
+ const pack=(await pool.query('SELECT * FROM grc_assessment_packs WHERE id=$1 AND organization_id=$2',[packId,orgId])).rows[0];
+ if(!pack)throw Object.assign(new Error('Assessment pack not found'),{statusCode:404});
+ if(pack.status!=='REVIEWED')throw Object.assign(new Error('Assessment pack is not reviewed'),{statusCode:409});
+ const health=(await pool.query(`SELECT count(*)::int total,
+  count(*) FILTER (WHERE i.review_status='VERIFIED' AND s.review_status='REVIEWED' AND i.organization_id=$2 AND s.organization_id=$2)::int valid
+ FROM grc_assessment_pack_items pi
+ JOIN grc_knowledge_items i ON i.id=pi.knowledge_item_id
+ JOIN grc_knowledge_sources s ON s.id=i.source_id
+ WHERE pi.pack_id=$1`,[packId,orgId])).rows[0];
+ const total=Number(health?.total||0),valid=Number(health?.valid||0);
+ if(total<1||valid!==total)throw Object.assign(new Error('Assessment pack is stale and must be re-reviewed before use'),{statusCode:409});
+ return {...pack,knowledge_health:'VALID',valid_item_count:valid};
+}
+
 export async function assessmentPackCatalog(userId:string,orgId:string){
  await requireOrgPermission(userId,orgId,'read');
  const packs=(await pool.query(`SELECT p.*,count(pi.knowledge_item_id)::int item_count FROM grc_assessment_packs p LEFT JOIN grc_assessment_pack_items pi ON pi.pack_id=p.id WHERE p.organization_id=$1 GROUP BY p.id ORDER BY p.created_at DESC`,[orgId])).rows;

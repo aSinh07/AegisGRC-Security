@@ -10,7 +10,7 @@ test('knowledge registry is initialized before requests are served',()=>{
 
 test('knowledge APIs require authenticated user context',()=>{
  const start=server.indexOf("app.get('/api/grc/organizations/:orgId/knowledge-sources'");
- const end=server.indexOf("app.get('/api/grc/organizations/:orgId/framework-requirements'",start);
+ const end=server.indexOf("app.get('/api/grc/organizations/:orgId/assessment-packs'",start);
  assert.ok(start>=0&&end>start);
  const routes=server.slice(start,end);
  assert.equal((routes.match(/currentUser\(req\)/g)||[]).length,6);

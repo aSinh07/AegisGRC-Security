@@ -35,3 +35,18 @@ test('CSP denies dangerous embedding and external execution by default while inl
  for(const directive of ["default-src 'self'","object-src 'none'","frame-ancestors 'none'","base-uri 'self'","form-action 'self'","connect-src 'self'"]) assert.ok(line.includes(directive),directive+' missing');
  assert.ok(!/default-src[^;]*https?:/.test(line));
 });
+
+
+test('knowledge hub is strict-CSP ready with external scripts styles and delegated events',async()=>{
+ const html=await readFile(new URL('../public/knowledge.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/knowledge.js',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/<style\b/i);
+ assert.doesNotMatch(html,/<script(?![^>]*\bsrc=)[^>]*>/i);
+ assert.doesNotMatch(html,/\son[a-z]+\s*=/i);
+ assert.doesNotMatch(html,/\sstyle\s*=/i);
+ assert.match(html,/href="\/knowledge\.css"/);
+ assert.match(html,/src="\/knowledge\.js"/);
+ assert.match(js,/addEventListener\('click'/);
+ assert.doesNotMatch(js,/onclick=/);
+ assert.doesNotMatch(js,/style="/);
+});

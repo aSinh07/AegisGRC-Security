@@ -67,3 +67,12 @@ body{letter-spacing:.005em}.side{width:252px;padding:26px 18px;background:linear
 .u-overflow-auto{overflow:auto}
 .u-table-full{width:100%;border-collapse:collapse}
 .u-text-left{text-align:left}
+
+.u-data-table{width:100%;border-collapse:collapse;font-size:13px}
+.u-th{text-align:left;padding:8px;border-bottom:1px solid #29445f}
+.u-th-plain{text-align:left;padding:8px}
+.u-td{padding:8px;border-bottom:1px solid #132b3e}
+.u-td-strong{padding:8px;border-bottom:1px solid #29445f}
+.u-td-top{padding:8px;border-top:1px solid #132b3e}
+.u-text-right{text-align:right}
+.u-break-all{word-break:break-all}

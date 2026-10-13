@@ -59,3 +59,13 @@ test('main dashboard keeps CSS external during CSP migration',async()=>{
  assert.match(html,/href="\/dashboard\.css"/);
  assert.ok(css.length>1000,'dashboard stylesheet should contain migrated CSS');
 });
+
+
+test('main dashboard keeps application JavaScript external during CSP migration',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/<script(?![^>]*\bsrc=)[^>]*>/i);
+ assert.match(html,/src="\/dashboard\.js"/);
+ assert.ok(js.length>10000,'dashboard application script should contain migrated JavaScript');
+ for(const fn of ['confirmExport','cancelExport','openLearning','tab'])assert.match(js,new RegExp('function\\s+'+fn+'\\b'));
+});

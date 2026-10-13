@@ -156,3 +156,11 @@ test('Enterprise GRC command center preserves governed operational modules',asyn
  for(const label of ['Enterprise GRC Command Center','CONTROL','EVIDENCE','RISK','CAPA','REVIEW','Frameworks + SoA','Evidence + Testing','Risk + CAPA','TPRM + Privacy'])assert.ok(html.includes(label),label);
  for(const id of ['grcOrg','grcMetrics','grcScopes','grcSoa','grcEvidence','grcWork','enterpriseFrameworkSummary','grcControls','grcRemediation','tprmMetrics','privacyMetrics','grcTimeline'])assert.match(html,new RegExp('id="'+id+'"'));
 });
+
+
+test('security operations and evidence UX preserve executable controls',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ for(const label of ['Discover → Validate → Evidence → Report','Observe → Prioritize → Remediate → Govern','Evidence & Provenance Vault','INGEST','HASH','BIND','REVIEW'])assert.ok(html.includes(label),label);
+ for(const id of ['tool','findings','CRITICAL','HIGH','MEDIUM','LOW','INFO','pie','bars','grc','aiout','docs','doclist','raw'])assert.match(html,new RegExp('id="'+id+'"'));
+ for(const action of ["scan()","report()","ai()","uploadDocs()"])assert.ok(html.includes(action),action);
+});

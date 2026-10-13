@@ -116,3 +116,15 @@ test('assessment pack approval revalidates every member and source at review tim
  assert.match(body,/valid!==total/);
  assert.match(body,/no longer verified or whose source is no longer reviewed/);
 });
+
+
+test('assessment pack catalog exposes stale knowledge health after review',()=>{
+ const start=source.indexOf('export async function assessmentPackCatalog');
+ const end=source.indexOf('export async function recordReadinessAdoption',start);
+ const body=source.slice(start,end);
+ assert.match(body,/knowledge_health:h\.total>0&&h\.total===h\.valid\?'VALID':'STALE'/);
+ assert.match(body,/valid_item_count:h\.valid/);
+ assert.match(body,/A STALE pack must not be relied upon/);
+ assert.match(body,/i\.review_status='VERIFIED'/);
+ assert.match(body,/s\.review_status='REVIEWED'/);
+});

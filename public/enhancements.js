@@ -23,3 +23,48 @@ function installCvssGuide(){
  const original=window.renderFindings;window.renderFindings=function(fs){original(fs);const scores=fs.map(x=>Number(x.cvss)).filter(Number.isFinite),el=document.getElementById('cvssEvidence');if(el)el.textContent=scores.length?'Evidence-backed CVSS: highest '+Math.max(...scores).toFixed(1)+' · '+scores.length+'/'+fs.length+' findings scored':'No evidence-backed CVSS score returned by current findings';};
 }
 window.addEventListener('load',installCvssGuide);
+
+
+// Enterprise security workspace v6: product hierarchy + capability operations layer.
+function installEnterpriseSecurityWorkspace(){
+ const nav=[...document.querySelectorAll('.nav button')];
+ const overview=nav.find(b=>b.getAttribute('data-aegis-click')?.includes("tab('overview'"));
+ const defensive=nav.find(b=>b.getAttribute('data-aegis-click')?.includes("tab('defensive'"));
+ if(overview)overview.innerHTML='◈ Dashboard';
+ if(defensive)defensive.innerHTML='⬡ Defensive Security';
+
+ const offensive=document.getElementById('offensive');
+ if(offensive&&!document.getElementById('offensiveCapabilityMatrix')){
+  const block=document.createElement('div');block.id='offensiveCapabilityMatrix';block.className='enterprise-capability-block';
+  block.innerHTML='<div class="capability-head"><div><span class="workspace-kicker">ENTERPRISE OFFENSIVE COVERAGE</span><h3>Authorized Security Testing Workbench</h3><p>Native execution, evidence ingestion and licensed connector paths are shown separately so availability is never fabricated.</p></div><span class="truth-badge">AUTHORIZATION GATED</span></div><div class="capability-grid">'+
+  [
+   ['Attack Surface','Nmap · Nuclei · testssl.sh','NATIVE'],
+   ['Web / API DAST','OWASP ZAP · Wapiti · Nuclei','NATIVE'],
+   ['Injection Validation','SQLmap · analyst validation','NATIVE'],
+   ['Source / SAST','Semgrep · Trivy · Gitleaks','NATIVE'],
+   ['Infrastructure VA','Greenbone / OpenVAS','EVIDENCE'],
+   ['Manual Pentest','Analyst evidence · review · retest','EVIDENCE'],
+   ['Enterprise Connectors','Burp Enterprise · Tenable · Qualys · Rapid7 · Invicti','CONNECTOR']
+  ].map(x=>'<article class="capability-card"><small>'+x[2]+'</small><b>'+x[0]+'</b><span>'+x[1]+'</span></article>').join('')+
+  '</div><div class="report-workflow"><b>Reporting workflow</b><span>Scope → authorize → test → preserve evidence → normalize findings → analyst review → remediation → retest → password + authenticator protected export</span></div>';
+  offensive.querySelector('.module-hero')?.after(block);
+ }
+ const defensiveSection=document.getElementById('defensive');
+ if(defensiveSection&&!document.getElementById('defensiveCapabilityMatrix')){
+  const block=document.createElement('div');block.id='defensiveCapabilityMatrix';block.className='enterprise-capability-block';
+  block.innerHTML='<div class="capability-head"><div><span class="workspace-kicker">ENTERPRISE DEFENSE COVERAGE</span><h3>Detection, Hardening & Exposure Reduction</h3><p>Defense is operational security. Governance remains independently available under Enterprise GRC.</p></div><span class="truth-badge defensive">EVIDENCE DRIVEN</span></div><div class="capability-grid">'+
+  [
+   ['Endpoint / Telemetry','Wazuh evidence and breach telemetry','EVIDENCE'],
+   ['Cloud Posture','Prowler · AWS · Azure · GCP','NATIVE'],
+   ['Host Hardening','Lynis','NATIVE'],
+   ['Containers / SBOM','Trivy · Grype · Syft','NATIVE'],
+   ['Kubernetes / IaC','Kubescape · Checkov','NATIVE'],
+   ['Risk Reduction','Correlation · prioritization · CAPA · retest','NATIVE'],
+   ['Enterprise Ecosystem','Sentinel · Defender · CrowdStrike · Splunk · ServiceNow','CONNECTOR']
+  ].map(x=>'<article class="capability-card"><small>'+x[2]+'</small><b>'+x[0]+'</b><span>'+x[1]+'</span></article>').join('')+
+  '</div>';
+  defensiveSection.querySelector('.module-hero')?.after(block);
+ }
+ const hero=document.querySelector('#overview .executive-hero h2');if(hero)hero.textContent='Enterprise Security Dashboard';
+}
+window.addEventListener('load',installEnterpriseSecurityWorkspace);

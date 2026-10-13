@@ -768,11 +768,13 @@ app.post('/api/assessments/:id/ai-remediation',async(req,res)=>{
  catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}
 });
 app.get('/api/assessments/:id/report.pdf',async(req,res)=>{
+ const step=await reportAuthorized(req);if(!step.ok)return res.status(401).json({code:step.reason,error:'Password and authenticator verification required for report download'});
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});
  const fs=await db.findingsForAssessment(req.params.id);const ev=await db.evidenceForAssessment(req.params.id);const pdf=await renderPdf(a,fs,ev);
  res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.pdf"`);res.type('application/pdf').send(pdf);
 });
 app.get('/api/assessments/:id/report/download',async(req,res)=>{
+ const step=await reportAuthorized(req);if(!step.ok)return res.status(401).json({code:step.reason,error:'Password and authenticator verification required for report download'});
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});
  const fs=await db.findingsForAssessment(req.params.id);const report=assessmentReport(a,fs);
  res.setHeader('Content-Disposition',`attachment; filename="aegis-${a.id}.json"`);res.type('application/json').send(JSON.stringify(report,null,2));

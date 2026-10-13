@@ -113,3 +113,10 @@ test('main dashboard static markup contains no inline style attributes',async()=
  assert.doesNotMatch(html,/\sstyle\s*=/i);
  for(const cls of ['u-mt-8','u-mt-12','u-w-full','u-justify-between','u-overflow-auto','u-table-full'])assert.match(css,new RegExp('\\.'+cls+'\\{'));
 });
+
+
+test('generated dashboard tables contain no inline style attributes',async()=>{
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ assert.doesNotMatch(js,/style="/i);
+ for(const cls of ['u-data-table','u-th','u-td','u-td-top','u-break-all'])assert.match(js,new RegExp('class="'+cls));
+});

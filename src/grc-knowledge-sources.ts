@@ -207,6 +207,11 @@ export async function adoptReadinessTemplate(userId:string,orgId:string,pack:any
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
+  const existingAdoption=(await client.query('SELECT source_id FROM grc_readiness_adoptions WHERE organization_id=$1 AND readiness_key=$2',[orgId,clean(pack.key,120).toUpperCase()])).rows[0];
+  if(existingAdoption){
+   const existingSource=(await client.query('SELECT sha256 FROM grc_knowledge_sources WHERE id=$1 AND organization_id=$2',[existingAdoption.source_id,orgId])).rows[0];
+   if(existingSource&&existingSource.sha256!==sha)throw Object.assign(new Error('Readiness template is already adopted from a different source hash; create a new reviewed source/version instead of silently replacing provenance'),{statusCode:409});
+  }
   const source=(await client.query(`INSERT INTO grc_knowledge_sources(id,organization_id,sha256,title,source_type,authority_class,framework,framework_version,publisher,publication_date,source_ref,license_note,created_by)
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
    ON CONFLICT(organization_id,sha256) DO UPDATE SET title=EXCLUDED.title,source_ref=COALESCE(EXCLUDED.source_ref,grc_knowledge_sources.source_ref)

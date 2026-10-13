@@ -130,3 +130,12 @@ test('architecture workspace exposes synchronized CAD and 3D inspector UI',async
  assert.match(js,/function syncMetrics\(/);
  assert.match(js,/Synchronized selection across technical CAD and interactive 3D views/);
 });
+
+
+test('enterprise shell preserves navigation and exposes assurance context',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ for(const label of ['ENTERPRISE ASSURANCE','WORKSPACES','Protected session','ASSURANCE STATE','Evidence-first'])assert.match(html,new RegExp(label));
+ for(const target of ['overview','offensive','defensive','grcops','evidence','architecture','grcreview','audittrace'])assert.match(html,new RegExp("tab\\('"+target+"'"));
+ assert.match(html,/id="profileAvatar"/);
+ assert.match(html,/id="profileMenu"/);
+});

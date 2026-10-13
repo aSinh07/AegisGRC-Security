@@ -66,7 +66,7 @@ import {initContinuousCompliance,createObligation,completeObligation,createExcep
 import {enterpriseAcceptance} from './enterprise-acceptance.js';
 import {initBusinessContinuity,createBusinessService,recordResilienceExercise,reviewResilienceExercise,resilienceDashboard} from './business-continuity.js';
 import {initPolicyGovernance,createPolicy,submitPolicy,approvePolicy,attestPolicy,linkPolicyControl,policyDashboard} from './policy-governance.js';
-import {initKnowledgeSources,registerKnowledgeSource,supersedeKnowledgeSource,reviewKnowledgeSource,createKnowledgeItem,verifyKnowledgeItem,linkKnowledgeToControl,knowledgeSourceCatalog,createAssessmentPack,addKnowledgeToAssessmentPack,reviewAssessmentPack,assessmentPackCatalog,recordReadinessAdoption,adoptReadinessTemplate,requireUsableAssessmentPack} from './grc-knowledge-sources.js';
+import {initKnowledgeSources,registerKnowledgeSource,supersedeKnowledgeSource,reviewKnowledgeSource,createKnowledgeItem,verifyKnowledgeItem,linkKnowledgeToControl,knowledgeSourceCatalog,createAssessmentPack,addKnowledgeToAssessmentPack,reviewAssessmentPack,assessmentPackCatalog,adoptReadinessTemplate,requireUsableAssessmentPack} from './grc-knowledge-sources.js';
 import {readinessPackCatalog,readinessPackDefinition} from './readiness-pack-definitions.js';
 import {initAuditManagement,createAudit,addWorkpaper,reviewWorkpaper,setAuditStatus,auditDashboard} from './audit-management.js';
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';

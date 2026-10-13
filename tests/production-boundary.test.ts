@@ -50,3 +50,12 @@ test('knowledge hub is strict-CSP ready with external scripts styles and delegat
  assert.doesNotMatch(js,/onclick=/);
  assert.doesNotMatch(js,/style="/);
 });
+
+
+test('main dashboard keeps CSS external during CSP migration',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const css=await readFile(new URL('../public/dashboard.css',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/<style\b/i);
+ assert.match(html,/href="\/dashboard\.css"/);
+ assert.ok(css.length>1000,'dashboard stylesheet should contain migrated CSS');
+});

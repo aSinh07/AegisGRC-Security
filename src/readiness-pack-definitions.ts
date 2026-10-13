@@ -30,8 +30,13 @@ export const SOURCE_GROUNDED_READINESS_PACKS:ReadinessPackDefinition[]=[
   {key:'LLM01',type:'RISK_PATTERN',title:'Prompt Injection',prompt:'Assess direct, retrieved, tool-output, multimodal and persistent-memory inputs for unintended instruction influence and propagation.',sourceLocator:'OWASP LLM01:2026 Prompt Injection'},
   {key:'LLM02',type:'RISK_PATTERN',title:'Sensitive Information Disclosure',prompt:'Assess whether model outputs can expose sensitive information, private retrieved content, secrets or internal reasoning/context.',sourceLocator:'OWASP LLM02:2026 Sensitive Information Disclosure'},
   {key:'LLM03',type:'RISK_PATTERN',title:'Excessive Agency',prompt:'Assess excessive functionality, permissions and autonomy for model-driven tool actions.',sourceLocator:'OWASP LLM03:2026 Excessive Agency'},
+  {key:'LLM04',type:'RISK_PATTERN',title:'Supply Chain',prompt:'Assess dependencies, models, datasets, adapters, plugins and external components for provenance, integrity and supply-chain compromise.',sourceLocator:'OWASP LLM04:2026 Supply Chain'},
+  {key:'LLM05',type:'RISK_PATTERN',title:'Data and Model Poisoning',prompt:'Assess training, fine-tuning, retrieval and feedback data as well as model artifacts for poisoning that can alter behavior, integrity or security.',sourceLocator:'OWASP LLM05:2026 Data and Model Poisoning'},
+  {key:'LLM06',type:'RISK_PATTERN',title:'Unbounded Consumption',prompt:'Assess controls that bound model, agent, tool and infrastructure resource consumption and limit denial-of-service or unexpected cost exposure.',sourceLocator:'OWASP LLM06:2026 Unbounded Consumption'},
   {key:'LLM07',type:'RISK_PATTERN',title:'Misinformation',prompt:'Assess incorrect, incomplete, unsupported or misleading outputs that could drive human, workflow or agent actions.',sourceLocator:'OWASP LLM07:2026 Misinformation'},
-  {key:'LLM10',type:'RISK_PATTERN',title:'Improper Output Handling',prompt:'Assess validation and sanitization of model outputs before they reach downstream components.',sourceLocator:'OWASP LLM01 cross-reference to LLM10:2026 Improper Output Handling'}
+  {key:'LLM08',type:'RISK_PATTERN',title:'Hidden Context Exposure',prompt:'Assess whether hidden prompts, system context, retrieved context, metadata or other non-user-visible instructions and data can be exposed or improperly inferred.',sourceLocator:'OWASP LLM08:2026 Hidden Context Exposure'},
+  {key:'LLM09',type:'RISK_PATTERN',title:'Vector and Embedding Weaknesses',prompt:'Assess vector stores, embeddings and retrieval pipelines for unauthorized access, cross-tenant leakage, manipulation and unsafe retrieval behavior.',sourceLocator:'OWASP LLM09:2026 Vector and Embedding Weaknesses'},
+  {key:'LLM10',type:'RISK_PATTERN',title:'Improper Output Handling',prompt:'Assess validation and sanitization of model outputs before they reach downstream components.',sourceLocator:'OWASP LLM10:2026 Improper Output Handling'}
  ]}
 ];
 

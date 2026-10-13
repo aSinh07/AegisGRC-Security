@@ -269,3 +269,32 @@ hr{border:0;border-top:1px solid rgba(91,157,184,.13);margin:18px 0}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 @media(max-width:900px){.main{padding:18px}.grid{gap:11px}.card{padding:16px}.top{gap:12px;align-items:flex-start}.top-title h1{font-size:24px}}
 @media(max-width:560px){.main{padding:14px}.grid{margin-top:12px}.card{border-radius:13px;padding:14px}.module-hero,.executive-hero,.grc-workspace-hero,.governance-output-hero,.audit-hero,.evidence-hero{border-radius:14px;padding:18px}.top-title h1{font-size:21px}.btn{width:100%}.row>.btn{flex:1 1 160px}.target{min-width:0;width:100%}}
+
+
+/* Final QA: mobile navigation + AI assistant */
+.mobile-nav-toggle{display:none;width:42px;height:42px;flex:0 0 auto;border:1px solid rgba(83,181,197,.22);border-radius:10px;background:rgba(7,25,39,.92);color:#bfe7ec;font-size:19px;cursor:pointer}
+.copilot.open .cphead{border-bottom:1px solid rgba(84,159,185,.14);background:rgba(7,24,38,.72)}
+.cphead>div{display:flex;flex-direction:column;gap:2px}
+.cphead small{font-size:8px;letter-spacing:.08em;color:#6e91a5}
+.copilot-controls{display:grid;grid-template-columns:1fr auto;gap:8px}
+.copilot-controls select{width:100%}
+.cpmsgs{border:1px solid rgba(79,143,170,.14);background:rgba(2,10,17,.9)}
+.msg.ai{border:1px solid rgba(71,170,190,.1);background:rgba(18,38,56,.78)}
+.msg.user{border:1px solid rgba(57,202,193,.12);background:rgba(14,116,144,.18)}
+@media(max-width:900px){
+ .mobile-nav-toggle{display:grid;place-items:center}
+ .side{display:flex;position:fixed;left:0;top:0;bottom:0;z-index:50;width:min(300px,86vw);transform:translateX(-104%);transition:transform .2s ease;box-shadow:20px 0 60px rgba(0,0,0,.45)}
+ .side.mobile-open{transform:translateX(0)}
+ .side.mobile-open:after{content:"";position:fixed;left:100%;top:0;width:100vw;height:100vh;background:rgba(1,7,13,.58);pointer-events:none}
+ .top{display:flex}
+ .top-title{min-width:0;flex:1}
+ .copilot{left:14px;bottom:14px}
+}
+@media(max-width:560px){
+ .copilot.open{left:8px;bottom:8px;width:calc(100vw - 16px);max-height:78vh}
+ .copilot.open .cpbody{max-height:calc(78vh - 52px);overflow:auto}
+ .cpmsgs{height:250px}
+ .cpinput{display:grid;grid-template-columns:1fr 1fr}
+ .cpinput input{grid-column:1/-1;width:100%}
+ .copilot-controls{grid-template-columns:1fr}
+}

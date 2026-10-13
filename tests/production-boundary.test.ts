@@ -69,3 +69,16 @@ test('main dashboard keeps application JavaScript external during CSP migration'
  assert.ok(js.length>10000,'dashboard application script should contain migrated JavaScript');
  for(const fn of ['confirmExport','cancelExport','openLearning','tab'])assert.match(js,new RegExp('function\\s+'+fn+'\\b'));
 });
+
+
+test('main dashboard static controls use delegated CSP-safe event metadata',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const staticInline=[...html.matchAll(/\s(onclick|onchange)="([^"]*)"/gi)].filter(m=>!m[2].includes("'+"));
+ assert.equal(staticInline.length,0,'static executable event attributes must not return');
+ assert.match(html,/data-aegis-click=/);
+ assert.match(html,/data-aegis-change=/);
+ assert.match(js,/document\.addEventListener\('click'/);
+ assert.match(js,/document\.addEventListener\('change'/);
+ assert.match(js,/runAegisUiAction/);
+});

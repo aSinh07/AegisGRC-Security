@@ -172,3 +172,11 @@ test('governed outputs review and audit UX preserve protected workflows',async()
  for(const id of ['fmt-grc','fmt-remediation','fmt-architecture','fmt-technical','fmt-executive','frameworkList','frameworkConsole','fwAssessment','reviewFramework','reviewQueue','auditTraceStats','auditTraceRows','breachImpactRows'])assert.match(html,new RegExp('id="'+id+'"'));
  for(const action of ["downloadKind('grc')","assessSelectedFramework()","downloadFramework()","submitCurrentForReview()","loadAuditTrace()","downloadAuditPackage('pdf')"])assert.ok(html.includes(action),action);
 });
+
+
+test('enterprise finish layer includes accessibility responsive and reduced-motion states',async()=>{
+ const css=await readFile(new URL('../public/dashboard.css',import.meta.url),'utf8');
+ for(const token of [':focus-visible','prefers-reduced-motion','scrollbar-width','::selection','@media(max-width:560px)','--ui-accent'])assert.ok(css.includes(token),token);
+ assert.match(css,/input:focus,select:focus,textarea:focus/);
+ assert.match(css,/button:disabled,.btn:disabled/);
+});

@@ -6,9 +6,11 @@ test('dashboard HTML has no literal escaped newline between sections',async()=>{
 
 test('dashboard exposes authenticated audit traceability workspace',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const ui=html+'\n'+js;
  assert.match(html,/id="audittrace"/);
- assert.match(html,/loadAuditTrace\(\)/);
- assert.equal(html.includes("/audit-package.'+format"),true);
+ assert.match(ui,/loadAuditTrace\(\)/);
+ assert.equal(ui.includes("/audit-package.'+format"),true);
  assert.match(html,/Download PDF/);
  assert.match(html,/Download DOCX/);
  assert.match(html,/Download XLSX/);
@@ -38,7 +40,9 @@ test('server prevents stale HTML shell caching',async()=>{
 
 test('login supports profile enrollment MFA recovery and password visibility',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
- for(const marker of ['Welcome!','Full name','Job title / designation','Company / organization','Department / function','What do you work on?','Google Authenticator','Microsoft Authenticator','Forgot password?','togglePassword','/api/auth/reset-password','/aegis-logo.svg'])assert.equal(html.includes(marker),true,marker);
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const ui=html+'\n'+js;
+ for(const marker of ['Welcome!','Full name','Job title / designation','Company / organization','Department / function','What do you work on?','Google Authenticator','Microsoft Authenticator','Forgot password?','togglePassword','/api/auth/reset-password','/aegis-logo.svg'])assert.equal(ui.includes(marker),true,marker);
  assert.doesNotMatch(html,/Welcome back!/i);
 });
 
@@ -46,7 +50,9 @@ test('audit dashboard exposes conservative breach impact review',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
  assert.match(html,/Breach & Data Exposure Review/);
  assert.match(html,/id="breachImpactRows"/);
- assert.match(html,/renderBreachImpact/);
- assert.match(html,/breachAssessmentsRequiringReview/);
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const ui=html+'\n'+js;
+ assert.match(ui,/renderBreachImpact/);
+ assert.match(ui,/breachAssessmentsRequiringReview/);
  assert.match(html,/never treats this panel as forensic or regulatory confirmation/);
 });

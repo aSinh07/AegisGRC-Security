@@ -120,7 +120,7 @@ test('assessment pack approval revalidates every member and source at review tim
 
 test('assessment pack catalog exposes stale knowledge health after review',()=>{
  const start=source.indexOf('export async function assessmentPackCatalog');
- const end=source.indexOf('export async function recordReadinessAdoption',start);
+ const end=source.indexOf('export async function adoptReadinessTemplate',start);
  const body=source.slice(start,end);
  assert.match(body,/knowledge_health:h\.total>0&&h\.total===h\.valid\?'VALID':'STALE'/);
  assert.match(body,/valid_item_count:h\.valid/);

@@ -203,3 +203,27 @@ body{letter-spacing:.005em}.side{width:252px;padding:26px 18px;background:linear
 .evidence-vault-card{border-color:rgba(73,194,201,.14)}
 .scanner-evidence-card{border-color:rgba(116,145,201,.12)}
 @media(max-width:800px){.security-mode-strip{grid-template-columns:1fr;gap:5px}.evidence-hero{align-items:flex-start;flex-direction:column}.evidence-chain{flex-wrap:wrap}}
+
+
+/* Governed outputs, framework review and audit trace */
+.governance-output-hero,.audit-hero{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:22px 24px;margin-bottom:14px;border:1px solid rgba(79,182,199,.16);border-radius:17px;background:linear-gradient(135deg,rgba(8,30,46,.97),rgba(6,20,33,.93))}
+.governance-output-hero h2,.audit-hero h2{margin:6px 0;font-size:24px;letter-spacing:-.02em}
+.governance-output-hero p,.audit-hero p{margin:0;max-width:720px;color:#87a3b5}
+.output-trust{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.output-trust span{padding:7px 9px;border:1px solid rgba(67,208,194,.16);border-radius:999px;background:rgba(5,20,31,.56);font-size:8px;letter-spacing:.12em;color:#9cc7ca}
+.framework-hero{border-color:rgba(88,155,215,.16)}
+.review-hero{border-color:rgba(142,117,214,.16)}
+.output-center-card,.framework-workspace-card,.review-command-card,.decision-queue-card,.audit-command-card,.audit-package-card,.audit-lifecycle-card{position:relative;overflow:hidden}
+.output-center-card:after,.framework-workspace-card:after,.review-command-card:after,.audit-command-card:after{content:"";position:absolute;top:0;right:0;width:110px;height:1px;background:linear-gradient(90deg,transparent,rgba(66,210,198,.5))}
+.reportgrid{gap:12px}
+.reportcard{position:relative;padding:16px;border:1px solid rgba(91,159,186,.13);border-radius:13px;background:linear-gradient(145deg,rgba(8,27,41,.88),rgba(6,19,31,.8));transition:transform .16s ease,border-color .16s ease}
+.reportcard:hover{transform:translateY(-2px);border-color:rgba(75,207,198,.25)}
+.reportcard b{display:block;margin-bottom:12px}
+.framework-console{margin-top:16px;padding:18px;border:1px solid rgba(84,156,192,.13);border-radius:13px;background:rgba(5,19,31,.62)}
+.decision-queue-card{border-color:rgba(140,116,211,.12)}
+.audit-chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.audit-chain span{padding:7px 9px;border:1px solid rgba(70,205,191,.15);border-radius:8px;font-size:8px;letter-spacing:.12em;color:#9cc8c8}
+.audit-chain i{font-style:normal;color:#456f81}
+.audit-package-card{border-color:rgba(88,154,211,.13)}
+.audit-lifecycle-card{border-color:rgba(68,207,190,.13)}
+@media(max-width:850px){.governance-output-hero,.audit-hero{align-items:flex-start;flex-direction:column}.output-trust,.audit-chain{justify-content:flex-start}}

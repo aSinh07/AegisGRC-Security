@@ -142,3 +142,21 @@ test('assessment pack usability guard fails closed on draft or stale packs',()=>
  assert.match(body,/stale and must be re-reviewed before use/);
  assert.match(body,/knowledge_health:'VALID'/);
 });
+
+
+test('readiness adoption validates source metadata before opening a transaction',()=>{
+ const start=source.indexOf('export async function adoptReadinessTemplate');
+ const body=source.slice(start);
+ assert.match(body,/\['PDF','URL','TEXT','INTERNAL'\]\.includes\(sourceType\)/);
+ assert.match(body,/Unsupported knowledge source type/);
+ assert.match(body,/sourceTitle\.length<3/);
+ assert.match(body,/Knowledge source title must be at least 3 characters/);
+ assert.ok(body.indexOf("const sourceType=")<body.indexOf('pool.connect()'));
+});
+
+test('re-adoption cannot mutate metadata of an already reviewed or rejected source',()=>{
+ const start=source.indexOf('export async function adoptReadinessTemplate');
+ const body=source.slice(start);
+ assert.match(body,/CASE WHEN grc_knowledge_sources\.review_status='PENDING' THEN EXCLUDED\.title ELSE grc_knowledge_sources\.title END/);
+ assert.match(body,/CASE WHEN grc_knowledge_sources\.review_status='PENDING' THEN COALESCE\(EXCLUDED\.source_ref,grc_knowledge_sources\.source_ref\) ELSE grc_knowledge_sources\.source_ref END/);
+});

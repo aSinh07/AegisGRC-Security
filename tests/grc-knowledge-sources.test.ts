@@ -63,3 +63,24 @@ test('assessment pack publication requires independent review and content',()=>{
  assert.match(body,/Assessment pack must contain verified knowledge/);
  assert.match(body,/does not by themselves establish compliance|do not by themselves establish compliance/);
 });
+
+
+test('readiness adoption is atomic and rolls back partial imports',()=>{
+ const start=source.indexOf('export async function adoptReadinessTemplate');
+ assert.ok(start>=0);
+ const body=source.slice(start);
+ assert.match(body,/pool\.connect\(\)/);
+ assert.match(body,/query\('BEGIN'\)/);
+ assert.match(body,/query\('COMMIT'\)/);
+ assert.match(body,/query\('ROLLBACK'\)/);
+ assert.match(body,/finally\{client\.release\(\)\}/);
+ assert.match(body,/review_status='DRAFT'/);
+});
+
+test('atomic readiness adoption remains tenant scoped and does not self-review',()=>{
+ const start=source.indexOf('export async function adoptReadinessTemplate');
+ const body=source.slice(start);
+ assert.match(body,/requireOrgPermission\(userId,orgId,'manageControl'\)/);
+ assert.match(body,/organization_id/);
+ assert.doesNotMatch(body,/review_status='REVIEWED'|review_status='VERIFIED'/);
+});

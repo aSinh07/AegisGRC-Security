@@ -149,3 +149,10 @@ test('executive overview preserves assessment controls in command-center layout'
  assert.match(html,/scanQuickDoc\(\)/);
  assert.match(html,/downloadDocScan\(\)/);
 });
+
+
+test('Enterprise GRC command center preserves governed operational modules',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ for(const label of ['Enterprise GRC Command Center','CONTROL','EVIDENCE','RISK','CAPA','REVIEW','Frameworks + SoA','Evidence + Testing','Risk + CAPA','TPRM + Privacy'])assert.match(html,new RegExp(label));
+ for(const id of ['grcOrg','grcMetrics','grcScopes','grcSoa','grcEvidence','grcWork','enterpriseFrameworkSummary','grcControls','grcRemediation','tprmMetrics','privacyMetrics','grcTimeline'])assert.match(html,new RegExp('id="'+id+'"'));
+});

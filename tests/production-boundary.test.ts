@@ -139,3 +139,13 @@ test('enterprise shell preserves navigation and exposes assurance context',async
  assert.match(html,/id="profileAvatar"/);
  assert.match(html,/id="profileMenu"/);
 });
+
+
+test('executive overview preserves assessment controls in command-center layout',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ for(const id of ['target','auth','gate','quickdoc','quickdocmsg','risk','riskbar','count','state','integrations'])assert.match(html,new RegExp('id="'+id+'"'));
+ for(const label of ['AUTHORIZED ASSESSMENT','DOCUMENT TRIAGE','INTEGRATION ASSURANCE','Evidence before claims','MFA protected'])assert.match(html,new RegExp(label));
+ assert.match(html,/authorize\(\)/);
+ assert.match(html,/scanQuickDoc\(\)/);
+ assert.match(html,/downloadDocScan\(\)/);
+});

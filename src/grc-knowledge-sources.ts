@@ -87,7 +87,7 @@ export async function registerKnowledgeSource(userId:string,orgId:string,input:a
  if(!['PDF','WEB','STANDARD','REGULATION','INTERNAL','OTHER'].includes(sourceType))throw new Error('Invalid source type');
  return (await pool.query(`INSERT INTO grc_knowledge_sources(id,organization_id,sha256,title,source_type,authority_class,framework,framework_version,publisher,publication_date,source_ref,license_note,created_by)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
- ON CONFLICT(organization_id,sha256) DO UPDATE SET title=EXCLUDED.title,source_ref=COALESCE(EXCLUDED.source_ref,grc_knowledge_sources.source_ref)
+ ON CONFLICT(organization_id,sha256) DO UPDATE SET\n     title=CASE WHEN grc_knowledge_sources.review_status='PENDING' THEN EXCLUDED.title ELSE grc_knowledge_sources.title END,\n     source_ref=CASE WHEN grc_knowledge_sources.review_status='PENDING' THEN COALESCE(EXCLUDED.source_ref,grc_knowledge_sources.source_ref) ELSE grc_knowledge_sources.source_ref END
  RETURNING *`,[crypto.randomUUID(),orgId,sha,title,sourceType,authority,clean(input.framework,100)||null,clean(input.frameworkVersion,80)||null,clean(input.publisher,200)||null,input.publicationDate||null,clean(input.sourceRef,1000)||null,clean(input.licenseNote,1000)||null,userId])).rows[0];
 }
 
@@ -237,6 +237,10 @@ export async function adoptReadinessTemplate(userId:string,orgId:string,pack:any
  await requireOrgPermission(userId,orgId,'manageControl');
  const sha=clean(sourceInput.sha256,64).toLowerCase();
  if(!/^[a-f0-9]{64}$/.test(sha))throw new Error('Valid source SHA-256 is required');
+ const sourceType=clean(sourceInput.sourceType||'PDF',20).toUpperCase();
+ if(!['PDF','URL','TEXT','INTERNAL'].includes(sourceType))throw Object.assign(new Error('Unsupported knowledge source type'),{statusCode:400});
+ const sourceTitle=clean(sourceInput.title||pack.title,300);
+ if(sourceTitle.length<3)throw Object.assign(new Error('Knowledge source title must be at least 3 characters'),{statusCode:400});
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
@@ -248,7 +252,7 @@ export async function adoptReadinessTemplate(userId:string,orgId:string,pack:any
   const source=(await client.query(`INSERT INTO grc_knowledge_sources(id,organization_id,sha256,title,source_type,authority_class,framework,framework_version,publisher,publication_date,source_ref,license_note,created_by)
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
    ON CONFLICT(organization_id,sha256) DO UPDATE SET title=EXCLUDED.title,source_ref=COALESCE(EXCLUDED.source_ref,grc_knowledge_sources.source_ref)
-   RETURNING *`,[crypto.randomUUID(),orgId,sha,clean(sourceInput.title||pack.title,300),clean(sourceInput.sourceType||'PDF',20).toUpperCase(),pack.sourceClass,clean(pack.framework,100)||null,clean(pack.frameworkVersion,80)||null,clean(sourceInput.publisher,200)||null,sourceInput.publicationDate||null,clean(sourceInput.sourceRef,1000)||null,clean(sourceInput.licenseNote,1000)||null,userId])).rows[0];
+   RETURNING *`,[crypto.randomUUID(),orgId,sha,sourceTitle,sourceType,pack.sourceClass,clean(pack.framework,100)||null,clean(pack.frameworkVersion,80)||null,clean(sourceInput.publisher,200)||null,sourceInput.publicationDate||null,clean(sourceInput.sourceRef,1000)||null,clean(sourceInput.licenseNote,1000)||null,userId])).rows[0];
   const items=[];
   for(const item of pack.items){
    const row=(await client.query(`INSERT INTO grc_knowledge_items(id,organization_id,source_id,item_key,item_type,title,content,section_ref,confidence,created_by)

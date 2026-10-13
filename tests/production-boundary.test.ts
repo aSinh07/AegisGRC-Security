@@ -180,3 +180,17 @@ test('enterprise finish layer includes accessibility responsive and reduced-moti
  assert.match(css,/input:focus,select:focus,textarea:focus/);
  assert.match(css,/button:disabled,.btn:disabled/);
 });
+
+
+test('mobile navigation and AI assistant remain accessible and functional',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const css=await readFile(new URL('../public/dashboard.css',import.meta.url),'utf8');
+ for(const id of ['workspaceSidebar','mobileNavToggle','copilot','cpmode','voiceBtn','cpmsgs','cpq'])assert.match(html,new RegExp('id="'+id+'"'));
+ assert.ok(html.includes('toggleMobileNav()'));
+ assert.ok(js.includes('function toggleMobileNav(force)'));
+ assert.ok(js.includes('toggleMobileNav(false)'));
+ assert.ok(css.includes('.side.mobile-open'));
+ assert.ok(css.includes('.copilot-controls'));
+ assert.ok(html.includes('Context-aware workspace assistant'));
+});

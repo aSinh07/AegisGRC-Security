@@ -1,0 +1,46 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+const source=fs.readFileSync('src/grc-knowledge-sources.ts','utf8');
+
+test('knowledge registry is additive and tenant scoped',()=>{
+ assert.match(source,/CREATE TABLE IF NOT EXISTS grc_knowledge_sources/);
+ assert.match(source,/CREATE TABLE IF NOT EXISTS grc_knowledge_items/);
+ assert.match(source,/CREATE TABLE IF NOT EXISTS grc_knowledge_control_links/);
+ assert.match(source,/organization_id uuid NOT NULL REFERENCES grc_organizations/);
+ assert.doesNotMatch(source,/DROP TABLE|TRUNCATE/i);
+});
+
+test('knowledge registry deduplicates source documents by organization and sha256',()=>{
+ assert.match(source,/UNIQUE\(organization_id,sha256\)/);
+ assert.match(source,/CHECK\(sha256 ~ '\^\[a-f0-9\]\{64\}\$'\)/);
+});
+
+test('knowledge is classified by authority instead of assuming uploaded PDFs are standards',()=>{
+ for(const kind of ['AUTHORITATIVE','IMPLEMENTATION_AID','EDUCATIONAL','INTERNAL'])assert.ok(source.includes(kind),kind);
+ assert.match(source,/authority_class/);
+});
+
+test('unreviewed knowledge cannot become canonical-control support',()=>{
+ const start=source.indexOf('export async function linkKnowledgeToControl');
+ const body=source.slice(start);
+ assert.match(body,/item\.review_status!=='VERIFIED'/);
+ assert.match(body,/item\.source_review_status!=='REVIEWED'/);
+ assert.match(body,/Only reviewed and verified knowledge can be linked to controls/);
+});
+
+test('source and extracted knowledge require independent review',()=>{
+ assert.match(source,/Independent source reviewer required/);
+ assert.match(source,/Independent knowledge reviewer required/);
+ assert.match(source,/Source must be reviewed before knowledge can be verified/);
+});
+
+test('provenance captures page and section references and confidence',()=>{
+ assert.match(source,/page_ref text,section_ref text/);
+ assert.match(source,/confidence numeric\(4,3\)/);
+});
+
+test('catalog explicitly avoids certification claims',()=>{
+ assert.match(source,/does not establish certification or legal conformity/);
+});

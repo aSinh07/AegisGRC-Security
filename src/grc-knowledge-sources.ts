@@ -258,17 +258,6 @@ export async function assessmentPackCatalog(userId:string,orgId:string){
 }
 
 
-export async function recordReadinessAdoption(userId:string,orgId:string,readinessKey:string,sourceId:string){
- await requireOrgPermission(userId,orgId,'manageControl');
- const source=(await pool.query('SELECT id,review_status FROM grc_knowledge_sources WHERE id=$1 AND organization_id=$2',[sourceId,orgId])).rows[0];
- if(!source)throw Object.assign(new Error('Knowledge source not found'),{statusCode:404});
- const key=clean(readinessKey,120).toUpperCase();if(!key)throw new Error('Readiness key required');
- return (await pool.query(`INSERT INTO grc_readiness_adoptions(id,organization_id,readiness_key,source_id,adopted_by)
- VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,readiness_key) DO UPDATE SET source_id=EXCLUDED.source_id,adopted_by=EXCLUDED.adopted_by,adopted_at=now() RETURNING *`,
- [crypto.randomUUID(),orgId,key,sourceId,userId])).rows[0];
-}
-
-
 export async function adoptReadinessTemplate(userId:string,orgId:string,pack:any,sourceInput:any){
  await requireOrgPermission(userId,orgId,'manageControl');
  const sha=clean(sourceInput.sha256,64).toLowerCase();

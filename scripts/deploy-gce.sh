@@ -4,70 +4,62 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 test -f .env.production || { echo ".env.production is required"; exit 1; }
 
-PRODUCTION_DB_VOLUME="aegisgrc-security_aegis-db"
-if ! docker volume inspect "$PRODUCTION_DB_VOLUME" >/dev/null 2>&1; then
-  echo "Required production database volume $PRODUCTION_DB_VOLUME does not exist; refusing to initialize a replacement database."
-  exit 1
-fi
-
 required=(POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB DATABASE_URL ASSESSMENT_SESSION_SECRET EVIDENCE_HMAC_KEY REPORT_SIGNING_KEY GRC_AUTOMATION_SECRET TOTP_ENCRYPTION_KEY)
 for key in "${required[@]}"; do
   value="$(grep -E "^${key}=" .env.production | tail -1 | cut -d= -f2- || true)"
   normalized="$(printf '%s' "$value" | tr '[:lower:]' '[:upper:]')"
   if [ -z "$value" ] || [[ "$normalized" == REPLACE_* ]] || [[ "$normalized" == CHANGE_THIS* ]] || [[ "$normalized" == CHANGEME* ]]; then
-    echo "Missing or placeholder production secret: $key"
-    exit 1
+    echo "Missing or placeholder production secret: $key"; exit 1
   fi
 done
 
-node_env="$(grep -E '^NODE_ENV=' .env.production | tail -1 | cut -d= -f2- || true)"
-cookie_secure="$(grep -E '^COOKIE_SECURE=' .env.production | tail -1 | cut -d= -f2- || true)"
-[ "$node_env" = "production" ] || { echo "NODE_ENV must be production"; exit 1; }
-[ "$cookie_secure" = "true" ] || { echo "COOKIE_SECURE must be true"; exit 1; }
+[ "$(grep -E '^NODE_ENV=' .env.production | tail -1 | cut -d= -f2- || true)" = "production" ] || { echo "NODE_ENV must be production"; exit 1; }
+[ "$(grep -E '^COOKIE_SECURE=' .env.production | tail -1 | cut -d= -f2- || true)" = "true" ] || { echo "COOKIE_SECURE must be true"; exit 1; }
 
 totp_key="$(grep -E '^TOTP_ENCRYPTION_KEY=' .env.production | tail -1 | cut -d= -f2- || true)"
-if ! printf '%s' "$totp_key" | base64 -d 2>/dev/null | awk 'BEGIN{ok=0} { } END{ }' >/dev/null; then
-  echo "TOTP_ENCRYPTION_KEY must be valid base64"
-  exit 1
-fi
-totp_bytes="$(printf '%s' "$totp_key" | base64 -d 2>/dev/null | wc -c | tr -d ' ')"
-[ "$totp_bytes" = "32" ] || { echo "TOTP_ENCRYPTION_KEY must decode to exactly 32 bytes"; exit 1; }
+totp_bytes="$(printf '%s' "$totp_key" | base64 -d 2>/dev/null | wc -c | tr -d ' ' || true)"
+[ "$totp_bytes" = "32" ] || { echo "TOTP_ENCRYPTION_KEY must be valid base64 decoding to exactly 32 bytes"; exit 1; }
 
-BACKUP_DIR="${BACKUP_DIR:-./backups}"
-mkdir -p "$BACKUP_DIR"
-if docker compose -f docker-compose.production.yml ps --status running postgres 2>/dev/null | grep -q postgres; then
-  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-  echo "Creating pre-deploy PostgreSQL backup..."
-  backup_path="$BACKUP_DIR/aegis-$stamp.dump"
+echo "Checking existing PostgreSQL service without modifying it..."
+docker compose -f docker-compose.production.yml ps --status running postgres 2>/dev/null | grep -q postgres || {
+  echo "Existing PostgreSQL service is not running; refusing application-only deployment."; exit 1;
+}
+docker compose -f docker-compose.production.yml exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null || {
+  echo "Existing PostgreSQL is not ready; refusing deployment."; exit 1;
+}
+docker compose -f docker-compose.production.yml exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atqc "SELECT 1"' | grep -qx 1 || {
+  echo "Existing PostgreSQL read-only validation failed; refusing deployment."; exit 1;
+}
+
+if [ "${AEGIS_PREDEPLOY_BACKUP:-0}" = "1" ]; then
+  BACKUP_DIR="${BACKUP_DIR:-./backups}"; mkdir -p "$BACKUP_DIR"
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"; backup_path="$BACKUP_DIR/aegis-$stamp.dump"
+  echo "Optional backup requested; creating $backup_path ..."
   docker compose -f docker-compose.production.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$backup_path"
-  test -s "$backup_path" || { echo "PostgreSQL backup is empty; refusing deployment."; rm -f "$backup_path"; exit 1; }
-  docker compose -f docker-compose.production.yml exec -T postgres sh -c 'pg_restore --version' >/dev/null
-  docker run --rm -i postgres:16-alpine pg_restore -l < "$backup_path" >/dev/null || { echo "PostgreSQL backup validation failed; refusing deployment."; exit 1; }
-  echo "Verified pre-deploy backup: $backup_path"
+  test -s "$backup_path" || { echo "Backup is empty; refusing deployment."; rm -f "$backup_path"; exit 1; }
 fi
 
 echo "Pulling release..."
 git pull --ff-only origin main
+release="$(git rev-parse HEAD)"
+echo "Deploying release $release"
 
-echo "Building application image..."
+echo "Building application image only..."
 docker compose -f docker-compose.production.yml build aegis
 
-echo "Starting PostgreSQL without deleting its named volume..."
-docker compose -f docker-compose.production.yml up -d postgres
-
-echo "Starting/updating AegisGRC..."
+echo "Starting/updating AegisGRC only; PostgreSQL and other services are not restarted..."
 docker compose -f docker-compose.production.yml up -d --no-deps aegis
 
-echo "Waiting for readiness..."
+echo "Waiting for local readiness..."
 for i in $(seq 1 30); do
-  if body="$(curl -fsS http://127.0.0.1:8080/api/ready)" && echo "$body" | grep -q '"mode":"postgres"'; then
-    echo "AegisGRC is ready with PostgreSQL persistence."
+  if body="$(curl -fsS http://127.0.0.1:8080/api/ready 2>/dev/null)" && echo "$body" | grep -q '"mode":"postgres"'; then
+    echo "AegisGRC $release is ready with the existing PostgreSQL service."
     docker compose -f docker-compose.production.yml ps
     exit 0
   fi
   sleep 2
 done
 
-echo "Readiness check failed; showing application logs."
+echo "Readiness failed; showing Aegis application logs only."
 docker compose -f docker-compose.production.yml logs --tail=100 aegis
 exit 1

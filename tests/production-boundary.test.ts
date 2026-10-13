@@ -82,3 +82,16 @@ test('main dashboard static controls use delegated CSP-safe event metadata',asyn
  assert.match(js,/document\.addEventListener\('change'/);
  assert.match(js,/runAegisUiAction/);
 });
+
+
+test('dashboard contains no executable inline event handlers after CSP migration',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/\son[a-z]+\s*=/i);
+ assert.doesNotMatch(js,/\son[a-z]+\s*=/i);
+ assert.doesNotMatch(js,/\beval\s*\(/);
+ assert.doesNotMatch(js,/\bFunction\s*\(/);
+ for(const action of ['reviewPrivacyLegalEntry','advancePrivacyBreach','submitTprmQuestionnaire','runGrcTest','selectFramework','decideReview','securityAssessDoc']){
+  assert.match(html+'\n'+js,new RegExp('data-action="'+action+'"'));
+ }
+});

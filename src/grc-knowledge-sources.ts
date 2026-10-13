@@ -192,7 +192,17 @@ export async function reviewAssessmentPack(userId:string,orgId:string,packId:str
 export async function assessmentPackCatalog(userId:string,orgId:string){
  await requireOrgPermission(userId,orgId,'read');
  const packs=(await pool.query(`SELECT p.*,count(pi.knowledge_item_id)::int item_count FROM grc_assessment_packs p LEFT JOIN grc_assessment_pack_items pi ON pi.pack_id=p.id WHERE p.organization_id=$1 GROUP BY p.id ORDER BY p.created_at DESC`,[orgId])).rows;
- return {packs,guardrail:'Assessment packs are reviewed readiness content assembled from verified knowledge. They do not by themselves establish compliance, certification, or legal conformity.'};
+ const health=(await pool.query(`SELECT pi.pack_id,
+  count(*)::int total,
+  count(*) FILTER (WHERE i.review_status='VERIFIED' AND s.review_status='REVIEWED' AND i.organization_id=$1 AND s.organization_id=$1)::int valid
+ FROM grc_assessment_pack_items pi
+ JOIN grc_knowledge_items i ON i.id=pi.knowledge_item_id
+ JOIN grc_knowledge_sources s ON s.id=i.source_id
+ JOIN grc_assessment_packs p ON p.id=pi.pack_id AND p.organization_id=$1
+ GROUP BY pi.pack_id`,[orgId])).rows;
+ const byPack=new Map(health.map((x:any)=>[x.pack_id,{total:Number(x.total||0),valid:Number(x.valid||0)}]));
+ const assessed=packs.map((p:any)=>{const h=byPack.get(p.id)||{total:0,valid:0};return {...p,knowledge_health:h.total>0&&h.total===h.valid?'VALID':'STALE',valid_item_count:h.valid}});
+ return {packs:assessed,guardrail:'Assessment packs are reviewed readiness content assembled from verified knowledge. A STALE pack must not be relied upon until its knowledge and sources are re-reviewed. Packs do not by themselves establish compliance, certification, or legal conformity.'};
 }
 
 

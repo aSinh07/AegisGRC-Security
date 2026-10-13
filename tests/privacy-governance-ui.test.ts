@@ -1,3 +1,3 @@
-import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';const h=fs.readFileSync('public/index.html','utf8');
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';const h=fs.readFileSync('public/index.html','utf8')+'\n'+fs.readFileSync('public/enterprise-ops.js','utf8');
 test('privacy legal register UI preserves human legal determination',()=>{assert.match(h,/AegisGRC does not determine legal applicability or commencement/);assert.match(h,/Independent legal review/);assert.match(h,/Final applicability requires rationale and evidence/);assert.match(h,/privacy\/legal-register/)});
 test('notice governance UI exposes draft and independent approval',()=>{assert.match(h,/Register draft notice/);assert.match(h,/Approved notice versions are evidence records, not a legal-compliance claim/);assert.match(h,/SHA-256/);assert.match(h,/privacy\/notices/)});

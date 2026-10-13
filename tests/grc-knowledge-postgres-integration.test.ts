@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import pg from 'pg';
-import {initUsers} from '../src/user-auth.js';
+import {initUsers,beginRegistration} from '../src/user-auth.js';
 import {initOrganizations,createOrganization} from '../src/grc-organizations.js';
 import {initControlRegistry} from '../src/grc-controls.js';
 import {
@@ -15,13 +15,14 @@ const ciDb=process.env.NODE_ENV==='test'&&/^postgres(?:ql)?:\/\/[^/]*@(?:localho
 
 test('real PostgreSQL knowledge review and assessment-pack lifecycle fails closed when knowledge becomes stale',{skip:!ciDb,timeout:30000},async()=>{
  const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:false});
- const creator=crypto.randomUUID(),reviewer=crypto.randomUUID();
+ let creator:string|undefined,reviewer:string|undefined;
  let orgId:string|undefined;
  try{
   await initUsers();await initOrganizations();await initControlRegistry();await initKnowledgeSources();
-  await pool.query(`INSERT INTO app_users(id,email,password_hash,full_name) VALUES
-   ($1,$2,'ci-placeholder','Knowledge Creator'),($3,$4,'ci-placeholder','Independent Reviewer')`,
-   [creator,`knowledge-creator-${creator}@example.test`,reviewer,`knowledge-reviewer-${reviewer}@example.test`]);
+  const suffix=crypto.randomUUID(),password='Aegis-Knowledge-'+crypto.randomBytes(10).toString('hex');
+  const creatorRegistration=await beginRegistration(`knowledge-creator-${suffix}@example.test`,password,{fullName:'Knowledge Creator'});
+  const reviewerRegistration=await beginRegistration(`knowledge-reviewer-${suffix}@example.test`,password,{fullName:'Independent Reviewer'});
+  creator=creatorRegistration.userId;reviewer=reviewerRegistration.userId;
   const org=await createOrganization(creator,{name:`Knowledge lifecycle ${crypto.randomUUID()}`});orgId=org.id;
   await pool.query("INSERT INTO grc_organization_members(organization_id,user_id,role) VALUES($1,$2,'REVIEWER')",[org.id,reviewer]);
 
@@ -51,7 +52,7 @@ test('real PostgreSQL knowledge review and assessment-pack lifecycle fails close
   await assert.rejects(()=>requireUsableAssessmentPack(reviewer,org.id,pack.id),/stale and must be re-reviewed before use/);
  }finally{
   if(orgId)await pool.query('DELETE FROM grc_organizations WHERE id=$1',[orgId]).catch(()=>{});
-  await pool.query('DELETE FROM app_users WHERE id=ANY($1::uuid[])',[[creator,reviewer]]).catch(()=>{});
+  if(creator&&reviewer)await pool.query('DELETE FROM app_users WHERE id=ANY($1::uuid[])',[[creator,reviewer]]).catch(()=>{});
   await pool.end();
  }
 });

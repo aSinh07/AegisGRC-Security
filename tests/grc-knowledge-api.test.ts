@@ -30,3 +30,19 @@ test('knowledge API exposes separate register review extraction verification and
 test('server does not expose automatic PDF-to-control or automatic compliance route',()=>{
  assert.doesNotMatch(server,/knowledge-sources[^\n]*auto(?:map|approve|comply)|pdf[^\n]*auto(?:map|approve|comply)/i);
 });
+
+
+test('assessment pack APIs are authenticated and separated from knowledge ingestion',()=>{
+ const start=server.indexOf("app.get('/api/grc/organizations/:orgId/assessment-packs'");
+ const end=server.indexOf("app.get('/api/grc/organizations/:orgId/framework-requirements'",start);
+ assert.ok(start>=0&&end>start);
+ const routes=server.slice(start,end);
+ for(const route of [
+  "app.get('/api/grc/organizations/:orgId/assessment-packs'",
+  "app.post('/api/grc/organizations/:orgId/assessment-packs'",
+  "app.post('/api/grc/organizations/:orgId/assessment-packs/:packId/items/:itemId'",
+  "app.post('/api/grc/organizations/:orgId/assessment-packs/:packId/review'"
+ ])assert.ok(routes.includes(route),route);
+ assert.equal((routes.match(/currentUser\(req\)/g)||[]).length,4);
+ assert.equal((routes.match(/User session required/g)||[]).length,4);
+});

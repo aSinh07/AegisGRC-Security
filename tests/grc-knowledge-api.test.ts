@@ -46,3 +46,15 @@ test('assessment pack APIs are authenticated and separated from knowledge ingest
  assert.equal((routes.match(/currentUser\(req\)/g)||[]).length,4);
  assert.equal((routes.match(/User session required/g)||[]).length,4);
 });
+
+
+test('assessment pack usability API is authenticated and delegates fail-closed validation',()=>{
+ const start=server.indexOf("app.get('/api/grc/organizations/:orgId/assessment-packs/:packId/usable'");
+ assert.ok(start>=0);
+ const end=server.indexOf("app.get('/api/grc/organizations/:orgId/assessment-packs'",start+10);
+ const body=server.slice(start,end);
+ assert.match(body,/currentUser\(req\)/);
+ assert.match(body,/requireUsableAssessmentPack/);
+ assert.match(body,/usable:true/);
+ assert.match(body,/usable:false/);
+});

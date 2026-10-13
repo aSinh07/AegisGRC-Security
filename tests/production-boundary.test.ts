@@ -164,3 +164,11 @@ test('security operations and evidence UX preserve executable controls',async()=
  for(const id of ['tool','findings','CRITICAL','HIGH','MEDIUM','LOW','INFO','pie','bars','grc','aiout','docs','doclist','raw'])assert.match(html,new RegExp('id="'+id+'"'));
  for(const action of ["scan()","report()","ai()","uploadDocs()"])assert.ok(html.includes(action),action);
 });
+
+
+test('governed outputs review and audit UX preserve protected workflows',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ for(const label of ['Assurance Report Center','Framework Crosswalk Workspace','Consultant Review Center','Audit Evidence Chain','MFA EXPORT','HUMAN GOVERNANCE GATE'])assert.ok(html.includes(label),label);
+ for(const id of ['fmt-grc','fmt-remediation','fmt-architecture','fmt-technical','fmt-executive','frameworkList','frameworkConsole','fwAssessment','reviewFramework','reviewQueue','auditTraceStats','auditTraceRows','breachImpactRows'])assert.match(html,new RegExp('id="'+id+'"'));
+ for(const action of ["downloadKind('grc')","assessSelectedFramework()","downloadFramework()","submitCurrentForReview()","loadAuditTrace()","downloadAuditPackage('pdf')"])assert.ok(html.includes(action),action);
+});

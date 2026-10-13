@@ -6,6 +6,7 @@ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.en
 
 export type KnowledgeAuthority='AUTHORITATIVE'|'IMPLEMENTATION_AID'|'EDUCATIONAL'|'INTERNAL';
 export type KnowledgeItemType='GUIDANCE'|'ASSESSMENT_QUESTION'|'EVIDENCE_EXPECTATION'|'CONTROL_CANDIDATE'|'TERM'|'RISK_PATTERN';
+export type AssessmentPackStatus='DRAFT'|'REVIEWED'|'RETIRED';
 
 export async function initKnowledgeSources(){
  await pool.query(`
@@ -46,6 +47,21 @@ export async function initKnowledgeSources(){
  );
  CREATE INDEX IF NOT EXISTS grc_knowledge_sources_org_idx ON grc_knowledge_sources(organization_id,review_status,authority_class);
  CREATE INDEX IF NOT EXISTS grc_knowledge_items_org_idx ON grc_knowledge_items(organization_id,source_id,review_status);
+ CREATE TABLE IF NOT EXISTS grc_assessment_packs(
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+  pack_key text NOT NULL,title text NOT NULL,framework text,framework_version text,
+  status text NOT NULL DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','REVIEWED','RETIRED')),
+  created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,reviewed_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),reviewed_at timestamptz,
+  UNIQUE(organization_id,pack_key)
+ );
+ CREATE TABLE IF NOT EXISTS grc_assessment_pack_items(
+  pack_id uuid NOT NULL REFERENCES grc_assessment_packs(id) ON DELETE CASCADE,
+  knowledge_item_id uuid NOT NULL REFERENCES grc_knowledge_items(id) ON DELETE CASCADE,
+  ordinal int NOT NULL DEFAULT 0,
+  PRIMARY KEY(pack_id,knowledge_item_id)
+ );
  `);
 }
 
@@ -123,4 +139,42 @@ export async function knowledgeSourceCatalog(userId:string,orgId:string){
   (SELECT count(*)::int FROM grc_knowledge_items i WHERE i.source_id=s.id AND i.review_status='VERIFIED') verified_item_count
  FROM grc_knowledge_sources s WHERE s.organization_id=$1 ORDER BY s.created_at DESC`,[orgId])).rows;
  return {sources,guardrail:'Knowledge sources and extracted items are reference material. Only independently reviewed sources and verified items may be linked to canonical controls; linkage does not establish certification or legal conformity.'};
+}
+
+
+export async function createAssessmentPack(userId:string,orgId:string,input:any){
+ await requireOrgPermission(userId,orgId,'manageControl');
+ const key=clean(input.packKey,120).toUpperCase(),title=clean(input.title,300);
+ if(!key||title.length<3)throw new Error('Assessment pack key and title are required');
+ return (await pool.query(`INSERT INTO grc_assessment_packs(id,organization_id,pack_key,title,framework,framework_version,created_by)
+ VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(organization_id,pack_key) DO UPDATE SET title=EXCLUDED.title,framework=EXCLUDED.framework,framework_version=EXCLUDED.framework_version,status='DRAFT',reviewed_by=NULL,reviewed_at=NULL RETURNING *`,
+ [crypto.randomUUID(),orgId,key,title,clean(input.framework,100)||null,clean(input.frameworkVersion,80)||null,userId])).rows[0];
+}
+
+export async function addKnowledgeToAssessmentPack(userId:string,orgId:string,packId:string,itemId:string,ordinal=0){
+ await requireOrgPermission(userId,orgId,'manageControl');
+ const pack=(await pool.query('SELECT id,status FROM grc_assessment_packs WHERE id=$1 AND organization_id=$2',[packId,orgId])).rows[0];
+ if(!pack)throw Object.assign(new Error('Assessment pack not found'),{statusCode:404});
+ if(pack.status!=='DRAFT')throw Object.assign(new Error('Only draft assessment packs can be changed'),{statusCode:409});
+ const item=(await pool.query(`SELECT i.id,i.review_status,s.review_status source_review_status FROM grc_knowledge_items i JOIN grc_knowledge_sources s ON s.id=i.source_id AND s.organization_id=i.organization_id WHERE i.id=$1 AND i.organization_id=$2`,[itemId,orgId])).rows[0];
+ if(!item)throw Object.assign(new Error('Knowledge item not found'),{statusCode:404});
+ if(item.review_status!=='VERIFIED'||item.source_review_status!=='REVIEWED')throw Object.assign(new Error('Only reviewed and verified knowledge can enter assessment packs'),{statusCode:409});
+ await pool.query('INSERT INTO grc_assessment_pack_items(pack_id,knowledge_item_id,ordinal) VALUES($1,$2,$3) ON CONFLICT(pack_id,knowledge_item_id) DO UPDATE SET ordinal=EXCLUDED.ordinal',[packId,itemId,Math.max(0,Number(ordinal)||0)]);
+ return {ok:true};
+}
+
+export async function reviewAssessmentPack(userId:string,orgId:string,packId:string){
+ await requireOrgPermission(userId,orgId,'review');
+ const pack=(await pool.query('SELECT * FROM grc_assessment_packs WHERE id=$1 AND organization_id=$2',[packId,orgId])).rows[0];
+ if(!pack)throw Object.assign(new Error('Assessment pack not found'),{statusCode:404});
+ if(pack.created_by===userId)throw Object.assign(new Error('Independent assessment pack reviewer required'),{statusCode:409});
+ const count=Number((await pool.query('SELECT count(*) n FROM grc_assessment_pack_items WHERE pack_id=$1',[packId])).rows[0]?.n||0);
+ if(count<1)throw Object.assign(new Error('Assessment pack must contain verified knowledge'),{statusCode:409});
+ return (await pool.query("UPDATE grc_assessment_packs SET status='REVIEWED',reviewed_by=$3,reviewed_at=now() WHERE id=$1 AND organization_id=$2 RETURNING *",[packId,orgId,userId])).rows[0];
+}
+
+export async function assessmentPackCatalog(userId:string,orgId:string){
+ await requireOrgPermission(userId,orgId,'read');
+ const packs=(await pool.query(`SELECT p.*,count(pi.knowledge_item_id)::int item_count FROM grc_assessment_packs p LEFT JOIN grc_assessment_pack_items pi ON pi.pack_id=p.id WHERE p.organization_id=$1 GROUP BY p.id ORDER BY p.created_at DESC`,[orgId])).rows;
+ return {packs,guardrail:'Assessment packs are reviewed readiness content assembled from verified knowledge. They do not by themselves establish compliance, certification, or legal conformity.'};
 }

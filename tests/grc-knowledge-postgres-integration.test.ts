@@ -8,7 +8,7 @@ import {initControlRegistry} from '../src/grc-controls.js';
 import {
  initKnowledgeSources,registerKnowledgeSource,reviewKnowledgeSource,
  createKnowledgeItem,verifyKnowledgeItem,createAssessmentPack,
- addKnowledgeToAssessmentPack,reviewAssessmentPack,requireUsableAssessmentPack
+ addKnowledgeToAssessmentPack,reviewAssessmentPack,requireUsableAssessmentPack,supersedeKnowledgeSource
 } from '../src/grc-knowledge-sources.js';
 
 const ciDb=process.env.NODE_ENV==='test'&&/^postgres(?:ql)?:\/\/[^/]*@(?:localhost|127\.0\.0\.1):5432\//.test(process.env.DATABASE_URL||'');
@@ -49,8 +49,25 @@ test('real PostgreSQL knowledge review and assessment-pack lifecycle fails close
   assert.equal(usable.knowledge_health,'VALID');
   assert.equal(usable.valid_item_count,1);
 
-  await pool.query("UPDATE grc_knowledge_items SET review_status='REJECTED',verified_by=$2,verified_at=now() WHERE id=$1",[item.id,reviewerId]);
-  await assert.rejects(()=>requireUsableAssessmentPack(reviewerId,org.id,pack.id),/stale and must be re-reviewed before use/);
+  const successor=await supersedeKnowledgeSource(creatorId,org.id,source.id,{
+   sha256:crypto.createHash('sha256').update(crypto.randomBytes(32)).digest('hex'),
+   title:'CI reviewed knowledge source v2',frameworkVersion:'2'
+  });
+  assert.equal(successor.predecessorId,source.id);
+  assert.equal(successor.successor.review_status,'PENDING');
+  assert.equal(successor.successor.supersedes_source_id,source.id);
+  const predecessor=(await pool.query('SELECT review_status,superseded_at,superseded_by FROM grc_knowledge_sources WHERE id=$1',[source.id])).rows[0];
+  assert.equal(predecessor.review_status,'REVIEWED');
+  assert.ok(predecessor.superseded_at);
+  assert.equal(predecessor.superseded_by,creatorId);
+  const invalidatedPack=(await pool.query('SELECT status,reviewed_by,reviewed_at FROM grc_assessment_packs WHERE id=$1',[pack.id])).rows[0];
+  assert.equal(invalidatedPack.status,'DRAFT');
+  assert.equal(invalidatedPack.reviewed_by,null);
+  assert.equal(invalidatedPack.reviewed_at,null);
+  await assert.rejects(()=>requireUsableAssessmentPack(reviewerId,org.id,pack.id),/not reviewed/);
+  await assert.rejects(()=>supersedeKnowledgeSource(creatorId,org.id,source.id,{
+   sha256:crypto.createHash('sha256').update(crypto.randomBytes(32)).digest('hex'),title:'CI source v3'
+  }),/already has a successor/);
  }finally{
   if(orgId)await pool.query('DELETE FROM grc_organizations WHERE id=$1',[orgId]).catch(()=>{});
   if(creator&&reviewer)await pool.query('DELETE FROM app_users WHERE id=ANY($1::uuid[])',[[creator,reviewer]]).catch(()=>{});

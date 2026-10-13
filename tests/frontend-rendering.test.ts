@@ -20,7 +20,7 @@ test('premium Aegis identity and login hero are present',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
  assert.match(html,/class="brand-shield hero-shield"/);
  assert.match(html,/AEGISGRC SECURITY & GRC/);
- assert.match(html,/class="executive-hero"/);
+ assert.match(html,/class="[^"]*executive-hero[^"]*"/);
  assert.match(html,/AEGIS COMMAND CENTER/);
 });
 test('rendered HTML has no literal escaped newline markup artifacts',async()=>{

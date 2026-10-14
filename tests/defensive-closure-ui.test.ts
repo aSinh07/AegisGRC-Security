@@ -44,3 +44,6 @@ test('Defensive Semgrep retest is repository-bound and fingerprint-gated',async(
 
 
 test('Defensive UI exposes governed secret-safe Gitleaks targeted retest',async()=>{const s=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(s,/defenseGitleaksAsset-/);assert.match(s,/runGitleaksDefensiveRetest/);assert.match(s,/gitleaks-retest/);assert.match(s,/secret-redacted evidence/);assert.match(s,/same secret-detection fingerprint remains/);});
+
+
+test('Defensive capability catalog is separated from current assessment coverage',async()=>{const s=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(s,/Current assessment coverage/);assert.match(s,/\/coverage/);assert.match(s,/No authoritative layer coverage has been recorded/);assert.match(s,/NOT OBSERVED/);});

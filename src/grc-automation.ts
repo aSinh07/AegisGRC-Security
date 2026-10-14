@@ -3,13 +3,13 @@ import pg from 'pg';
 import {requireOrgPermission} from './grc-organizations.js';
 
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
-const kinds=['EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY','OBLIGATION_DUE','EXCEPTION_EXPIRY','THIRD_PARTY_REVIEW_DUE','BIA_DUE','POLICY_REVIEW_DUE'] as const;
+const kinds=['EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY','OBLIGATION_DUE','EXCEPTION_EXPIRY','THIRD_PARTY_REVIEW_DUE','BIA_DUE','POLICY_REVIEW_DUE','SECURITY_REPORT_HANDOFF'] as const;
 type Kind=typeof kinds[number];
 
 export async function initGrcAutomation(){await pool.query(`
 CREATE TABLE IF NOT EXISTS grc_automation_rules(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
- name text NOT NULL,kind text NOT NULL CHECK(kind IN ('EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY','OBLIGATION_DUE','EXCEPTION_EXPIRY','THIRD_PARTY_REVIEW_DUE','BIA_DUE','POLICY_REVIEW_DUE')),
+ name text NOT NULL,kind text NOT NULL CHECK(kind IN ('EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY','OBLIGATION_DUE','EXCEPTION_EXPIRY','THIRD_PARTY_REVIEW_DUE','BIA_DUE','POLICY_REVIEW_DUE','SECURITY_REPORT_HANDOFF')),
  enabled boolean NOT NULL DEFAULT true,interval_hours integer NOT NULL DEFAULT 24 CHECK(interval_hours BETWEEN 1 AND 8760),
  config jsonb NOT NULL DEFAULT '{}'::jsonb,last_run_at timestamptz,next_run_at timestamptz NOT NULL DEFAULT now(),
  created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
@@ -107,6 +107,14 @@ async function execute(client:any,org:string,kind:Kind,config:any){
  }else if(kind==='POLICY_REVIEW_DUE'){
   const rows=(await client.query("SELECT id,title FROM grc_policies WHERE organization_id=$1 AND status='APPROVED' AND next_review_at IS NOT NULL AND next_review_at<=now()",[org])).rows;
   events.push({policyReviewsDue:rows.length,policyIds:rows.map((x:any)=>x.id)});
+ } else if(kind==='SECURITY_REPORT_HANDOFF'){
+  const rows=(await client.query(`SELECT h.id,h.report_id,h.source,h.frameworks_requested,a.target
+   FROM grc_security_report_handoffs h JOIN assessments a ON a.id=h.assessment_id AND a.organization_id=h.organization_id
+   WHERE h.organization_id=$1 AND h.status='EVIDENCE_ACCEPTED' AND NOT EXISTS(
+    SELECT 1 FROM grc_record_events e WHERE e.organization_id=h.organization_id AND e.record_type='SECURITY_REPORT_HANDOFF' AND e.record_id=h.id AND e.event='AUTOMATION_REVIEWED')`,[org])).rows;
+  for(const x of rows)await client.query(`INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,reason,snapshot)
+   VALUES($1,$2,'SECURITY_REPORT_HANDOFF',$3,'AUTOMATION_REVIEWED',$4,$5)`,[crypto.randomUUID(),org,x.id,'Accepted technical evidence queued for framework/control review',{reportId:x.report_id,source:x.source,target:x.target,frameworksRequested:x.frameworks_requested,automaticComplianceDecision:false}]);
+  events.push({acceptedSecurityReportsQueued:rows.length,handoffIds:rows.map((x:any)=>x.id),automaticComplianceDecisions:0});
  }
  return events;
 }

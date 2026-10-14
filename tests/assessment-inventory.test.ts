@@ -65,3 +65,6 @@ test('Semgrep source scans are bound to active registered repository workspace',
 
 
 test('Gitleaks evidence is redacted before persistence',async()=>{const s=await readFile(new URL('../src/external-scanners.ts',import.meta.url),'utf8');assert.match(s,/redactGitleaksReport/);assert.match(s,/RuleID/);assert.match(s,/File/);assert.match(s,/StartLine/);assert.match(s,/Fingerprint/);assert.match(s,/secretsRedacted:true/);assert.doesNotMatch(s,/Secret:String|Match:String/);});
+
+
+test('Gitleaks is repository-bound, redacted, fingerprinted, and retestable',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/gitleaks-scan/);assert.match(s,/gitleaks-retest/);assert.match(s,/activeRepositoryAsset/);assert.match(s,/secretsRedacted:true/);assert.match(s,/Secret value is redacted from Aegis evidence/);assert.match(s,/scannerId:\[String\(x\.RuleID\|\|'gitleaks'\),String\(x\.File\|\|''\),String\(x\.StartLine\|\|''\)\]\.join\('\|'\)/);assert.match(s,/scannerSource:'gitleaks'/);assert.match(s,/NATIVE_GITLEAKS_TARGETED_RETEST/);});

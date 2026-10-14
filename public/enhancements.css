@@ -28,3 +28,31 @@ html{scroll-behavior:smooth}body{color:var(--ux-text)}button:focus-visible,input
 .truth-badge{flex:0 0 auto;padding:7px 10px;border:1px solid #f59e0b66;border-radius:999px;background:#451a0338;color:#fbbf24;font:800 9px ui-monospace;letter-spacing:1px}.truth-badge.defensive{border-color:#34d39966;background:#052e1638;color:#86efac}
 .capability-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px}.capability-card{min-height:112px;padding:14px;border:1px solid #17384d;border-radius:14px;background:linear-gradient(145deg,#081827,#050e19);transition:.18s}.capability-card:hover{transform:translateY(-3px);border-color:#67e8f966}.capability-card small,.capability-card b,.capability-card span{display:block}.capability-card small{color:#67e8f9;font:800 8px ui-monospace;letter-spacing:1px}.capability-card b{margin-top:8px;font-size:13px}.capability-card span{margin-top:7px;color:#86a0b3;font-size:11px;line-height:1.45}.report-workflow{display:grid;grid-template-columns:150px 1fr;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid #1b4359;border-radius:12px;background:#020b1488}.report-workflow b{color:#d9eef7}.report-workflow span{color:#86a0b3;font-size:11px;line-height:1.5}
 @media(max-width:1150px){.capability-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.capability-head{display:block}.truth-badge{display:inline-flex;margin-top:12px}.capability-grid{grid-template-columns:1fr}.report-workflow{grid-template-columns:1fr}}
+
+
+/* Enterprise density + account placement v6 */
+.top{min-height:72px;padding:9px 12px}
+.top-title{flex:1 1 auto;min-width:0}
+.top-title h1{font-size:24px;margin:3px 0}
+.top-actions{order:2;margin-left:0;flex:0 0 auto}
+.top:after{order:1;margin-left:auto;margin-right:0}
+.profile-shell{position:relative;margin-left:0}
+.profile-avatar{width:42px;height:42px}
+.profile-shell:before{right:46px;top:12px}
+#offensive .module-hero{padding:16px 18px;margin-top:12px}
+#offensive .module-hero h2{font-size:21px;margin:4px 0}
+#offensive .security-mode-strip{padding:8px 11px;margin-bottom:9px}
+#offensive .security-command-grid{gap:10px;margin-top:10px}
+#offensive .card{padding:14px;border-radius:14px}
+#offensive .card h3{font-size:16px;margin:7px 0 10px}
+#offensive .card p{font-size:12px;line-height:1.5}
+#offensive .capability-grid{gap:8px;margin-top:9px}
+#offensive .capability-card{min-height:0;padding:10px 11px;border-radius:10px}
+#offensive .capability-card b{font-size:12px;margin-top:3px}
+#offensive .capability-card small{font-size:8px;margin-bottom:4px}
+#offensive input,#offensive select{padding:9px 10px}
+#offensive .btn{padding:9px 12px}
+#offensive pre{max-height:300px;padding:11px;font-size:11px;line-height:1.45}
+#offensive .heat div{padding:10px 6px}
+#offensive .sev{font-size:20px}
+@media(max-width:850px){.top-actions{margin-left:auto}.top:after{display:none}.top-title h1{font-size:20px}}

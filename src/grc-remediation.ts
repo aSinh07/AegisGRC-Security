@@ -9,9 +9,9 @@ ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS closed_by uuid REFERENCES app_us
 ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS closed_at timestamptz;
 CREATE TABLE IF NOT EXISTS grc_enterprise_risks(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,risk_key text UNIQUE NOT NULL,
- title text NOT NULL,description text NOT NULL DEFAULT '',likelihood int NOT NULL CHECK(likelihood BETWEEN 1 AND 5),impact int NOT NULL CHECK(impact BETWEEN 1 AND 5),
+ title text NOT NULL,description text NOT NULL DEFAULT '',likelihood int NOT NULL CHECK(likelihood BETWEEN 1 AND 10),impact int NOT NULL CHECK(impact BETWEEN 1 AND 10),
  inherent_score int NOT NULL,inherent_rating text NOT NULL,treatment text NOT NULL CHECK(treatment IN ('MITIGATE','ACCEPT','TRANSFER','AVOID')),
- residual_likelihood int CHECK(residual_likelihood BETWEEN 1 AND 5),residual_impact int CHECK(residual_impact BETWEEN 1 AND 5),residual_score int,residual_rating text,
+ residual_likelihood int CHECK(residual_likelihood BETWEEN 1 AND 10),residual_impact int CHECK(residual_impact BETWEEN 1 AND 10),residual_score int,residual_rating text,
  owner_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,status text NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN','TREATMENT','ACCEPTANCE_PENDING','ACCEPTED','CLOSED')),
  methodology_id uuid REFERENCES grc_risk_methodologies(id) ON DELETE SET NULL,acceptance_rationale text,
  acceptance_expires_at timestamptz,accepted_by uuid REFERENCES app_users(id) ON DELETE SET NULL,accepted_at timestamptz,created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
@@ -32,6 +32,14 @@ ALTER TABLE grc_capa ADD COLUMN IF NOT EXISTS finding_retest_id uuid;
 ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS methodology_id uuid REFERENCES grc_risk_methodologies(id) ON DELETE SET NULL;
 ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS acceptance_rationale text;
 ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
+ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_likelihood_check;
+ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_likelihood_check CHECK(likelihood BETWEEN 1 AND 10) NOT VALID;
+ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_impact_check;
+ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_impact_check CHECK(impact BETWEEN 1 AND 10) NOT VALID;
+ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_residual_likelihood_check;
+ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_residual_likelihood_check CHECK(residual_likelihood IS NULL OR residual_likelihood BETWEEN 1 AND 10) NOT VALID;
+ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_residual_impact_check;
+ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_residual_impact_check CHECK(residual_impact IS NULL OR residual_impact BETWEEN 1 AND 10) NOT VALID;
 CREATE INDEX IF NOT EXISTS grc_capa_org_status_idx ON grc_capa(organization_id,status,due_at);CREATE INDEX IF NOT EXISTS grc_erisk_org_idx ON grc_enterprise_risks(organization_id,status,inherent_score DESC);
 `)}
 type Queryable={query:(text:string,values?:any[])=>Promise<any>};

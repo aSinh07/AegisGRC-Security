@@ -171,7 +171,14 @@ export async function runDueAutomations(limit=50){
    results.push({ruleId:item.id,runId,status:'SUCCEEDED',actionsCount:count});
   }catch(e:any){
    await client.query('ROLLBACK');
-   results.push({ruleId:item.id,status:'FAILED',error:String(e?.message||e).slice(0,500)});
+   const error=String(e?.message||e).slice(0,500),failedRunId=crypto.randomUUID();
+   try{
+    await client.query('BEGIN');
+    await client.query("INSERT INTO grc_automation_runs(id,organization_id,rule_id,status,finished_at,actions_count,summary,error) VALUES($1,$2,$3,'FAILED',now(),0,$4,$5)",[failedRunId,item.organization_id,item.id,{trigger:'SCHEDULED'},error]);
+    await client.query("UPDATE grc_automation_rules SET last_run_at=now(),next_run_at=now()+(interval_hours::text||' hours')::interval,updated_at=now() WHERE id=$1 AND organization_id=$2",[item.id,item.organization_id]);
+    await client.query('COMMIT');
+   }catch(recordError){await client.query('ROLLBACK')}
+   results.push({ruleId:item.id,runId:failedRunId,status:'FAILED',error});
   }finally{client.release()}
  }
  return results;

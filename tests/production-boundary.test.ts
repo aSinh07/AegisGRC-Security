@@ -265,4 +265,8 @@ test('offensive workspace renders persisted execution evidence during load and p
  assert.match(ui,/renderFindings\(r\.findings\|\|\[\]\);await loadExecutionEvidence\(\)/);
  assert.match(ui,/provenanceFingerprint/);
  assert.match(ui,/full record remains stored/);
+ assert.match(ui,/const evidenceRows=await loadExecutionEvidence\(\)/);
+ assert.match(ui,/evidenceRows\.length\+' evidence record\(s\) rendered'/);
+ assert.match(ui,/if\(\['COMPLETED','PARTIAL','FAILED'\]\.includes\(status\)\)\{await loadExecutionEvidence\(\);await loadSecurityAssets\(\);return status\}/);
+ assert.doesNotMatch(ui,/raw\.textContent='FULL URL ASSESSMENT · '\+status/);
 });

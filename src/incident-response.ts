@@ -57,7 +57,18 @@ export async function reviewIdentitySignal(user:string,org:string,id:string,inpu
  const row=(await pool.query('SELECT * FROM security_identity_signals WHERE id=$1 AND organization_id=$2',[id,org])).rows[0];
  if(!row)throw Object.assign(new Error('Identity signal not found'),{statusCode:404});
  if(row.status!=='REVIEW_REQUIRED')throw Object.assign(new Error('Identity signal already reviewed'),{statusCode:409});
- if(disposition==='ESCALATED_TO_INCIDENT'&&!row.incident_id)throw Object.assign(new Error('Escalated identity signal must be linked to an incident'),{statusCode:409});
- return (await pool.query(`UPDATE security_identity_signals SET status='REVIEWED',reviewed_by=$3,reviewed_at=now(),disposition=$4 WHERE id=$1 AND organization_id=$2 AND status='REVIEW_REQUIRED' RETURNING *`,[id,org,user,disposition+': '+reason.slice(0,1000)])).rows[0];
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  let incidentId=row.incident_id;
+  if(disposition==='ESCALATED_TO_INCIDENT'&&!incidentId){
+   incidentId=crypto.randomUUID();const incidentKey='INC-IDR-'+Date.now()+'-'+crypto.randomBytes(2).toString('hex').toUpperCase();
+   await client.query(`INSERT INTO security_incidents(id,organization_id,incident_key,title,severity,phase,owner_user_id,source,affected_assets,summary,created_by) VALUES($1,$2,$3,$4,'HIGH','DETECTED',$5,$6,'[]'::jsonb,$7,$5)`,[incidentId,org,incidentKey,'Identity escalation: '+row.kind,user,row.source,reason.slice(0,5000)]);
+   await client.query(`INSERT INTO security_incident_events(id,organization_id,incident_id,phase,actor_user_id,reason,evidence_refs,occurred_at) VALUES($1,$2,$3,'DETECTED',$4,$5,$6,now())`,[crypto.randomUUID(),org,incidentId,user,'Escalated from identity signal: '+reason,row.evidence_refs]);
+  }
+  const out=(await client.query(`UPDATE security_identity_signals SET status='REVIEWED',incident_id=$5,reviewed_by=$3,reviewed_at=now(),disposition=$4 WHERE id=$1 AND organization_id=$2 AND status='REVIEW_REQUIRED' RETURNING *`,[id,org,user,disposition+': '+reason.slice(0,1000),incidentId])).rows[0];
+  if(!out)throw Object.assign(new Error('Identity signal state changed before review'),{statusCode:409});
+  await client.query('COMMIT');return out;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 export async function incidentDashboard(user:string,org:string){await requireOrgPermission(user,org,'read');const incidents=(await pool.query('SELECT * FROM security_incidents WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 200',[org])).rows,signals=(await pool.query('SELECT * FROM security_identity_signals WHERE organization_id=$1 ORDER BY observed_at DESC LIMIT 200',[org])).rows;return {incidents,identitySignals:signals,summary:{open:incidents.filter(x=>x.phase!=='CLOSED').length,critical:incidents.filter(x=>x.phase!=='CLOSED'&&x.severity==='CRITICAL').length,identityReviewRequired:signals.filter(x=>x.status==='REVIEW_REQUIRED').length}}}

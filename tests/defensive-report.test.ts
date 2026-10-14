@@ -17,3 +17,6 @@ test('Production readiness uses authoritative assessment assurance instead of ti
 
 
 test('Defensive report has professional document control scope limitations and pagination',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');for(const heading of ['Document Control','Assessment Scope and Coverage','Residual Exposure and Limitations'])assert.match(src,new RegExp(heading));assert.match(src,/capability presence is not PASS/i);assert.match(src,/point-in-time security assessment record/);assert.match(src,/Page '\+\(i\+1\)\+' of '/);assert.match(src,/bufferedPageRange/);});
+
+
+test('Defensive report provides finding-level developer detail and explicit retest acceptance criteria',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');for(const heading of ['Detailed Finding Analysis','Remediation Priority and Ownership','Retest Acceptance Criteria'])assert.match(src,new RegExp(heading));assert.match(src,/Evidence binding/);assert.match(src,/original vulnerability fingerprint must be absent/i);assert.match(src,/does not invent an owner or SLA/i);assert.match(src,/malformed output or non-success execution cannot establish remediation/i);});

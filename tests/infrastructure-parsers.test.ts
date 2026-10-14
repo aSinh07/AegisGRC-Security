@@ -25,6 +25,6 @@ test('malformed scanner output yields no fabricated findings',()=>{
 test('SQLmap parser creates an evidence-backed CWE-89 finding only for reported injectable parameters',()=>{
  const raw='Parameter: id (GET)\n    Type: boolean-based blind\n    Title: AND boolean-based blind - WHERE or HAVING clause\n    Payload: id=1 AND 1=1\n';
  const f=sqlmapTextFindings('a','https://example.test','b'.repeat(64),raw);
- assert.equal(f.length,1);assert.equal(f[0].source,'sqlmap');assert.equal(f[0].cwe,'CWE-89');assert.equal(f[0].cvss,8.8);assert.equal(f[0].confidence,'SCANNER_REPORTED');
+ assert.equal(f.length,1);assert.equal(f[0].source,'sqlmap');assert.equal(f[0].cwe,'CWE-89');assert.equal(f[0].cvss,undefined);assert.equal(f[0].severity,'HIGH');assert.equal(f[0].confidence,'SCANNER_REPORTED');
  assert.equal(sqlmapTextFindings('a','https://example.test','b'.repeat(64),'all tested parameters do not appear to be injectable').length,0);
 });

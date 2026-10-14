@@ -6,7 +6,7 @@ function priority(s:string){return s==='CRITICAL'||s==='HIGH'?'P1':s==='MEDIUM'?
 function status(f:Finding){return String(f.status||'OBSERVED').replaceAll('_',' ')}
 function refs(f:Finding){const m:any=f.mappings||{};return [...(m.owasp||[]),...(m.nist||m.nistCsf||[]),...(m.iso27001||[]),...(m.iso42001||[])].join(', ')||'N/A'}
 
-export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence[]=[]){return new Promise<Buffer>((resolve,reject)=>{
+export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence[]=[],trace:any=null){return new Promise<Buffer>((resolve,reject)=>{
  const d:any=new PDFDocument({size:'A4',margin:46,bufferPages:true}),chunks:Buffer[]=[];d.on('data',(x:Buffer)=>chunks.push(x));d.on('end',()=>resolve(Buffer.concat(chunks)));d.on('error',reject);
  const ink='#172033',muted='#667085',navy='#0B1830',cyan='#16B8C7',line='#D9E2F0',soft='#F5F8FC',green='#067647',amber='#B54708',red='#B42318';
  let sectionNo=0;
@@ -51,6 +51,11 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
  h1('Evidence Appendix');
  if(!ev.length)p('No persisted scanner evidence is available for this assessment.');
  ev.forEach((e,i)=>{ensure(75);label('E-'+String(i+1).padStart(2,'0')+' · '+String(e.source).toUpperCase());p('Recorded: '+e.createdAt+' | Exit: '+String(e.exitCode??'N/A'));d.fillColor(muted).fontSize(7).text('SHA-256: '+e.sha256);d.moveDown(.7)});
+
+ h1('Analyst Decisions and Targeted Retest Traceability');
+ const chains=Array.isArray(trace?.chains)?trace.chains:[];if(!chains.length)p('No governed analyst/retest trace was available. Finding status alone is not treated as independent retest proof.');else chains.forEach((c:any)=>{const latest=Array.isArray(c.reviews)&&c.reviews.length?c.reviews[c.reviews.length-1]:null,retests=Array.isArray(c.retests)?c.retests:[];label((c.findingId||'Finding')+' · '+String(c.source||'unknown').toUpperCase()+' · '+(latest?.decision||'UNREVIEWED'));p('Targeted retests: '+retests.length+(latest?.rationale?' | Analyst rationale: '+latest.rationale:''));retests.forEach((r:any)=>p('Evidence '+r.evidence_id+' | '+r.scanner_source+' | fingerprint '+String(r.fingerprint||'').slice(0,24)+'… | '+String(r.created_at||''))) });
+ h1('Authoritative Assessment Coverage');
+ const assurance=[['Infrastructure',trace?.infrastructureAssurance],['Endpoint',trace?.endpointAssurance],['Web',trace?.webAssurance],['API',trace?.apiAssurance],['Source Code',trace?.sourceCodeAssurance],['Dependencies',trace?.dependencyAssurance],['Container',trace?.containerAssurance],['Cloud',trace?.cloudAssurance],['Identity',trace?.identityAssurance],['Data Security',trace?.dataSecurityAssurance],['Privacy',trace?.privacyAssurance],['Attack Surface',trace?.attackSurfaceAssurance],['Breach Telemetry',trace?.breachTelemetryAssurance]];row(['LAYER','STATUS','EVIDENCE','ENGINES'],[135,90,70,208],true);assurance.forEach(([name,x]:any)=>{const y=x||{status:'NOT_STARTED',evidenceCount:0,engines:[],failureReasons:['Coverage record unavailable']};row([name,y.status,String(y.evidenceCount||0),(y.engines||[]).join(', ')||'None'],[135,90,70,208]);if(y.failureReasons?.length)p('Limitation: '+y.failureReasons.join('; '))});
 
  h1('Management Conclusion');
  const disposition=critical||high?'REMEDIATION REQUIRED':open.length?'REMEDIATION / RETEST REQUIRED':'NO OPEN EVIDENCE-BACKED FINDINGS';

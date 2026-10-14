@@ -62,3 +62,6 @@ test('authenticated audit snapshot governs Prowler cloud assurance',()=>{const m
 test('authenticated audit snapshot governs identity assurance',()=>{const m=auditPackageModel({assessmentId:'a',organizationId:'o',summary:{},evidence:[],chains:[],identityAssurance:{status:'COMPLETE',required:true,engines:['PROWLER','WAZUH'],evidenceCount:2,failureReasons:[]}});assert.equal(m.identityAssurance.status,'COMPLETE');assert.deepEqual(m.identityAssurance.engines,['PROWLER','WAZUH'])});
 
 test('authenticated audit snapshot governs data-security assurance',()=>{const m=auditPackageModel({assessmentId:'a',organizationId:'o',summary:{},evidence:[],chains:[],dataSecurityAssurance:{status:'COMPLETE',required:true,engines:['PROWLER'],evidenceCount:1,failureReasons:[]}});assert.equal(m.dataSecurityAssurance.status,'COMPLETE');assert.deepEqual(m.dataSecurityAssurance.engines,['PROWLER'])});
+
+
+test('audit trace preserves targeted retest proof alongside analyst decisions',async()=>{const s=await readFile(new URL('../src/audit-trace.ts',import.meta.url),'utf8');assert.match(s,/FROM finding_retests WHERE assessment_id/);assert.match(s,/retests: retests\.filter/);assert.match(s,/targetedRetests:x\.retests/)});

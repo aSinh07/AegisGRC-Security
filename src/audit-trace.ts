@@ -22,6 +22,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
     'SELECT finding_id,decision,rationale,created_at FROM finding_reviews WHERE assessment_id=$1 ORDER BY created_at',
     [assessmentId]
   )).rows;
+  const retests = (await pool.query('SELECT finding_id,evidence_id,fingerprint,scanner_source,scanner_id,created_by,created_at FROM finding_retests WHERE assessment_id=$1 ORDER BY created_at',[assessmentId])).rows;
   const issues = (await pool.query(
     'SELECT id,issue_key,finding_id,status,priority,due_at FROM grc_issues WHERE assessment_id=$1 ORDER BY created_at',
     [assessmentId]
@@ -71,6 +72,7 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
       evidenceHash: f.evidenceHash || null,
       status: f.status || 'UNREVIEWED',
       reviews: history,
+      retests: retests.filter((x:any)=>x.finding_id===row.id),
       issue,
       controlAssurance: issue ? controlAssurance.find((x:any)=>x.issue_id===issue.id)||null : null,
       risks: issue ? risks.filter((x:any) => x.issue_id === issue.id) : [],
@@ -155,7 +157,7 @@ export function auditPackageModel(trace:any){
   evidenceRegister:(trace?.evidence||[]).map((e:any)=>({...e,hash_recorded_at:e.integrity_verified_at||e.created_at,integrity_status:'HASH_RECORDED_AT_INGEST'})),
   findingLifecycle:chains.map((x:any)=>({
    findingId:x.findingId,title:x.title,severity:x.severity,source:x.source,evidenceHash:x.evidenceHash,
-   findingStatus:x.status,analystDecisions:x.reviews||[],issue:x.issue||null,controlAssurance:x.controlAssurance||null,risks:x.risks||[],capa:x.capa||[]
+   findingStatus:x.status,analystDecisions:x.reviews||[],targetedRetests:x.retests||[],issue:x.issue||null,controlAssurance:x.controlAssurance||null,risks:x.risks||[],capa:x.capa||[]
   })),
   limitations:[
    'Automated breach-impact correlation is not a forensic or legal breach determination; records marked for review require accountable human assessment.',

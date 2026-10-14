@@ -8,3 +8,6 @@ test('PDF export routes remediation purpose through dedicated Defensive renderer
 
 
 test('Defensive document workflow consumes deterministic security findings without AI UI coupling',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(server,/execution:'REAL_DOCUMENT_ASSESSMENT'/);assert.match(server,/defensive:\{analysis,findings\}/);assert.match(js,/d\.defensive\?\.findings/);assert.doesNotMatch(js,/async function ai\(\)/);assert.doesNotMatch(js,/Preparing AI remediation/)});
+
+
+test('Defensive PDF consumes governed retests and authoritative layer coverage',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8'),server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(src,/Analyst Decisions and Targeted Retest Traceability/);assert.match(src,/Authoritative Assessment Coverage/);assert.match(src,/c\.retests/);assert.match(src,/sourceCodeAssurance/);assert.match(server,/renderDefensiveSecurityPdf\(a,fs,ev,await assessmentTrace/)});

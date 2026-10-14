@@ -49,4 +49,15 @@ export async function ingestIdentitySignal(user:string,org:string,input:Identity
  if(input.incidentId){const ok=(await pool.query('SELECT 1 FROM security_incidents WHERE id=$1 AND organization_id=$2',[input.incidentId,org])).rowCount;if(!ok)throw new Error('Incident does not belong to organization')}
  return (await pool.query(`INSERT INTO security_identity_signals(id,organization_id,incident_id,kind,principal_id,source,observed_at,evidence_refs) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,[crypto.randomUUID(),org,input.incidentId||null,x.kind,x.principalId,x.source,x.observedAt,x.evidenceRefs])).rows[0];
 }
+export async function reviewIdentitySignal(user:string,org:string,id:string,input:any){
+ await requireOrgPermission(user,org,'manageRisk');
+ const disposition=String(input.disposition||'').toUpperCase(),reason=String(input.reason||'').trim();
+ if(!['BENIGN','INVESTIGATED','ESCALATED_TO_INCIDENT'].includes(disposition))throw new Error('Recognized identity signal disposition required');
+ if(reason.length<5)throw new Error('Identity signal review reason required');
+ const row=(await pool.query('SELECT * FROM security_identity_signals WHERE id=$1 AND organization_id=$2',[id,org])).rows[0];
+ if(!row)throw Object.assign(new Error('Identity signal not found'),{statusCode:404});
+ if(row.status!=='REVIEW_REQUIRED')throw Object.assign(new Error('Identity signal already reviewed'),{statusCode:409});
+ if(disposition==='ESCALATED_TO_INCIDENT'&&!row.incident_id)throw Object.assign(new Error('Escalated identity signal must be linked to an incident'),{statusCode:409});
+ return (await pool.query(`UPDATE security_identity_signals SET status='REVIEWED',reviewed_by=$3,reviewed_at=now(),disposition=$4 WHERE id=$1 AND organization_id=$2 AND status='REVIEW_REQUIRED' RETURNING *`,[id,org,user,disposition+': '+reason.slice(0,1000)])).rows[0];
+}
 export async function incidentDashboard(user:string,org:string){await requireOrgPermission(user,org,'read');const incidents=(await pool.query('SELECT * FROM security_incidents WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 200',[org])).rows,signals=(await pool.query('SELECT * FROM security_identity_signals WHERE organization_id=$1 ORDER BY observed_at DESC LIMIT 200',[org])).rows;return {incidents,identitySignals:signals,summary:{open:incidents.filter(x=>x.phase!=='CLOSED').length,critical:incidents.filter(x=>x.phase!=='CLOSED'&&x.severity==='CRITICAL').length,identityReviewRequired:signals.filter(x=>x.status==='REVIEW_REQUIRED').length}}}

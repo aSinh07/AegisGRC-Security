@@ -203,10 +203,12 @@ export async function createRiskMethodology(input:{organizationId:string;name:st
 }
 export async function listRiskMethodologies(organizationId:string){return (await pool.query('SELECT * FROM grc_risk_methodologies WHERE organization_id=$1 ORDER BY is_default DESC,created_at',[organizationId])).rows}
 
-export async function upsertStatementOfApplicability(input:{organizationId:string;scopeId:string;controlId:string;applicability:SoAApplicability;justification:string;implementationState:SoAImplementation;relatedRiskIds?:string[];evidenceRefs?:string[];ownerUserId?:string;reviewerUserId?:string;approvalStatus?:ApprovalStatus}){
+export async function upsertStatementOfApplicability(input:{organizationId:string;scopeId:string;controlId:string;applicability:SoAApplicability;justification:string;implementationState:SoAImplementation;relatedRiskIds?:string[];evidenceRefs?:string[];ownerUserId?:string;reviewerUserId?:string;actorUserId?:string;approvalStatus?:ApprovalStatus}){
  if(!input.justification||input.justification.trim().length<10)throw new Error('SoA justification is required');
  const scope=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];if(!scope)throw new Error('Scope not found in organization');
  if(input.approvalStatus==='APPROVED'&&!input.reviewerUserId)throw new Error('SoA approval requires accountable reviewer');
+ if(input.approvalStatus==='APPROVED'&&input.actorUserId&&input.ownerUserId===input.actorUserId)throw new Error('SoA owner cannot approve their own applicability decision');
+ if(input.approvalStatus==='APPROVED'&&input.applicability==='PENDING')throw new Error('Pending applicability cannot be approved');
  return (await pool.query(`INSERT INTO grc_statements_of_applicability(id,organization_id,scope_id,control_id,applicability,justification,implementation_state,related_risk_ids,evidence_refs,owner_user_id,reviewer_user_id,approval_status,approved_at)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,CASE WHEN $12='APPROVED' THEN now() ELSE NULL END)
  ON CONFLICT(scope_id,control_id) DO UPDATE SET applicability=EXCLUDED.applicability,justification=EXCLUDED.justification,implementation_state=EXCLUDED.implementation_state,related_risk_ids=EXCLUDED.related_risk_ids,evidence_refs=EXCLUDED.evidence_refs,owner_user_id=EXCLUDED.owner_user_id,reviewer_user_id=EXCLUDED.reviewer_user_id,approval_status=EXCLUDED.approval_status,approved_at=EXCLUDED.approved_at,updated_at=now() RETURNING *`,

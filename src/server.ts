@@ -661,7 +661,7 @@ async function executeFullUrlAssessment(userId:string,assessment:Assessment,t:{u
  const qev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};
  await db.saveEvidence(qev);if(q.findings.length)await db.saveFindings(q.findings);
  console.log('[AEGIS REAL SCAN] HTTP POSTURE | findings='+q.findings.length+' | evidence='+q.sha256);
- const safe=async(name:'nmap'|'zap'|'wapiti'|'sqlmap'|'nuclei')=>{try{const rr:any=await executeRealTool(name,assessmentId,t);return {...rr,tool:name,status:scannerRunStatus(rr.exitCode,undefined,Boolean(rr.timedOut||rr.stdoutTruncated||rr.stderrTruncated))}}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);return {tool:name,status:'FAILED',error:e.message,findings:[]}}};
+ const safe=async(name:'nmap'|'zap'|'wapiti'|'sqlmap'|'nuclei')=>{try{const rr:any=await executeRealTool(name,assessmentId,t);const incomplete=Boolean(rr.stdoutTruncated||rr.stderrTruncated);return {...rr,tool:name,status:scannerRunStatus(rr.exitCode,undefined,Boolean(rr.timedOut||incomplete)),timedOut:Boolean(rr.timedOut),incomplete}}catch(e:any){const error=String(e?.message||e).slice(0,1000);console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+error);return {tool:name,status:'FAILED',error,findings:[]}}};
  const runs:any[]=[];
  runs.push(...await Promise.all([safe('nuclei'),safe('nmap')]));
  runs.push(await safe('zap'));

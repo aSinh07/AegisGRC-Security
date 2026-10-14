@@ -143,13 +143,12 @@ test('enterprise shell preserves navigation and exposes assurance context',async
 });
 
 
-test('executive overview preserves assessment controls in command-center layout',async()=>{
+test('executive overview is summary-only while assessment intake lives in security workspaces',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
- for(const id of ['target','auth','gate','quickdoc','quickdocmsg','risk','riskbar','count','state','integrations'])assert.match(html,new RegExp('id="'+id+'"'));
- for(const label of ['AUTHORIZED ASSESSMENT','DOCUMENT TRIAGE','INTEGRATION ASSURANCE','Evidence before claims','MFA protected'])assert.match(html,new RegExp(label));
- assert.match(html,/authorize\(\)/);
- assert.match(html,/scanQuickDoc\(\)/);
- assert.match(html,/downloadDocScan\(\)/);
+ const overview=html.slice(html.indexOf('<section id="overview"'),html.indexOf('<section id="offensive"'));
+ for(const id of ['risk','riskbar','count','state','integrations'])assert.match(overview,new RegExp('id="'+id+'"'));
+ assert.doesNotMatch(overview,/id="target"|id="quickdoc"|authorize\(\)|scanQuickDoc\(\)/);
+ for(const label of ['INTEGRATION ASSURANCE','Evidence before claims','MFA protected'])assert.match(html,new RegExp(label));
 });
 
 
@@ -160,11 +159,14 @@ test('Enterprise GRC command center preserves governed operational modules',asyn
 });
 
 
-test('security operations and evidence UX preserve executable controls',async()=>{
+test('offensive and defensive workspaces own their inputs and share evidence',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
- for(const label of ['Discover → Validate → Evidence → Report','Observe → Prioritize → Remediate → Govern','Evidence & Provenance Vault','INGEST','HASH','BIND','REVIEW'])assert.ok(html.includes(label),label);
- for(const id of ['tool','findings','CRITICAL','HIGH','MEDIUM','LOW','INFO','pie','bars','grc','aiout','docs','doclist','raw'])assert.match(html,new RegExp('id="'+id+'"'));
- for(const action of ["scan()","report()","ai()","uploadDocs()"])assert.ok(html.includes(action),action);
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ for(const label of ['Scope → Discover → Validate → Evidence → Technical Report','Observe → Prioritize → Mitigate → Harden → Retest → Monitor','Evidence & Provenance Vault','INGEST','HASH','BIND','REVIEW'])assert.ok(html.includes(label),label);
+ for(const id of ['target','auth','gate','offensiveDocs','offensiveCoverage','tool','findings','CRITICAL','HIGH','MEDIUM','LOW','INFO','defensiveTarget','defensiveDocs','defensiveReuse','defensivePlan','pie','bars','aiout','docs','doclist','raw'])assert.match(html,new RegExp('id="'+id+'"'));
+ for(const action of ["scan()","authorizeDefensive()","loadDefensiveAnalysis()","ai()","uploadDocs()"])assert.ok(html.includes(action),action);
+ assert.doesNotMatch(html.slice(html.indexOf('<section id="defensive"'),html.indexOf('<section id="incidents"')),/Dynamic GRC Report|Generate GRC View/);
+ assert.match(js,/reuploadRequired/);
 });
 
 

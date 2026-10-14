@@ -239,6 +239,16 @@ export async function reviewControlAssessment(id:string,input:{
   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 
+export async function listControlAssessments(organizationId:string,scopeId?:string){
+  if(!organizationId)throw new Error('Organization scope is required');
+  const values:any[]=[organizationId];let scopeFilter='';
+  if(scopeId){values.push(scopeId);scopeFilter=' AND ca.scope_id=$2'}
+  return (await pool.query(`SELECT ca.*,c.control_key,c.title AS control_title,s.name AS scope_name
+    FROM grc_control_assessments ca JOIN grc_scopes s ON s.id=ca.scope_id
+    JOIN grc_controls c ON c.id=ca.control_id
+    WHERE s.organization_id=$1${scopeFilter} ORDER BY c.control_key`,values)).rows;
+}
+
 export async function controlAssessmentHistory(id:string,organizationId?:string){
   if(!organizationId)throw new Error('Organization scope is required');
   return (await pool.query(`SELECT e.* FROM grc_control_assessment_events e JOIN grc_control_assessments ca ON ca.id=e.assessment_id JOIN grc_scopes s ON s.id=ca.scope_id WHERE e.assessment_id=$1 AND s.organization_id=$2 ORDER BY e.created_at DESC`,[id,organizationId])).rows;

@@ -12,6 +12,9 @@ export type Implementation = 'NOT_IMPLEMENTED'|'PARTIAL'|'IMPLEMENTED';
 export type EvidenceStatus = 'MISSING'|'PENDING'|'VALID'|'STALE'|'EXPIRED';
 export type Effectiveness = 'EFFECTIVE'|'INEFFECTIVE'|'NOT_TESTED';
 export type OverallControlStatus = 'EFFECTIVE'|'PARTIALLY_EFFECTIVE'|'INEFFECTIVE'|'NOT_ASSESSED'|'NOT_APPLICABLE';
+export type EvidenceSufficiency = 'INSUFFICIENT'|'PARTIAL'|'SUFFICIENT';
+export type ReviewResult = 'NOT_REVIEWED'|'PASS'|'PARTIAL'|'FAIL'|'NOT_APPLICABLE';
+export type ApprovalStatus = 'PENDING'|'APPROVED'|'REJECTED';
 
 export function calculateControlStatus(x:{
   applicability:Applicability;
@@ -79,9 +82,26 @@ export async function initGrcCore(){
       automation text NOT NULL DEFAULT 'MANUAL',
       overall_status text NOT NULL DEFAULT 'NOT_ASSESSED',
       owner_user_id uuid, reviewer_user_id uuid,
+      evidence_sufficiency text NOT NULL DEFAULT 'INSUFFICIENT',
+      automated_result text NOT NULL DEFAULT 'NOT_REVIEWED',
+      manual_result text NOT NULL DEFAULT 'NOT_REVIEWED',
+      approval_status text NOT NULL DEFAULT 'PENDING',
+      approved_by uuid, approved_at timestamptz, review_notes text,
       last_tested_at timestamptz, next_test_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE(scope_id,control_id)
+    );
+    ALTER TABLE grc_control_assessments ADD COLUMN IF NOT EXISTS evidence_sufficiency text NOT NULL DEFAULT 'INSUFFICIENT';
+    ALTER TABLE grc_control_assessments ADD COLUMN IF NOT EXISTS automated_result text NOT NULL DEFAULT 'NOT_REVIEWED';
+    ALTER TABLE grc_control_assessments ADD COLUMN IF NOT EXISTS manual_result text NOT NULL DEFAULT 'NOT_REVIEWED';
+    ALTER TABLE grc_control_assessments ADD COLUMN IF NOT EXISTS approval_status text NOT NULL DEFAULT 'PENDING';
+    ALTER TABLE grc_control_assessments ADD COLUMN IF NOT EXISTS approved_by uuid;
+    ALTER TABLE grc_control_assessments ADD COLUMN IF NOT EXISTS approved_at timestamptz;
+    ALTER TABLE grc_control_assessments ADD COLUMN IF NOT EXISTS review_notes text;
+    CREATE TABLE IF NOT EXISTS grc_control_assessment_events(
+      id uuid PRIMARY KEY, assessment_id uuid NOT NULL REFERENCES grc_control_assessments(id) ON DELETE CASCADE,
+      event text NOT NULL, actor_user_id uuid, snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE TABLE IF NOT EXISTS grc_risks(
       id uuid PRIMARY KEY, organization_id uuid REFERENCES grc_organizations(id) ON DELETE CASCADE,
@@ -173,6 +193,49 @@ export async function updateControlAssessment(id:string,patch:any){
     updated_at=now() WHERE id=$1 RETURNING *`,
     [id,x.applicability,x.implementation,x.evidenceStatus,x.designEffectiveness,x.operatingEffectiveness,overall,patch.applicabilityJustification||null]);
   return r.rows[0];
+}
+
+export async function reviewControlAssessment(id:string,input:{
+  actorUserId:string; evidenceSufficiency:EvidenceSufficiency; automatedResult?:ReviewResult;
+  manualResult:ReviewResult; designEffectiveness:Effectiveness; operatingEffectiveness:Effectiveness;
+  notes:string; approvalStatus?:ApprovalStatus;
+}){
+  if(!input.actorUserId)throw new Error('Accountable reviewer is required');
+  if(!input.notes||input.notes.trim().length<10)throw new Error('Review rationale is required');
+  if(input.approvalStatus==='APPROVED'&&input.evidenceSufficiency!=='SUFFICIENT')throw new Error('Approval requires sufficient evidence');
+  if(input.approvalStatus==='APPROVED'&&(input.designEffectiveness==='NOT_TESTED'||input.operatingEffectiveness==='NOT_TESTED'))throw new Error('Approval requires design and operating effectiveness tests');
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const current=(await client.query('SELECT * FROM grc_control_assessments WHERE id=$1 FOR UPDATE',[id])).rows[0];
+    if(!current)throw new Error('Control assessment not found');
+    const automated=input.automatedResult||current.automated_result||'NOT_REVIEWED';
+    const approval=input.approvalStatus||'PENDING';
+    const overall=calculateControlStatus({
+      applicability:current.applicability,implementation:current.implementation,
+      evidenceStatus:input.evidenceSufficiency==='SUFFICIENT'?'VALID':'PENDING',
+      designEffectiveness:input.designEffectiveness,operatingEffectiveness:input.operatingEffectiveness
+    });
+    const finalStatus=approval==='APPROVED'?overall:'NOT_ASSESSED';
+    const row=(await client.query(`UPDATE grc_control_assessments SET evidence_sufficiency=$2,automated_result=$3,
+      manual_result=$4,design_effectiveness=$5,operating_effectiveness=$6,approval_status=$7,
+      reviewer_user_id=$8,approved_by=CASE WHEN $7='APPROVED' THEN $8 ELSE NULL END,
+      approved_at=CASE WHEN $7='APPROVED' THEN now() ELSE NULL END,review_notes=$9,
+      evidence_status=CASE WHEN $2='SUFFICIENT' THEN 'VALID' ELSE 'PENDING' END,
+      overall_status=$10,last_tested_at=now(),updated_at=now() WHERE id=$1 RETURNING *`,
+      [id,input.evidenceSufficiency,automated,input.manualResult,input.designEffectiveness,input.operatingEffectiveness,approval,input.actorUserId,input.notes.trim(),finalStatus])).rows[0];
+    await client.query(`INSERT INTO grc_control_assessment_events(id,assessment_id,event,actor_user_id,snapshot)
+      VALUES($1,$2,$3,$4,$5)`,[crypto.randomUUID(),id,approval==='APPROVED'?'CONTROL_APPROVED':'CONTROL_REVIEWED',input.actorUserId,{
+        evidenceSufficiency:input.evidenceSufficiency,automatedResult:automated,manualResult:input.manualResult,
+        designEffectiveness:input.designEffectiveness,operatingEffectiveness:input.operatingEffectiveness,
+        approvalStatus:approval,overallStatus:finalStatus,notes:input.notes.trim()
+      }]);
+    await client.query('COMMIT');return row;
+  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
+
+export async function controlAssessmentHistory(id:string){
+  return (await pool.query('SELECT * FROM grc_control_assessment_events WHERE assessment_id=$1 ORDER BY created_at DESC',[id])).rows;
 }
 
 export async function recordWorkflowTransition(input:{recordType:string;recordId:string;fromState?:string;toState:string;actorUserId?:string;reason?:string;snapshot?:any}){

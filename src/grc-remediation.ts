@@ -58,7 +58,7 @@ export async function createRiskFromIssue(user:string,org:string,issueId:string,
   const issue=(await client.query('SELECT * FROM grc_issues WHERE id=$1 AND organization_id=$2 FOR UPDATE',[issueId,org])).rows[0];
   if(!issue)throw Object.assign(new Error('Issue not found'),{statusCode:404});
   if(issue.status==='CLOSED')throw Object.assign(new Error('Closed issue cannot create a new risk'),{statusCode:409});
-  const risk=(await client.query(`INSERT INTO grc_enterprise_risks(id,organization_id,risk_key,title,description,likelihood,impact,inherent_score,inherent_rating,treatment,owner_user_id,status,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,[id,org,key('RISK'),String(input.title||issue.title),String(input.description||issue.description||''),l,i,score,riskBand(score),t,input.ownerUserId||null,t==='ACCEPT'?'ACCEPTANCE_PENDING':'TREATMENT',user])).rows[0];
+  const risk=(await client.query(`INSERT INTO grc_enterprise_risks(id,organization_id,risk_key,title,description,likelihood,impact,inherent_score,inherent_rating,treatment,owner_user_id,status,created_by,methodology_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,[id,org,key('RISK'),String(input.title||issue.title),String(input.description||issue.description||''),l,i,score,band(score),t,input.ownerUserId||null,t==='ACCEPT'?'ACCEPTANCE_PENDING':'TREATMENT',user,methodologyId])).rows[0];
   await client.query('INSERT INTO grc_issue_risks(issue_id,risk_id) VALUES($1,$2)',[issueId,id]);
   await event(org,'RISK',id,'CREATED',user,undefined,{issueId,score,treatment:t},client);
   await client.query('COMMIT');return risk;

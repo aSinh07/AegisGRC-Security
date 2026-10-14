@@ -41,3 +41,6 @@ test('native web and network retests distinguish execution success from vulnerab
 
 
 test('Defensive Semgrep retest is repository-bound and fingerprint-gated',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(js,/Run native Semgrep targeted retest/);assert.match(server,/Semgrep retest must use the same repository asset as the original finding/);assert.match(server,/NATIVE_SEMGREP_TARGETED_RETEST/);assert.match(server,/mode:'SEMGREP_TARGETED_RETEST'/);assert.match(js,/rule\/file\/location fingerprint is still present/)});
+
+
+test('Defensive UI exposes governed secret-safe Gitleaks targeted retest',async()=>{const s=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(s,/defenseGitleaksAsset-/);assert.match(s,/runGitleaksDefensiveRetest/);assert.match(s,/gitleaks-retest/);assert.match(s,/secret-redacted evidence/);assert.match(s,/same secret-detection fingerprint remains/);});

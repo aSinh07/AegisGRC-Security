@@ -66,12 +66,11 @@ async function pollFullAssessment(){
   try{
    const w=await jf('/api/assessments/'+assessmentId+'/security-workspace');
    const r=await jf('/api/assessments/'+assessmentId+'/report',{headers:{'x-assessment-session':sessionToken}});
-   const fs=r.findings||[];renderFindings(fs);await loadExecutionEvidence();transientErrors=0;
+   const fs=r.findings||[];renderFindings(fs);const evidenceRows=await loadExecutionEvidence();transientErrors=0;
    const status=String(w.assessment?.status||'RUNNING');
-   raw.textContent='FULL URL ASSESSMENT · '+status+'\n\nStored: '+Number(w.offensive?.findings||0)+' finding(s) · '+Number(w.offensive?.evidenceRecords||0)+' evidence record(s)\nEvidence sources: '+((w.offensive?.evidenceSources||[]).join(', ')||'waiting for first engine')+'\n\nThe workspace remains usable while scanners execute in the background.';
-   gate.textContent=status+' · '+assessmentId+' · '+targetOrigin+' · '+Number(w.offensive?.findings||0)+' finding(s) · '+Number(w.offensive?.evidenceRecords||0)+' evidence record(s)';
+   gate.textContent=status+' · '+assessmentId+' · '+targetOrigin+' · '+Number(w.offensive?.findings||0)+' finding(s) · '+Number(w.offensive?.evidenceRecords||0)+' evidence record(s) · '+evidenceRows.length+' evidence record(s) rendered';
    state.textContent=status==='RUNNING'?'SCANNING':status;
-   if(['COMPLETED','PARTIAL','FAILED'].includes(status)){await loadSecurityAssets();return status}
+   if(['COMPLETED','PARTIAL','FAILED'].includes(status)){await loadExecutionEvidence();await loadSecurityAssets();return status}
   }catch(e){transientErrors++;raw.textContent='Assessment is still running. Progress refresh temporarily failed ('+transientErrors+'). The server-side scan continues independently.\n\n'+e.message}
  }
  state.textContent='PARTIAL';gate.textContent='ASSESSMENT STILL RUNNING · '+assessmentId+' · browser polling window ended; use Refresh Evidence to continue monitoring.';return 'RUNNING'

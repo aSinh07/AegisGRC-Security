@@ -15,7 +15,7 @@ import {scanFilesystemWithTrivy,scanContainerImageWithTrivy} from './trivy.js';
 import {scanTls,scanHostHardening,scanImageWithGrype,generateSbom,scanKubernetes,scanIac,scanSecrets} from './external-scanners.js';
 
 import { assessmentReport } from './reports.js';
-import type { Assessment,Evidence } from './models.js';
+import type { Assessment,Evidence,Finding } from './models.js';
 import { explainFindings } from './ai.js';
 import { issueSession, verifySession } from './session.js';
 import { renderPdf,renderFrameworkPdf } from './pdf.js';
@@ -53,7 +53,7 @@ import {correlateExposure} from './exposure-prioritization.js';
 import { parseFindingImport } from './finding-import.js';
 import { initFindingReview,reviewFinding,findingReviewHistory } from './finding-review.js';
 import { initFindingRisk,slaPolicy,setSlaPolicy,promoteFindingToIssue } from './finding-risk.js';
-import { assessmentTrace } from './audit-trace.js';
+
 import { auditDocx,auditXlsx,auditPdf } from './audit-exporters.js';
 import { auditPackageModel } from './audit-trace.js';
 import {buildEnterpriseGrcReport} from './enterprise-grc-report.js';

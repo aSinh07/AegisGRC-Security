@@ -11,3 +11,6 @@ test('Defensive document workflow consumes deterministic security findings witho
 
 
 test('Defensive PDF consumes governed retests and authoritative layer coverage',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8'),server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(src,/Analyst Decisions and Targeted Retest Traceability/);assert.match(src,/Authoritative Assessment Coverage/);assert.match(src,/c\.retests/);assert.match(src,/sourceCodeAssurance/);assert.match(server,/renderDefensiveSecurityPdf\(a,fs,ev,await assessmentTrace/)});
+
+
+test('Production readiness uses authoritative assessment assurance instead of title heuristics',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');assert.match(src,/readinessCoverage/);assert.match(src,/trace\?\.webAssurance/);assert.match(src,/trace\?\.infrastructureAssurance/);assert.match(src,/trace\?\.identityAssurance/);assert.match(src,/trace\?\.endpointAssurance/);assert.match(src,/trace\?\.breachTelemetryAssurance/);assert.match(src,/EVIDENCE_RECORDED/);assert.doesNotMatch(src,/cat\.split\(' '\)\[0\]/);});

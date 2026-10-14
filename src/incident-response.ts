@@ -54,12 +54,12 @@ export async function reviewIdentitySignal(user:string,org:string,id:string,inpu
  const disposition=String(input.disposition||'').toUpperCase(),reason=String(input.reason||'').trim();
  if(!['BENIGN','INVESTIGATED','ESCALATED_TO_INCIDENT'].includes(disposition))throw new Error('Recognized identity signal disposition required');
  if(reason.length<5)throw new Error('Identity signal review reason required');
- const row=(await pool.query('SELECT * FROM security_identity_signals WHERE id=$1 AND organization_id=$2',[id,org])).rows[0];
- if(!row)throw Object.assign(new Error('Identity signal not found'),{statusCode:404});
- if(row.status!=='REVIEW_REQUIRED')throw Object.assign(new Error('Identity signal already reviewed'),{statusCode:409});
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
+  const row=(await client.query('SELECT * FROM security_identity_signals WHERE id=$1 AND organization_id=$2 FOR UPDATE',[id,org])).rows[0];
+  if(!row)throw Object.assign(new Error('Identity signal not found'),{statusCode:404});
+  if(row.status!=='REVIEW_REQUIRED')throw Object.assign(new Error('Identity signal already reviewed'),{statusCode:409});
   let incidentId=row.incident_id;
   if(disposition==='ESCALATED_TO_INCIDENT'&&!incidentId){
    incidentId=crypto.randomUUID();const incidentKey='INC-IDR-'+Date.now()+'-'+crypto.randomBytes(2).toString('hex').toUpperCase();

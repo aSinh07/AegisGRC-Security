@@ -79,6 +79,7 @@ import {initSecurityReportHandoffs,createSecurityReportHandoff,reviewSecurityRep
 import {initBreachAssessment,deriveBreachAssessment,listBreachAssessments} from './breach-assessment.js';
 import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,recoverStaleScannerJobs,executeClaimedScannerJob,scannerRegistry} from './scanner-jobs.js';
 import { analyzeIntel } from './intel-ai.js';
+import {offensiveCapabilityCatalog,defensiveAssessment,securityWorkspaceSummary} from './security-operations.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 
 const app=express();
@@ -693,6 +694,9 @@ app.get('/api/assessments/:id',async(req,res)=>{const u=await currentUser(req);i
 app.get('/api/assessments/:id/audit',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.auditsForAssessment(req.params.id))});
 app.get('/api/assessments/:id/evidence',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.evidenceForAssessment(req.params.id))});
 app.get('/api/assessments/:id/report',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=await db.findingsForAssessment(req.params.id);res.json(assessmentReport(a,fs))});
+app.get('/api/security/offensive/catalog',(_req,res)=>res.json({domains:offensiveCapabilityCatalog(),truthBoundary:'Coverage describes supported assessment domains and evidence engines. Actual coverage is established only by successful execution or imported evidence for the declared scope.'}));
+app.get('/api/assessments/:id/security-workspace',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});await requireAssessmentAccess(u.userId,req.params.id);const fs=await db.findingsForAssessment(req.params.id),ev=await db.evidenceForAssessment(req.params.id);res.json(securityWorkspaceSummary(a,fs,ev))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/assessments/:id/defensive-analysis',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});await requireAssessmentAccess(u.userId,req.params.id);const fs=await db.findingsForAssessment(req.params.id),ev=await db.evidenceForAssessment(req.params.id);res.json(defensiveAssessment(a,fs,ev))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 app.get('/api/knowledge',(_req,res)=>res.json({modules:knowledgeCatalog(),authoritativeResources:authoritativeResources(),provenance:'Aegis learning modules plus direct authoritative resources. Live intelligence is retrieved from CISA/NIST endpoints.'}));
 app.get('/api/cyber-intel',async(req,res)=>{try{res.json(await cyberIntel(req.query.refresh==='1'))}catch(e:any){res.status(502).json({error:e.message})}});

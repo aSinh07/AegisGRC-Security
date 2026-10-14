@@ -58,7 +58,7 @@ export async function createRiskFromIssue(user:string,org:string,issueId:string,
 }
 export async function approveRiskAcceptance(user:string,org:string,riskId:string,input:any){
  await requireOrgPermission(user,org,'review');
- const reason=reason.trim();if(reason.length<10)throw new Error('Risk acceptance requires a meaningful rationale');
+ const reason=String(input.reason||'').trim();if(reason.length<10)throw new Error('Risk acceptance requires a meaningful rationale');
  const expiry=new Date(String(input.expiresAt||''));if(!Number.isFinite(expiry.getTime())||expiry<=new Date())throw new Error('Future acceptance expiry required');
  const client=await pool.connect();
  try{
@@ -69,7 +69,7 @@ export async function approveRiskAcceptance(user:string,org:string,riskId:string
   if(r.created_by===user||r.owner_user_id===user)throw Object.assign(new Error('Risk creator/owner cannot approve own acceptance'),{statusCode:409});
   const out=(await client.query(`UPDATE grc_enterprise_risks SET status='ACCEPTED',acceptance_expires_at=$2,accepted_by=$3,updated_at=now() WHERE id=$1 AND organization_id=$4 AND status='ACCEPTANCE_PENDING' RETURNING *`,[riskId,expiry,user,org])).rows[0];
   if(!out)throw Object.assign(new Error('Risk state changed before acceptance'),{statusCode:409});
-  await event(org,'RISK',riskId,'RISK_ACCEPTED',user,String(input.reason||''),{expiresAt:expiry.toISOString()},client);
+  await event(org,'RISK',riskId,'RISK_ACCEPTED',user,reason,{expiresAt:expiry.toISOString()},client);
   await client.query('COMMIT');return out;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }

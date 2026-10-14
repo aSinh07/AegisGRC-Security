@@ -22,6 +22,7 @@ bind('[data-aegis-click="doLogin()"]',()=>doLogin());bind('#enrollStart',()=>sta
 bind('[data-aegis-click="finishEnroll()"]',()=>finishEnroll());bind('[data-aegis-click="openReset()"]',()=>openReset());
 bind('[data-aegis-click="closeReset()"]',()=>closeReset());bind('[data-aegis-click="resetPassword()"]',()=>resetPassword());
 bind('[data-aegis-click="togglePassword(\'pw\',this)"]',(_e,el)=>togglePassword(el));
+bind('[data-aegis-click="togglePassword(\'resetPw\',this)"]',(_e,el)=>{const show=els.resetPw.type==='password';els.resetPw.type=show?'text':'password';el.textContent=show?'◌':'◉';el.setAttribute('aria-label',show?'Hide password':'Show password')});
 document.documentElement.dataset.aegisAuth='ready';
 globalThis.AegisAuth={authMode,doLogin,startEnroll,finishEnroll,openReset,closeReset,resetPassword};
 })();

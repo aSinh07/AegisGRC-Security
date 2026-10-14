@@ -224,9 +224,15 @@ test('URL offensive workflow automatically runs full evidence assessment and pre
  assert.match(js,/tool\.value='all';await scan\(\)/);
  assert.match(js,/highest\.toFixed\(1\)/);
  assert.match(js,/NOT ESTABLISHED/);
- assert.match(js,/progressTimer=setInterval/);
- assert.match(js,/Evidence refreshes as each engine completes/);
- assert.match(js,/Stored so far:/);
+ assert.match(js,/async function pollFullAssessment/);
+ assert.match(js,/server-side assessment accepted/);
+ assert.match(js,/workspace remains usable while scanners execute in the background/);
+ assert.match(server,/const activeFullScans=new Map<string,Promise<void>>/);
+ assert.match(server,/res\.status\(202\)\.json\(\{execution:'REAL_FULL_ASSESSMENT',status:'RUNNING'/);
+ assert.match(server,/--top-ports','1000'/);
  assert.match(server,/tool==='nuclei'\?\['-u',safeTarget\.url\.origin,'-jsonl'/);
  assert.match(server,/tool==='sqlmap'\?sqlmapTextFindings/);
+ const css=await readFile(new URL('../public/enhancements.css',import.meta.url),'utf8');
+ assert.match(css,/Enterprise density \+ account placement v6/);
+ assert.match(css,/\.top-actions\{order:2/);
 });

@@ -68,3 +68,21 @@ function installEnterpriseSecurityWorkspace(){
  const hero=document.querySelector('#overview .executive-hero h2');if(hero)hero.textContent='Enterprise Security Dashboard';
 }
 window.addEventListener('load',installEnterpriseSecurityWorkspace);
+
+function aegisOrgId(){return window.activeOrgId||window.currentOrgId||document.querySelector('[data-org-id].active')?.dataset.orgId||''}
+window.loadAutomationCenter=async function(){
+ const org=aegisOrgId(),assurance=document.getElementById('automationAssurance'),rules=document.getElementById('automationRules'),runs=document.getElementById('automationRuns'),trace=document.getElementById('automationTrace');
+ if(!assurance)return;if(!org){assurance.innerHTML='<p class="muted">Select an organization in Enterprise GRC first.</p>';return}
+ try{
+  const d=await jf('/api/grc/organizations/'+encodeURIComponent(org)+'/automation-center'),a=d.assurance||{},t=d.truthModel||{};
+  assurance.innerHTML=[
+   ['Evidence queue',a.acceptedSecurityEvidenceAwaitingControlReview??0,'Accepted technical evidence awaiting control review'],
+   ['Automation failures',a.recentAutomationFailures??0,'Failures remain visible and never become silent PASS'],
+   ['Control tests',Object.values(a.controlTestStates||{}).reduce((x,y)=>x+Number(y||0),0),'Latest deterministic control-test states'],
+   ['Final approval',t.finalComplianceApproval||'HUMAN_REVIEW_REQUIRED','Automation cannot issue certification']
+  ].map(x=>'<article class="capability-card"><small>AUTOGRC</small><b>'+esc(String(x[0]))+': '+esc(String(x[1]))+'</b><span>'+esc(String(x[2]))+'</span></article>').join('');
+  rules.innerHTML=(d.rules||[]).map(x=>'<div class="docrow"><div><b>'+esc(x.name)+'</b><small>'+esc(x.kind)+' · '+(x.enabled?'Enabled':'Disabled')+'</small></div><span class="pill">'+esc(x.next_run_at||'unscheduled')+'</span></div>').join('')||'<p class="muted">No automation rules configured.</p>';
+  runs.innerHTML=(d.recentRuns||[]).slice(0,20).map(x=>'<div class="docrow"><div><b>'+esc(x.status)+'</b><small>'+esc(x.started_at||'')+'</small></div><span class="pill">'+Number(x.actions_count||0)+' actions</span></div>').join('')||'<p class="muted">No automation executions recorded.</p>';
+  trace.innerHTML=(d.traces||[]).slice(0,30).map(x=>'<div class="docrow"><div><b>'+esc(x.event)+'</b><small>'+esc(x.reason||'Governed automation event')+'</small></div><span class="pill">'+esc(x.created_at||'')+'</span></div>').join('')||'<p class="muted">No automation trace events recorded yet.</p>';
+ }catch(e){assurance.textContent=e.message||String(e)}
+};

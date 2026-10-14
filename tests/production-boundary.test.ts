@@ -351,3 +351,14 @@ test('defensive workspace renders shared evidence remediation workflow without G
  assert.match(engine,/A finding is not considered remediated until a successful targeted retest and governed closure/);
  assert.match(engine,/reuploadRequired:false/);
 });
+
+
+test('defensive PDF is a remediation deliverable rather than a renamed offensive report',async()=>{
+ const pdf=await readFile(new URL('../src/pdf.ts',import.meta.url),'utf8');
+ assert.match(pdf,/Defensive Security Remediation & Hardening Report/);
+ assert.match(pdf,/Defensive Remediation Register/);
+ assert.match(pdf,/Detailed Mitigation, Hardening & Retest Actions/);
+ assert.match(pdf,/Prioritized Defensive Treatment & Retest Plan/);
+ assert.match(pdf,/Defensive Security Conclusion & Residual-Risk Disposition/);
+ assert.match(pdf,/RETEST \/ RESIDUAL-RISK CLOSURE GATE/);
+});

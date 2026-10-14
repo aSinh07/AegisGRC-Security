@@ -849,7 +849,7 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
   const kind=(kinds.includes(req.params.kind)?req.params.kind:'grc') as ReportKind, format=req.params.format.toLowerCase();
   if(!formats.includes(format))return res.status(400).json({error:'Unsupported report format'});
   let body:Buffer; let mime='application/octet-stream';
-  if(format==='pdf'){body=await renderPdf(a,fs,ev);mime='application/pdf'}
+  if(format==='pdf'){body=await renderPdf(a,fs,ev,kind);mime='application/pdf'}
   else if(format==='docx'){body=await docxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
   else if(format==='pptx'){body=await pptxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.presentationml.presentation'}
   else if(format==='xlsx'){body=xlsxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}

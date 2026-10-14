@@ -280,7 +280,7 @@ test('professional security exports preserve report purpose and evidence boundar
  assert.match(server,/renderPdf\(a,fs,ev,kind\)/);
  assert.match(pdf,/Offensive Security Technical Assessment/);
  assert.match(pdf,/Tool Execution & Evidence Provenance/);
- assert.match(pdf,/Raw scanner output is supporting provenance only/);
+ assert.match(pdf,/Raw console output is supporting evidence, not the assessment narrative/);
  assert.match(pdf,/full evidence remains stored/);
  assert.match(exporters,/Executive Security Summary/);
  assert.match(exporters,/Tool Execution & Coverage Matrix/);

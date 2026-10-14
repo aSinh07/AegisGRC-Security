@@ -19,6 +19,7 @@ import type { Assessment,Evidence } from './models.js';
 import { explainFindings } from './ai.js';
 import { issueSession, verifySession } from './session.js';
 import { renderPdf,renderFrameworkPdf } from './pdf.js';
+import {renderDefensiveSecurityPdf} from './defensive-report.js';
 import { authConfigured, login, logout } from './auth.js';
 import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,userLogout,userRole,verifyUserStepUp,resetPasswordWithTotp,authAttemptAllowed,recordAuthFailure,clearAuthFailures } from './user-auth.js';
 import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport,verifyGrcReview } from './grc-review.js';
@@ -849,7 +850,7 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
   const kind=(kinds.includes(req.params.kind)?req.params.kind:'grc') as ReportKind, format=req.params.format.toLowerCase();
   if(!formats.includes(format))return res.status(400).json({error:'Unsupported report format'});
   let body:Buffer; let mime='application/octet-stream';
-  if(format==='pdf'){body=await renderPdf(a,fs,ev,kind);mime='application/pdf'}
+  if(format==='pdf'){body=kind==='remediation'?await renderDefensiveSecurityPdf(a,fs,ev):await renderPdf(a,fs,ev,kind);mime='application/pdf'}
   else if(format==='docx'){body=await docxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
   else if(format==='pptx'){body=await pptxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.presentationml.presentation'}
   else if(format==='xlsx'){body=xlsxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}

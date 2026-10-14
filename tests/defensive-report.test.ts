@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+
+test('Defensive workspace is security-specific and exposes the dedicated report',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');assert.match(html,/Download Defensive Security Report/);assert.match(html,/Defensive Security Report/);assert.doesNotMatch(html,/AI-ASSISTED REMEDIATION/);assert.doesNotMatch(html,/>AI Remediation</)});
+test('Defensive PDF follows the supplied evidence-driven report structure',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');for(const heading of ['Defensive Summary','System Architecture and Security Context','Findings Register','Developer Defensive Remediation Plan','Verification and Expected Evidence','Evidence Appendix','Management Conclusion','Production Readiness Checklist','Deployment Gate and Final Disposition'])assert.match(src,new RegExp(heading));assert.match(src,/AI may explain or prioritize evidence, but it cannot mark a finding remediated/);assert.match(src,/same vulnerability fingerprint/)});
+test('PDF export routes remediation purpose through dedicated Defensive renderer',async()=>{const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(server,/kind==='remediation'\?await renderDefensiveSecurityPdf/)});

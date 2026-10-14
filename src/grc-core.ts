@@ -15,6 +15,10 @@ export type OverallControlStatus = 'EFFECTIVE'|'PARTIALLY_EFFECTIVE'|'INEFFECTIV
 export type EvidenceSufficiency = 'INSUFFICIENT'|'PARTIAL'|'SUFFICIENT';
 export type ReviewResult = 'NOT_REVIEWED'|'PASS'|'PARTIAL'|'FAIL'|'NOT_APPLICABLE';
 export type ApprovalStatus = 'PENDING'|'APPROVED'|'REJECTED';
+export type RiskTreatment = 'MITIGATE'|'ACCEPT'|'TRANSFER'|'AVOID';
+export type SoAApplicability = 'APPLICABLE'|'NOT_APPLICABLE'|'PENDING';
+export type SoAImplementation = 'NOT_IMPLEMENTED'|'PARTIAL'|'IMPLEMENTED';
+export type AiRiskClass = 'PROHIBITED'|'HIGH'|'TRANSPARENCY'|'MINIMAL'|'UNDETERMINED';
 
 export function calculateControlStatus(x:{
   applicability:Applicability;
@@ -103,6 +107,40 @@ export async function initGrcCore(){
       event text NOT NULL, actor_user_id uuid, snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
       created_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS grc_risk_methodologies(
+      id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+      name text NOT NULL, likelihood_max integer NOT NULL DEFAULT 5 CHECK(likelihood_max BETWEEN 3 AND 10),
+      impact_max integer NOT NULL DEFAULT 5 CHECK(impact_max BETWEEN 3 AND 10),
+      thresholds jsonb NOT NULL DEFAULT '{"critical":20,"high":15,"medium":8,"low":4}'::jsonb,
+      is_default boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS grc_statements_of_applicability(
+      id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+      scope_id uuid NOT NULL REFERENCES grc_scopes(id) ON DELETE CASCADE,
+      control_id uuid NOT NULL REFERENCES grc_controls(id) ON DELETE CASCADE,
+      applicability text NOT NULL DEFAULT 'PENDING', justification text,
+      implementation_state text NOT NULL DEFAULT 'NOT_IMPLEMENTED', related_risk_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+      evidence_refs jsonb NOT NULL DEFAULT '[]'::jsonb, owner_user_id uuid, reviewer_user_id uuid,
+      approval_status text NOT NULL DEFAULT 'PENDING', approved_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE(scope_id,control_id)
+    );
+    CREATE TABLE IF NOT EXISTS grc_ai_impact_assessments(
+      id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+      scope_id uuid REFERENCES grc_scopes(id) ON DELETE CASCADE, system_name text NOT NULL,
+      intended_use text NOT NULL, affected_parties text, data_categories text, human_oversight text,
+      potential_impacts text, mitigations text, evidence_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
+      eu_risk_class text NOT NULL DEFAULT 'UNDETERMINED', status text NOT NULL DEFAULT 'DRAFT',
+      reviewer_user_id uuid, approval_status text NOT NULL DEFAULT 'PENDING', approved_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS grc_privacy_assessments(
+      id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+      scope_id uuid REFERENCES grc_scopes(id) ON DELETE CASCADE, processing_activity text NOT NULL,
+      pii_categories text, purposes text, data_subjects text, retention text, recipients text,
+      safeguards text, evidence_refs jsonb NOT NULL DEFAULT '[]'::jsonb, status text NOT NULL DEFAULT 'DRAFT',
+      reviewer_user_id uuid, approval_status text NOT NULL DEFAULT 'PENDING',
+      created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS grc_risks(
       id uuid PRIMARY KEY, organization_id uuid REFERENCES grc_organizations(id) ON DELETE CASCADE,
       risk_key text UNIQUE NOT NULL, title text NOT NULL, description text, category text,
@@ -114,6 +152,8 @@ export async function initGrcCore(){
       residual_impact integer CHECK(residual_impact BETWEEN 1 AND 5),
       residual_score integer, residual_rating text,
       owner_user_id uuid, status text NOT NULL DEFAULT 'OPEN', review_date date,
+      methodology_id uuid REFERENCES grc_risk_methodologies(id), acceptance_rationale text,
+      accepted_by uuid, accepted_at timestamptz, acceptance_expires_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE TABLE IF NOT EXISTS grc_risk_controls(
@@ -142,6 +182,11 @@ export async function initGrcCore(){
       snapshot jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS grc_assessments_scope_idx ON grc_control_assessments(scope_id);
+    ALTER TABLE grc_risks ADD COLUMN IF NOT EXISTS methodology_id uuid REFERENCES grc_risk_methodologies(id);
+    ALTER TABLE grc_risks ADD COLUMN IF NOT EXISTS acceptance_rationale text;
+    ALTER TABLE grc_risks ADD COLUMN IF NOT EXISTS accepted_by uuid;
+    ALTER TABLE grc_risks ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
+    ALTER TABLE grc_risks ADD COLUMN IF NOT EXISTS acceptance_expires_at timestamptz;
     CREATE INDEX IF NOT EXISTS grc_risks_org_idx ON grc_risks(organization_id);
     CREATE INDEX IF NOT EXISTS grc_issues_org_status_idx ON grc_issues(organization_id,status);
     CREATE INDEX IF NOT EXISTS grc_evidence_validity_idx ON grc_evidence(valid_until);

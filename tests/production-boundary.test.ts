@@ -320,3 +320,17 @@ test('security report visual system is structured and scanner runtime uses writa
  assert.match(server,/HOME:'\/tmp\/aegis-tools'/);
  assert.match(server,/XDG_CONFIG_HOME:'\/tmp\/aegis-tools\/config'/);
 });
+
+
+test('technical PDF derives final disposition from findings and execution coverage',async()=>{
+ const pdf=await readFile(new URL('../src/pdf.ts',import.meta.url),'utf8');
+ assert.match(pdf,/Technical Assessment Conclusion & Final Disposition/);
+ assert.match(pdf,/FINAL DISPOSITION/);
+ assert.match(pdf,/OVERALL SECURITY POSTURE/);
+ assert.match(pdf,/COVERAGE & ASSURANCE LIMITATIONS/);
+ assert.match(pdf,/FINAL TECHNICAL CONCLUSION/);
+ assert.match(pdf,/RETEST \/ CLOSURE GATE/);
+ assert.match(pdf,/failedEngines/);
+ assert.match(pdf,/failure is not interpreted as PASS/);
+ assert.match(pdf,/No breach, exploitation, data theft/);
+});

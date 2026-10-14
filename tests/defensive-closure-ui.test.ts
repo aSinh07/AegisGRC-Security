@@ -29,3 +29,6 @@ test('Defensive Wazuh findings expose fingerprint-bound targeted retest workflow
 
 
 test('Defensive Prowler findings use same-asset fingerprint-bound imported retest',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(js,/Import Prowler targeted retest/);assert.match(js,/runProwlerDefensiveRetest/);assert.match(server,/\/prowler-retest/);assert.match(server,/Prowler retest must use the same cloud asset as the original finding/);assert.match(server,/Completed Prowler retest attestation required/);assert.match(server,/IMPORTED_PROWLER_TARGETED_RETEST/);assert.match(server,/saveFindingRetest/)});
+
+
+test('Defensive OpenVAS findings expose existing fingerprint-bound infrastructure retest',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/Import OpenVAS targeted retest/);assert.match(js,/runOpenvasDefensiveRetest/);assert.match(js,/\/openvas-retest/);assert.match(js,/same OpenVAS vulnerability fingerprint is still present/);assert.match(js,/ready for governed REMEDIATED review/)});

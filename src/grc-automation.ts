@@ -119,6 +119,22 @@ async function execute(client:any,org:string,kind:Kind,config:any){
  return events;
 }
 
+export async function automationCenter(user:string,org:string){
+ await requireOrgPermission(user,org,'read');
+ const [rules,runs,traces,pendingEvidence,controlStates,capa]=await Promise.all([
+  pool.query('SELECT id,name,kind,enabled,last_run_at,next_run_at FROM grc_automation_rules WHERE organization_id=$1 ORDER BY name',[org]),
+  pool.query('SELECT id,rule_id,status,started_at,finished_at,actions_count,summary,error FROM grc_automation_runs WHERE organization_id=$1 ORDER BY started_at DESC LIMIT 100',[org]),
+  pool.query("SELECT id,record_id,event,reason,snapshot,created_at FROM grc_record_events WHERE organization_id=$1 AND (event LIKE 'AUTOMATION_%' OR actor_user_id IS NULL) ORDER BY created_at DESC LIMIT 100",[org]),
+  pool.query("SELECT count(*)::int n FROM grc_security_report_handoffs WHERE organization_id=$1 AND status='EVIDENCE_ACCEPTED'",[org]),
+  pool.query(`SELECT r.result,count(*)::int n FROM grc_control_test_runs r WHERE r.organization_id=$1 AND r.executed_at=(SELECT max(x.executed_at) FROM grc_control_test_runs x WHERE x.organization_id=r.organization_id AND x.test_definition_id=r.test_definition_id) GROUP BY r.result`,[org]),
+  pool.query("SELECT status,count(*)::int n FROM grc_capa WHERE organization_id=$1 GROUP BY status",[org])
+ ]);
+ const lastRuns=runs.rows,failed=lastRuns.filter((x:any)=>x.status==='FAILED').length;
+ return {rules:rules.rows,recentRuns:lastRuns,traces:traces.rows,
+  assurance:{acceptedSecurityEvidenceAwaitingControlReview:pendingEvidence.rows[0]?.n||0,controlTestStates:Object.fromEntries(controlStates.rows.map((x:any)=>[x.result,x.n])),capaStates:Object.fromEntries(capa.rows.map((x:any)=>[x.status,x.n])),recentAutomationFailures:failed},
+  truthModel:{automationCanCollectAndTriage:true,automationCanRunDeterministicEvidenceTests:true,automationCanCreateComplianceCertification:false,missingEvidenceState:'NOT_TESTED_OR_FAIL_BY_TEST_DEFINITION',finalComplianceApproval:'HUMAN_REVIEW_REQUIRED'}};
+}
+
 export async function runAutomationRule(user:string,org:string,ruleId:string){
  await requireOrgPermission(user,org,'manageOrg');const client=await pool.connect();const runId=crypto.randomUUID();
  try{

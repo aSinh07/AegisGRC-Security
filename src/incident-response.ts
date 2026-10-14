@@ -38,11 +38,9 @@ export async function createIncident(user:string,org:string,input:any){
  VALUES($1,$2,$3,$4,$5,'DETECTED',$6,$7,$8,$9,$10) RETURNING *`,[crypto.randomUUID(),org,key,title,sev,input.ownerUserId||user,source,assets,String(input.summary||'').slice(0,5000),user])).rows[0];
 }
 export async function transitionIncident(user:string,org:string,id:string,next:IncidentPhase,input:any){
- await requireOrgPermission(user,org,'manageRisk');const row=(await pool.query('SELECT * FROM security_incidents WHERE id=$1 AND organization_id=$2',[id,org])).rows[0];
- if(!row)throw Object.assign(new Error('Incident not found'),{statusCode:404});
+ await requireOrgPermission(user,org,'manageRisk');
  const event={phase:next,actorId:user,reason:String(input.reason||''),occurredAt:String(input.occurredAt||new Date().toISOString()),evidenceRefs:Array.isArray(input.evidenceRefs)?input.evidenceRefs:[]};
- validateIncidentTransition(row.phase,next,event);
- const client=await pool.connect();try{await client.query('BEGIN');await client.query(`INSERT INTO security_incident_events(id,organization_id,incident_id,phase,actor_user_id,reason,evidence_refs,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[crypto.randomUUID(),org,id,next,user,event.reason,event.evidenceRefs,event.occurredAt]);const updated=(await client.query(`UPDATE security_incidents SET phase=$3,updated_at=now(),closed_at=CASE WHEN $3='CLOSED' THEN now() ELSE closed_at END WHERE id=$1 AND organization_id=$2 RETURNING *`,[id,org,next])).rows[0];await client.query('COMMIT');return updated}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+ const client=await pool.connect();try{await client.query('BEGIN');const row=(await client.query('SELECT * FROM security_incidents WHERE id=$1 AND organization_id=$2 FOR UPDATE',[id,org])).rows[0];if(!row)throw Object.assign(new Error('Incident not found'),{statusCode:404});validateIncidentTransition(row.phase,next,event);await client.query(`INSERT INTO security_incident_events(id,organization_id,incident_id,phase,actor_user_id,reason,evidence_refs,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[crypto.randomUUID(),org,id,next,user,event.reason,event.evidenceRefs,event.occurredAt]);const updated=(await client.query(`UPDATE security_incidents SET phase=$3,updated_at=now(),closed_at=CASE WHEN $3='CLOSED' THEN now() ELSE closed_at END WHERE id=$1 AND organization_id=$2 RETURNING *`,[id,org,next])).rows[0];await client.query('COMMIT');return updated}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 export async function ingestIdentitySignal(user:string,org:string,input:IdentitySignal&{incidentId?:string}){
  await requireOrgPermission(user,org,'manageRisk');const x=normalizeIdentitySignal(input);

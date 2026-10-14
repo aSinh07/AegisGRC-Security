@@ -39,8 +39,8 @@ export function buildEnterpriseGrcReport(input:{
  const enterpriseGaps=Number(input.architecture?.summary?.gaps||0)+Number(input.resilience?.summary?.gaps||0)+Number(input.continuousCompliance?.summary?.overdueObligations||0)+Number(input.continuousCompliance?.summary?.expiredExceptions||0)+Number(input.policy?.summary?.overdueReview||0)+Number(input.policy?.summary?.unmapped||0)+Number(input.audit?.summary?.unreviewed||0)+Number(input.thirdParty?.summary?.criticalIncidents||0)+Number(input.thirdParty?.summary?.dueReview||0);
  let opinion:ConsultantOpinion='AUDIT_READY';
  if(!total||!soaControls.length)opinion='INSUFFICIENT_EVIDENCE';
- else if(highRisks.length||overdueIssues.length||overdueCapa.length||enterpriseGaps>0||actionRequired.length>Math.max(3,Math.ceil(total*.2)))opinion='SIGNIFICANT_GAPS';
- else if(actionRequired.length||openIssues.length||openCapa.length||expiredAcceptance.length)opinion='CONDITIONAL';
+ else if(highRisks.length||overdueIssues.length||overdueCapa.length||enterpriseGaps>0||criticalOpenIncidents.length||actionRequired.length>Math.max(3,Math.ceil(total*.2)))opinion='SIGNIFICANT_GAPS';
+ else if(actionRequired.length||openIssues.length||openCapa.length||expiredAcceptance.length||openIncidents.length||identityReviewRequired.length||failedAutomationRuns.length||pendingSecurityHandoffs.length)opinion='CONDITIONAL';
  const sourceRegister=traces.flatMap((t:any)=>rows(t.evidenceProvenance||t.evidence).map((e:any)=>({
   assessmentId:t.assessmentId,id:e.id,source:e.source,sha256:e.sha256,createdAt:e.createdAt||e.created_at,
   integrityVerifiedAt:e.integrityVerifiedAt||e.integrity_verified_at,trust:e.trust||e.payload?.metadata?.evidenceTrust||'UNVERIFIED'

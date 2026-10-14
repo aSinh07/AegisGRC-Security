@@ -193,6 +193,40 @@ export async function initGrcCore(){
   `);
 }
 
+export async function createRiskMethodology(input:{organizationId:string;name:string;likelihoodMax?:number;impactMax?:number;thresholds?:any;isDefault?:boolean}){
+ if(!input.organizationId||!input.name?.trim())throw new Error('Organization and methodology name are required');
+ const l=input.likelihoodMax||5,i=input.impactMax||5;if(l<3||l>10||i<3||i>10)throw new Error('Risk scales must be between 3 and 10');
+ const thresholds=input.thresholds||{critical:20,high:15,medium:8,low:4};
+ if(input.isDefault)await pool.query('UPDATE grc_risk_methodologies SET is_default=false WHERE organization_id=$1',[input.organizationId]);
+ return (await pool.query(`INSERT INTO grc_risk_methodologies(id,organization_id,name,likelihood_max,impact_max,thresholds,is_default)
+ VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.name.trim(),l,i,thresholds,Boolean(input.isDefault)])).rows[0];
+}
+export async function listRiskMethodologies(organizationId:string){return (await pool.query('SELECT * FROM grc_risk_methodologies WHERE organization_id=$1 ORDER BY is_default DESC,created_at',[organizationId])).rows}
+
+export async function upsertStatementOfApplicability(input:{organizationId:string;scopeId:string;controlId:string;applicability:SoAApplicability;justification:string;implementationState:SoAImplementation;relatedRiskIds?:string[];evidenceRefs?:string[];ownerUserId?:string;reviewerUserId?:string;approvalStatus?:ApprovalStatus}){
+ if(!input.justification||input.justification.trim().length<10)throw new Error('SoA justification is required');
+ const scope=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];if(!scope)throw new Error('Scope not found in organization');
+ if(input.approvalStatus==='APPROVED'&&!input.reviewerUserId)throw new Error('SoA approval requires accountable reviewer');
+ return (await pool.query(`INSERT INTO grc_statements_of_applicability(id,organization_id,scope_id,control_id,applicability,justification,implementation_state,related_risk_ids,evidence_refs,owner_user_id,reviewer_user_id,approval_status,approved_at)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,CASE WHEN $12='APPROVED' THEN now() ELSE NULL END)
+ ON CONFLICT(scope_id,control_id) DO UPDATE SET applicability=EXCLUDED.applicability,justification=EXCLUDED.justification,implementation_state=EXCLUDED.implementation_state,related_risk_ids=EXCLUDED.related_risk_ids,evidence_refs=EXCLUDED.evidence_refs,owner_user_id=EXCLUDED.owner_user_id,reviewer_user_id=EXCLUDED.reviewer_user_id,approval_status=EXCLUDED.approval_status,approved_at=EXCLUDED.approved_at,updated_at=now() RETURNING *`,
+ [crypto.randomUUID(),input.organizationId,input.scopeId,input.controlId,input.applicability,input.justification.trim(),input.implementationState,input.relatedRiskIds||[],input.evidenceRefs||[],input.ownerUserId||null,input.reviewerUserId||null,input.approvalStatus||'PENDING'])).rows[0];
+}
+export async function listStatementsOfApplicability(organizationId:string,scopeId?:string){const v:any[]=[organizationId];let f='';if(scopeId){v.push(scopeId);f=' AND s.scope_id=$2'}return (await pool.query(`SELECT s.*,c.control_key,c.title AS control_title FROM grc_statements_of_applicability s JOIN grc_controls c ON c.id=s.control_id WHERE s.organization_id=$1${f} ORDER BY c.control_key`,v)).rows}
+
+export async function createAiImpactAssessment(input:{organizationId:string;scopeId?:string;systemName:string;intendedUse:string;affectedParties?:string;dataCategories?:string;humanOversight?:string;potentialImpacts?:string;mitigations?:string;evidenceRefs?:string[];euRiskClass?:AiRiskClass}){
+ if(!input.organizationId||!input.systemName?.trim()||!input.intendedUse?.trim())throw new Error('Organization, AI system name and intended use are required');
+ if(input.scopeId){const x=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];if(!x)throw new Error('Scope not found in organization')}
+ return (await pool.query(`INSERT INTO grc_ai_impact_assessments(id,organization_id,scope_id,system_name,intended_use,affected_parties,data_categories,human_oversight,potential_impacts,mitigations,evidence_refs,eu_risk_class)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.scopeId||null,input.systemName.trim(),input.intendedUse.trim(),input.affectedParties||null,input.dataCategories||null,input.humanOversight||null,input.potentialImpacts||null,input.mitigations||null,input.evidenceRefs||[],input.euRiskClass||'UNDETERMINED'])).rows[0];
+}
+export async function createPrivacyAssessment(input:{organizationId:string;scopeId?:string;processingActivity:string;piiCategories?:string;purposes?:string;dataSubjects?:string;retention?:string;recipients?:string;safeguards?:string;evidenceRefs?:string[]}){
+ if(!input.organizationId||!input.processingActivity?.trim())throw new Error('Organization and processing activity are required');
+ if(input.scopeId){const x=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];if(!x)throw new Error('Scope not found in organization')}
+ return (await pool.query(`INSERT INTO grc_privacy_assessments(id,organization_id,scope_id,processing_activity,pii_categories,purposes,data_subjects,retention,recipients,safeguards,evidence_refs)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.scopeId||null,input.processingActivity.trim(),input.piiCategories||null,input.purposes||null,input.dataSubjects||null,input.retention||null,input.recipients||null,input.safeguards||null,input.evidenceRefs||[]])).rows[0];
+}
+
 export async function createRisk(input:{
   organizationId?:string; title:string; description?:string; category?:string;
   likelihood:number; impact:number; treatment?:'MITIGATE'|'ACCEPT'|'TRANSFER'|'AVOID'; ownerUserId?:string; reviewDate?:string;

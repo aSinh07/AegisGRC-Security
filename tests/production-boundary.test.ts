@@ -271,3 +271,23 @@ test('offensive workspace renders persisted execution evidence during load and p
  assert.match(ui,/if\(\['COMPLETED','PARTIAL','FAILED'\]\.includes\(status\)\)\{await loadExecutionEvidence\(\);await loadSecurityAssets\(\);return status\}/);
  assert.doesNotMatch(ui,/raw\.textContent='FULL URL ASSESSMENT · '\+status/);
 });
+
+
+test('professional security exports preserve report purpose and evidence boundaries',async()=>{
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const pdf=await readFile(new URL('../src/pdf.ts',import.meta.url),'utf8');
+ const exporters=await readFile(new URL('../src/exporters.ts',import.meta.url),'utf8');
+ assert.match(server,/renderPdf\(a,fs,ev,kind\)/);
+ assert.match(pdf,/Offensive Security Technical Assessment/);
+ assert.match(pdf,/Tool Execution & Evidence Provenance/);
+ assert.match(pdf,/Raw scanner output is supporting provenance only/);
+ assert.match(pdf,/full evidence remains stored/);
+ assert.match(exporters,/Executive Security Summary/);
+ assert.match(exporters,/Tool Execution & Coverage Matrix/);
+ assert.match(exporters,/Professional Findings Register/);
+ assert.match(exporters,/Detailed Technical Findings/);
+ assert.match(exporters,/Remediation & Retest Criteria/);
+ assert.match(exporters,/Evidence & Provenance Appendix/);
+ assert.match(exporters,/Failed, unavailable and not-run paths are not treated as PASS/);
+ assert.match(exporters,/Raw console output is supporting evidence rather than the report narrative/);
+});

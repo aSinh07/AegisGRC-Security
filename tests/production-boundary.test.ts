@@ -214,3 +214,16 @@ test('dashboard HTML has clean external-script boundaries and enterprise ops bun
 });
 
 test('offensive workspace exposes real asset-aware operations without a second datastore',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8'),js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8'),server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');for(const id of ['securityAssetType','securityAssetKey','containerImageRef','prowlerFile','infraEvidenceFile'])assert.match(html,new RegExp('id="'+id+'"'));for(const fn of ['registerSecurityAsset','runContainerAssessment','importProwlerEvidence','importOperationalEvidence'])assert.match(js,new RegExp('function '+fn));assert.match(server,/\/api\/assessments\/:assessmentId\/security-assets/);assert.match(server,/\/api\/assessments\/:assessmentId\/security-coverage\/reconcile/);assert.match(js,/reconcileSecurityCoverage/);assert.match(js,/\/trivy-image/);assert.match(js,/\/prowler-report/);assert.match(html,/value="openvas-report"/);assert.match(html,/value="wazuh-report"/);assert.match(js,/assessmentId\+'\/\'\+kind/);assert.doesNotMatch(html,/Supabase|Neon|Firebase|MongoDB|Redis/);});
+
+test('URL offensive workflow automatically runs full evidence assessment and presents CVSS truth states',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(html,/Authorize \+ Run Full URL Analysis/);
+ assert.match(html,/id="urlAnalysisSummary"/);
+ assert.match(js,/tool\.value='all';await scan\(\)/);
+ assert.match(js,/highest\.toFixed\(1\)/);
+ assert.match(js,/NOT ESTABLISHED/);
+ assert.match(server,/tool==='nuclei'\?\['-u',safeTarget\.url\.origin,'-jsonl'/);
+ assert.match(server,/tool==='sqlmap'\?sqlmapTextFindings/);
+});

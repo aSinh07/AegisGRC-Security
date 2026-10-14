@@ -534,7 +534,7 @@ function documentSecurityScan(file:Express.Multer.File){
 function run(cmd:string,args:string[]){
   return new Promise<{stdout:string;stderr:string;exitCode:number|null;durationMs:number;timedOut:boolean;stdoutTruncated:boolean;stderrTruncated:boolean}>((resolve,reject)=>{
     const started=Date.now();let out='',err='',done=false,timedOut=false,stdoutTruncated=false,stderrTruncated=false;
-    const child=spawn(cmd,args,{shell:false,stdio:['ignore','pipe','pipe']});
+    const child=spawn(cmd,args,{shell:false,stdio:['ignore','pipe','pipe'],env:{...process.env,HOME:'/tmp/aegis-tools',XDG_CONFIG_HOME:'/tmp/aegis-tools/config',XDG_CACHE_HOME:'/tmp/aegis-tools/cache',XDG_DATA_HOME:'/tmp/aegis-tools/data'}});
     const timer=setTimeout(()=>{timedOut=true;child.kill('SIGKILL')},TIMEOUT);
     const append=(base:string,chunk:Buffer,which:'stdout'|'stderr')=>{const next=base+chunk.toString();if(next.length>MAX){if(which==='stdout')stdoutTruncated=true;else stderrTruncated=true}return next.slice(0,MAX)};
     child.stdout.on('data',(d:Buffer)=>out=append(out,d,'stdout'));

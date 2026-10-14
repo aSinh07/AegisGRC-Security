@@ -291,3 +291,15 @@ test('professional security exports preserve report purpose and evidence boundar
  assert.match(exporters,/Failed, unavailable and not-run paths are not treated as PASS/);
  assert.match(exporters,/Raw console output is supporting evidence rather than the report narrative/);
 });
+
+
+test('defensive workspace restores newest persisted authorized assessment without recreating scan authority',async()=>{
+ const ui=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const store=await readFile(new URL('../src/store.ts',import.meta.url),'utf8');
+ assert.match(store,/ORDER BY a\.authorized_at DESC/);
+ assert.match(ui,/async function restoreLatestAssessment\(\)/);
+ assert.match(ui,/const rows=await jf\('\/api\/assessments'\)/);
+ assert.match(ui,/assessmentId=a\.id;targetOrigin=a\.target;sessionToken=null/);
+ assert.match(ui,/await loadSecurityWorkspace\(\);await loadSecurityAssets\(\);await loadDefensiveAnalysis\(\)/);
+ assert.match(ui,/await restoreLatestAssessment\(\)/);
+});

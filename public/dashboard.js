@@ -31,7 +31,15 @@ function bindAuthControls(){
  document.documentElement.dataset.aegisJs='ready';
 }
 // Authentication controls are owned exclusively by auth.js.
-async function showApp(){login.classList.add('hidden');app.classList.remove('hidden');copilot.classList.remove('hidden');await loadUserProfile();loadIntegrations();loadFrameworks()}
+async function restoreLatestAssessment(){
+ try{
+  const rows=await jf('/api/assessments');const a=Array.isArray(rows)?rows[0]:null;if(!a)return false;
+  assessmentId=a.id;targetOrigin=a.target;sessionToken=null;
+  gate.textContent='RESTORED · '+assessmentId+' · '+targetOrigin+' · '+a.status;state.textContent=a.status||'RESTORED';
+  await loadSecurityWorkspace();await loadSecurityAssets();await loadDefensiveAnalysis();return true
+ }catch(e){console.warn('Assessment restore unavailable',e);return false}
+}
+async function showApp(){login.classList.add('hidden');app.classList.remove('hidden');copilot.classList.remove('hidden');await loadUserProfile();loadIntegrations();loadFrameworks();await restoreLatestAssessment()}
 function profileInitials(name,email){const v=(name||email||'A').trim().split(/\s+/).filter(Boolean);return ((v[0]?.[0]||'A')+(v.length>1?v[v.length-1][0]:'')).toUpperCase()}
 async function loadUserProfile(){try{const d=await jf('/api/auth/profile'),p=d.profile||{},initials=profileInitials(p.fullName,p.email);profileAvatar.textContent=initials;profileAvatarLarge.textContent=initials;profileName.textContent=p.fullName||'AegisGRC User';profileTitle.textContent=p.designation||'Workspace user';profileCompany.textContent=p.companyName||'—';profileDepartment.textContent=p.department||'—';profileWork.textContent=p.workProfile||'—';profileRole.textContent=String(p.role||'analyst').replaceAll('_',' ');profileEmail.textContent=p.email||'—'}catch(e){console.warn('Profile unavailable')}}
 function toggleProfileMenu(){profileMenu.classList.toggle('hidden')}

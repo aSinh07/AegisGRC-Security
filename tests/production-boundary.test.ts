@@ -166,7 +166,8 @@ test('offensive and defensive workspaces own their inputs and share evidence',as
  for(const id of ['target','auth','gate','offensiveDocs','offensiveCoverage','tool','findings','CRITICAL','HIGH','MEDIUM','LOW','INFO','defensiveTarget','defensiveDocs','defensiveReuse','defensivePlan','pie','bars','aiout','docs','doclist','raw'])assert.match(html,new RegExp('id="'+id+'"'));
  for(const action of ["scan()","authorizeDefensive()","loadDefensiveAnalysis()","ai()","uploadDocs()"])assert.ok(html.includes(action),action);
  assert.doesNotMatch(html.slice(html.indexOf('<section id="defensive"'),html.indexOf('<section id="incidents"')),/Dynamic GRC Report|Generate GRC View/);
- assert.match(js,/\/api\/assessments\/'\+assessmentId\+'\/security-workspace/);\n assert.match(html,/Re-upload required: NO/);
+ assert.match(js,/\/api\/assessments\/'\+assessmentId\+'\/security-workspace/);
+ assert.match(html,/Re-upload required: NO/);
 });
 
 

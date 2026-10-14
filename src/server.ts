@@ -600,7 +600,7 @@ async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei',asse
  t=await revalidateTarget(t);
  const startedAt=new Date().toISOString();let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number;timedOut:boolean;stdoutTruncated:boolean;stderrTruncated:boolean};let zapAlerts:any[]=[];
  if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(t.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0,timedOut:false,stdoutTruncated:false,stderrTruncated:false}}
- else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p-','--open','-oX','-',t.url.hostname]:tool==='wapiti'?['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:tool==='nuclei'?['-u',t.url.origin,'-jsonl','-silent','-severity','info,low,medium,high,critical','-timeout','10','-retries','1']:['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
+ else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','--top-ports','1000','--open','-oX','-',t.url.hostname]:tool==='wapiti'?['-u',t.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:tool==='nuclei'?['-u',t.url.origin,'-jsonl','-silent','-severity','info,low,medium,high,critical','-timeout','10','-retries','1']:['-u',t.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
  const completedAt=new Date().toISOString(),evidence=JSON.stringify({tool,target:t.url.origin,startedAt,completedAt,...result}),sha256=crypto.createHash('sha256').update(evidence).digest('hex');
  const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:tool,sha256,createdAt:completedAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{target:t.url.origin,resolvedAddresses:t.addresses,durationMs:result.durationMs,timedOut:result.timedOut,stdoutTruncated:result.stdoutTruncated,stderrTruncated:result.stderrTruncated,attackSurfaceAssessed:tool==='nmap'||tool==='nuclei',attackSurfaceAssetId:t.url.origin}};
  await db.saveEvidence(ev);
@@ -647,6 +647,28 @@ app.post('/api/findings/:findingId/retest',async(req,res)=>{try{
  await db.saveFindingRetest({id:crypto.randomUUID(),findingId:original.id,assessmentId,evidenceId:ev.id,fingerprint,scannerSource:original.source,scannerId:original.externalIds?.scannerId||null,createdBy:u.userId},retestAudit);
  return res.status(rr.exitCode===0?200:502).json({execution:'TARGETED_RETEST',findingId:original.id,fingerprint,source:original.source,evidenceId:ev.id,evidence:{sha256:ev.sha256},exitCode:rr.exitCode,findings:rr.findings});
 }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+const activeFullScans=new Map<string,Promise<void>>();
+async function executeFullUrlAssessment(userId:string,assessment:Assessment,t:{url:URL,addresses:string[]}){
+ const assessmentId=assessment.id;
+ console.log('\n[AEGIS FULL ASSESSMENT] START '+t.url.origin+' assessment='+assessmentId);
+ const q=await quickPosture(assessmentId,t);
+ const qev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};
+ await db.saveEvidence(qev);if(q.findings.length)await db.saveFindings(q.findings);
+ console.log('[AEGIS REAL SCAN] HTTP POSTURE | findings='+q.findings.length+' | evidence='+q.sha256);
+ const safe=async(name:'nmap'|'zap'|'wapiti'|'sqlmap'|'nuclei')=>{try{const rr:any=await executeRealTool(name,assessmentId,t);return {...rr,tool:name,status:scannerRunStatus(rr.exitCode,undefined,Boolean(rr.timedOut||rr.stdoutTruncated||rr.stderrTruncated))}}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);return {tool:name,status:'FAILED',error:e.message,findings:[]}}};
+ const runs:any[]=[];
+ runs.push(...await Promise.all([safe('nuclei'),safe('nmap')]));
+ runs.push(await safe('zap'));
+ runs.push(...await Promise.all([safe('wapiti'),safe('sqlmap')]));
+ const required=['http-posture','nmap','zap','wapiti','sqlmap','nuclei'];
+ const coverage=scanCoverage(required,[{tool:'http-posture',status:q.error?'FAILED':'SUCCEEDED'},...runs]);
+ const finalStatus=assessmentStatusForCoverage(coverage);
+ const fresh=await db.assessmentForUser(userId,assessmentId)||assessment;
+ const allFindings=await db.findingsForAssessment(assessmentId),allEvidence=await db.evidenceForAssessment(assessmentId);
+ await db.saveAssessment({...fresh,status:finalStatus,scanCoverage:coverage,findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});
+ await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'FULL_ASSESSMENT_COMPLETED',actor:userId,createdAt:new Date().toISOString(),metadata:{status:finalStatus,findingCount:allFindings.length,evidenceCount:allEvidence.length,coverage}});
+ console.log('[AEGIS FULL ASSESSMENT] '+finalStatus+' | findings='+allFindings.length+' | evidence='+allEvidence.length);
+}
 app.post('/api/scans/run',async(req,res)=>{
   try{
     const session=verifySession(String(req.headers['x-assessment-session']||''));
@@ -659,16 +681,23 @@ app.post('/api/scans/run',async(req,res)=>{
     const t=await validateTarget(String(req.body.targetUrl||''));
     if(t.url.origin!==session.targetOrigin || assessment.target!==session.targetOrigin) return res.status(403).json({error:'Target is outside the authorized assessment scope'});
     if(tool==='all'){
-      console.log('\n[AEGIS FULL ASSESSMENT] START '+t.url.origin+' assessment='+assessmentId);
-      const q=await quickPosture(assessmentId,t);const qev:Evidence={id:crypto.randomUUID(),assessmentId,source:'http',sha256:q.sha256,createdAt:q.completedAt,exitCode:q.error?1:0,stdout:JSON.stringify({status:q.status,headers:q.headers}),stderr:q.error,metadata:{target:t.url.origin,durationMs:q.durationMs,mode:'live-http-posture'}};await db.saveEvidence(qev);if(q.findings.length)await db.saveFindings(q.findings);console.log('[AEGIS REAL SCAN] HTTP POSTURE | findings='+q.findings.length+' | evidence='+q.sha256);
-      const runs:any[]=[];for(const name of ['nmap','zap','wapiti','sqlmap','nuclei'] as const){try{const rr:any=await executeRealTool(name,assessmentId,t);runs.push({...rr,tool:name,status:scannerRunStatus(rr.exitCode,undefined,Boolean(rr.timedOut||rr.stdoutTruncated||rr.stderrTruncated))})}catch(e:any){console.log('[AEGIS TOOL ERROR] '+name.toUpperCase()+' | '+e.message);runs.push({tool:name,status:'FAILED',error:e.message,findings:[]})}}
-      const required=['http-posture','nmap','zap','wapiti','sqlmap','nuclei'];const coverage=scanCoverage(required,[{tool:'http-posture',status:q.error?'FAILED':'SUCCEEDED'},...runs]);const finalStatus=assessmentStatusForCoverage(coverage);const fresh=await db.assessmentForUser(u.userId,assessmentId)||assessment;const allFindings=await db.findingsForAssessment(assessmentId);const allEvidence=await db.evidenceForAssessment(assessmentId);await db.saveAssessment({...fresh,status:finalStatus,scanCoverage:coverage,findings:allFindings,evidenceIds:allEvidence.map(x=>x.id)});console.log('[AEGIS FULL ASSESSMENT] '+finalStatus+' | findings='+allFindings.length+' | evidence='+allEvidence.length);return res.json({execution:'REAL_FULL_ASSESSMENT',status:finalStatus,target:t.url.origin,assessmentId,tools:required,runs,coverage,summary:{findings:allFindings.length,evidenceRecords:allEvidence.length},findings:allFindings});
+      const existing=activeFullScans.get(assessmentId);
+      if(existing)return res.status(202).json({execution:'REAL_FULL_ASSESSMENT',status:'RUNNING',assessmentId,target:t.url.origin,message:'Assessment is already running; poll the persisted workspace for progress.'});
+      await db.saveAssessment({...assessment,status:'RUNNING'});
+      const task=executeFullUrlAssessment(u.userId,assessment,t).catch(async(e:any)=>{
+        console.error('[AEGIS FULL ASSESSMENT] FAILED',assessmentId,e);
+        const fresh=await db.assessmentForUser(u.userId,assessmentId)||assessment;
+        await db.saveAssessment({...fresh,status:'FAILED'});
+        await db.saveAudit({id:crypto.randomUUID(),assessmentId,action:'FULL_ASSESSMENT_FAILED',actor:u.userId,createdAt:new Date().toISOString(),metadata:{error:String(e?.message||e).slice(0,1000)}});
+      }).finally(()=>activeFullScans.delete(assessmentId));
+      activeFullScans.set(assessmentId,task);
+      return res.status(202).json({execution:'REAL_FULL_ASSESSMENT',status:'RUNNING',assessmentId,target:t.url.origin,message:'Assessment accepted. Evidence and findings are persisted progressively while scanners execute.'});
     }
     const safeTarget=await revalidateTarget(t);
     const startedAt=new Date().toISOString();
     let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number}; let zapAlerts:any[]=[];
     if(tool==='zap'){const z0=Date.now();zapAlerts=await zapScan(safeTarget.url.origin);result={stdout:JSON.stringify(zapAlerts),stderr:'',exitCode:0,durationMs:Date.now()-z0}}
-    else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','-p-','--open','-oX','-',safeTarget.url.hostname]:tool==='wapiti'?['-u',safeTarget.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:tool==='nuclei'?['-u',safeTarget.url.origin,'-jsonl','-silent','-severity','info,low,medium,high,critical','-timeout','10','-retries','1']:['-u',safeTarget.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
+    else {const args=tool==='nmap'?['-sT','-sV','--version-light','-Pn','--top-ports','1000','--open','-oX','-',safeTarget.url.hostname]:tool==='wapiti'?['-u',safeTarget.url.origin,'--scope','url','--max-scan-time','60','--flush-session']:tool==='nuclei'?['-u',safeTarget.url.origin,'-jsonl','-silent','-severity','info,low,medium,high,critical','-timeout','10','-retries','1']:['-u',safeTarget.url.toString(),'--batch','--level=1','--risk=1','--threads=1','--timeout=10','--retries=1','--output-dir=/tmp/sqlmap'];result=await run(tool,args)}
     const completedAt=new Date().toISOString();
     const evidence=JSON.stringify({tool,target:safeTarget.url.origin,startedAt,completedAt,...result});
     const sha256=crypto.createHash('sha256').update(evidence).digest('hex');

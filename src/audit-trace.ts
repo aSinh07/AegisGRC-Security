@@ -43,8 +43,8 @@ export async function assessmentTrace(userId:string, assessmentId:string) {
     SELECT DISTINCT i.id issue_id,sc.id scope_control_id,c.control_key,c.title control_title,
       sc.applicability,sc.implementation,sc.approved_at applicability_approved_at,
       lr.id test_run_id,lr.result test_result,lr.rationale test_rationale,lr.executed_at test_executed_at,
-      COALESCE(json_agg(DISTINCT jsonb_build_object('framework',fr.framework,'version',fr.framework_version,'requirementKey',fr.requirement_key,'title',fr.title,'mappingType',m.mapping_type))
-        FILTER(WHERE fr.id IS NOT NULL),'[]'::json) framework_mappings
+      COALESCE(jsonb_agg(DISTINCT jsonb_build_object('framework',fr.framework,'version',fr.framework_version,'requirementKey',fr.requirement_key,'title',fr.title,'mappingType',m.mapping_type))
+        FILTER(WHERE fr.id IS NOT NULL),'[]'::jsonb) framework_mappings
     FROM grc_issues i
     JOIN grc_scope_controls sc ON sc.id=i.scope_control_id
     JOIN grc_canonical_controls c ON c.id=sc.control_id

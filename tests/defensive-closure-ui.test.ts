@@ -26,3 +26,6 @@ test('Defensive closure controls have responsive presentation rules',async()=>{
 
 
 test('Defensive Wazuh findings expose fingerprint-bound targeted retest workflow',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/Import Wazuh targeted retest/);assert.match(js,/runWazuhDefensiveRetest/);assert.match(js,/\/wazuh-retest/);assert.match(js,/same vulnerability\/detection fingerprint is still present/);assert.match(js,/d\.evidenceId/)});
+
+
+test('Defensive Prowler findings use same-asset fingerprint-bound imported retest',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(js,/Import Prowler targeted retest/);assert.match(js,/runProwlerDefensiveRetest/);assert.match(server,/\/prowler-retest/);assert.match(server,/Prowler retest must use the same cloud asset as the original finding/);assert.match(server,/Completed Prowler retest attestation required/);assert.match(server,/IMPORTED_PROWLER_TARGETED_RETEST/);assert.match(server,/saveFindingRetest/)});

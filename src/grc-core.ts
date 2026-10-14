@@ -197,6 +197,8 @@ export async function createRiskMethodology(input:{organizationId:string;name:st
  if(!input.organizationId||!input.name?.trim())throw new Error('Organization and methodology name are required');
  const l=input.likelihoodMax||5,i=input.impactMax||5;if(l<3||l>10||i<3||i>10)throw new Error('Risk scales must be between 3 and 10');
  const thresholds=input.thresholds||{critical:20,high:15,medium:8,low:4};
+ const critical=Number(thresholds.critical),high=Number(thresholds.high),medium=Number(thresholds.medium),low=Number(thresholds.low),maxScore=l*i;
+ if(![critical,high,medium,low].every(Number.isFinite)||!(critical>high&&high>medium&&medium>low&&low>=1)||critical>maxScore)throw new Error('Risk thresholds must be ordered critical > high > medium > low >= 1 and fit the selected scale');
  if(input.isDefault)await pool.query('UPDATE grc_risk_methodologies SET is_default=false WHERE organization_id=$1',[input.organizationId]);
  return (await pool.query(`INSERT INTO grc_risk_methodologies(id,organization_id,name,likelihood_max,impact_max,thresholds,is_default)
  VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.name.trim(),l,i,thresholds,Boolean(input.isDefault)])).rows[0];

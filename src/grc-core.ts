@@ -167,7 +167,10 @@ export async function listRisks(organizationId:string){
   return r.rows;
 }
 
-export async function createControlAssessment(input:{scopeId:string;controlId:string;ownerUserId?:string}){
+export async function createControlAssessment(input:{scopeId:string;controlId:string;ownerUserId?:string;organizationId?:string}){
+  if(!input.organizationId)throw new Error('Organization scope is required');
+  const scope=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];
+  if(!scope)throw new Error('Scope not found in organization');
   const id=crypto.randomUUID();
   const r=await pool.query(`INSERT INTO grc_control_assessments(id,scope_id,control_id,owner_user_id)
     VALUES($1,$2,$3,$4) ON CONFLICT(scope_id,control_id) DO UPDATE SET updated_at=now() RETURNING *`,
@@ -175,8 +178,9 @@ export async function createControlAssessment(input:{scopeId:string;controlId:st
   return r.rows[0];
 }
 
-export async function updateControlAssessment(id:string,patch:any){
-  const current=(await pool.query('SELECT * FROM grc_control_assessments WHERE id=$1',[id])).rows[0];
+export async function updateControlAssessment(id:string,patch:any,organizationId?:string){
+  if(!organizationId)throw new Error('Organization scope is required');
+  const current=(await pool.query(`SELECT ca.* FROM grc_control_assessments ca JOIN grc_scopes s ON s.id=ca.scope_id WHERE ca.id=$1 AND s.organization_id=$2`,[id,organizationId])).rows[0];
   if(!current) throw new Error('Control assessment not found');
   const x={
     applicability:patch.applicability||current.applicability,
@@ -198,8 +202,9 @@ export async function updateControlAssessment(id:string,patch:any){
 export async function reviewControlAssessment(id:string,input:{
   actorUserId:string; evidenceSufficiency:EvidenceSufficiency; automatedResult?:ReviewResult;
   manualResult:ReviewResult; designEffectiveness:Effectiveness; operatingEffectiveness:Effectiveness;
-  notes:string; approvalStatus?:ApprovalStatus;
+  notes:string; approvalStatus?:ApprovalStatus; organizationId?:string;
 }){
+  if(!input.organizationId)throw new Error('Organization scope is required');
   if(!input.actorUserId)throw new Error('Accountable reviewer is required');
   if(!input.notes||input.notes.trim().length<10)throw new Error('Review rationale is required');
   if(input.approvalStatus==='APPROVED'&&input.evidenceSufficiency!=='SUFFICIENT')throw new Error('Approval requires sufficient evidence');
@@ -207,7 +212,7 @@ export async function reviewControlAssessment(id:string,input:{
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
-    const current=(await client.query('SELECT * FROM grc_control_assessments WHERE id=$1 FOR UPDATE',[id])).rows[0];
+    const current=(await client.query(`SELECT ca.* FROM grc_control_assessments ca JOIN grc_scopes s ON s.id=ca.scope_id WHERE ca.id=$1 AND s.organization_id=$2 FOR UPDATE OF ca`,[id,input.organizationId])).rows[0];
     if(!current)throw new Error('Control assessment not found');
     const automated=input.automatedResult||current.automated_result||'NOT_REVIEWED';
     const approval=input.approvalStatus||'PENDING';
@@ -234,8 +239,9 @@ export async function reviewControlAssessment(id:string,input:{
   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 
-export async function controlAssessmentHistory(id:string){
-  return (await pool.query('SELECT * FROM grc_control_assessment_events WHERE assessment_id=$1 ORDER BY created_at DESC',[id])).rows;
+export async function controlAssessmentHistory(id:string,organizationId?:string){
+  if(!organizationId)throw new Error('Organization scope is required');
+  return (await pool.query(`SELECT e.* FROM grc_control_assessment_events e JOIN grc_control_assessments ca ON ca.id=e.assessment_id JOIN grc_scopes s ON s.id=ca.scope_id WHERE e.assessment_id=$1 AND s.organization_id=$2 ORDER BY e.created_at DESC`,[id,organizationId])).rows;
 }
 
 export async function recordWorkflowTransition(input:{recordType:string;recordId:string;fromState?:string;toState:string;actorUserId?:string;reason?:string;snapshot?:any}){

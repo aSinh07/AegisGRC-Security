@@ -29,3 +29,6 @@ test('capability summaries expose implementation truth',()=>{
  assert.equal(o.total,o.native+o.evidenceImport+o.connectorReady);
  assert.equal(d.total,d.native+d.evidenceImport+d.connectorReady);
 });
+
+
+test('defensive capability truth does not overclaim imported or connector-ready tools',()=>{const rows=capabilitiesFor('DEFENSIVE');assert.equal(rows.find(x=>x.id==='cloud-posture')?.mode,'EVIDENCE_IMPORT');assert.equal(rows.find(x=>x.id==='endpoint-defense')?.mode,'EVIDENCE_IMPORT');assert.equal(rows.find(x=>x.id==='commercial-defense')?.mode,'CONNECTOR_READY');assert.equal(rows.find(x=>x.id==='container-supply-chain')?.mode,'NATIVE')});

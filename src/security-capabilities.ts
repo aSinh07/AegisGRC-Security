@@ -16,7 +16,7 @@ export const securityCapabilityCatalog:SecurityCapability[]=[
  {id:'commercial-offensive',domain:'OFFENSIVE',category:'Commercial / External Platforms',mode:'CONNECTOR_READY',engines:['Burp Suite Enterprise','Tenable','Qualys','Rapid7 InsightVM','Acunetix/Invicti'],purpose:'Adapter boundary for licensed external scanners; credentials and vendor APIs are required before status can become connected',authorizationRequired:true},
 
  {id:'endpoint-defense',domain:'DEFENSIVE',category:'Endpoint / Detection',mode:'EVIDENCE_IMPORT',engines:['Wazuh'],purpose:'Endpoint posture, security telemetry and breach evidence',authorizationRequired:false},
- {id:'cloud-posture',domain:'DEFENSIVE',category:'Cloud Security Posture',mode:'NATIVE',engines:['Prowler'],purpose:'AWS, Azure and GCP configuration, IAM, encryption and exposure posture',authorizationRequired:false},
+ {id:'cloud-posture',domain:'DEFENSIVE',category:'Cloud Security Posture',mode:'EVIDENCE_IMPORT',engines:['Prowler'],purpose:'AWS, Azure and GCP configuration, IAM, encryption and exposure posture',authorizationRequired:false},
  {id:'host-hardening',domain:'DEFENSIVE',category:'Host Hardening',mode:'NATIVE',engines:['Lynis'],purpose:'Server and host hardening assessment',authorizationRequired:false},
  {id:'container-supply-chain',domain:'DEFENSIVE',category:'Container / Supply Chain',mode:'NATIVE',engines:['Trivy','Grype','Syft'],purpose:'Vulnerability, SBOM and dependency assurance',authorizationRequired:false},
  {id:'kubernetes-iac',domain:'DEFENSIVE',category:'Kubernetes / IaC',mode:'NATIVE',engines:['Kubescape','Checkov'],purpose:'Cluster and infrastructure-as-code posture validation',authorizationRequired:false},

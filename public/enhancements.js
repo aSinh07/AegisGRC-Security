@@ -93,11 +93,17 @@ window.loadIncidentWorkspace=async function(){
  try{
   const r=await fetch('/api/security/organizations/'+encodeURIComponent(org)+'/incidents');const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load incident workspace');
   if(summary)summary.innerHTML='<div class="reviewstats"><div class="reviewstat"><b>'+Number(d.summary?.open||0)+'</b>Open</div><div class="reviewstat"><b>'+Number(d.summary?.critical||0)+'</b>Critical</div><div class="reviewstat"><b>'+Number(d.summary?.identityReviewRequired||0)+'</b>IDR review</div></div>';
-  const open=(d.incidents||[]).filter(x=>x.phase!=='CLOSED');if(iq)iq.innerHTML=open.length?open.map(x=>'<div class="audit-row"><b>'+esc(x.incident_key)+' · '+esc(x.title)+'</b><span>'+esc(x.severity)+' · '+esc(x.phase)+' · '+esc(x.source)+'</span></div>').join(''):'<p class="muted">No open incidents.</p>';
+  const open=(d.incidents||[]).filter(x=>x.phase!=='CLOSED');if(iq)iq.innerHTML=open.length?open.map(x=>'<div class="audit-row"><b>'+esc(x.incident_key)+' · '+esc(x.title)+'</b><span>'+esc(x.severity)+' · '+esc(x.phase)+' · '+esc(x.source)+'</span><button class="btn alt" data-aegis-click="advanceIncident(\\''+esc(x.id)+'\\',\\''+esc(x.phase)+'\\')">Advance governed phase</button></div>').join(''):'<p class="muted">No open incidents.</p>';
   const pending=(d.identitySignals||[]).filter(x=>x.status==='REVIEW_REQUIRED');if(sq)sq.innerHTML=pending.length?pending.map(x=>'<div class="audit-row"><b>'+esc(x.kind)+' · '+esc(x.principal_id)+'</b><span>'+esc(x.source)+' · '+esc(x.observed_at)+'</span><div class="row"><button class="btn alt" data-aegis-click="reviewIdentitySignal(\''+esc(x.id)+'\',\'INVESTIGATED\')">Investigated</button><button class="btn alt" data-aegis-click="reviewIdentitySignal(\''+esc(x.id)+'\',\'BENIGN\')">Benign</button></div></div>').join(''):'<p class="muted">No identity signals awaiting review.</p>';
  }catch(e){if(summary)summary.innerHTML='<p class="muted">'+esc(e.message)+'</p>'}
 };
 window.reviewIdentitySignal=async function(id,disposition){
  const org=aegisOrgId();if(!org)return;const reason=prompt('Analyst reason for '+disposition+':');if(!reason)return;
  const r=await fetch('/api/security/organizations/'+encodeURIComponent(org)+'/identity-signals/'+encodeURIComponent(id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({disposition,reason})});const d=await r.json();if(!r.ok){alert(d.error||'Identity signal review failed');return}await window.loadIncidentWorkspace();
+};
+
+window.advanceIncident=async function(id,current){
+ const phases=['DETECTED','TRIAGED','CONTAINMENT','ERADICATION','RECOVERY','POST_INCIDENT_REVIEW','CLOSED'],i=phases.indexOf(current),next=phases[i+1];if(!next)return;
+ const reason=prompt('Reason for '+current+' → '+next+':');if(!reason)return;const evidence=prompt('Evidence reference for this transition:');if(!evidence)return;
+ const org=aegisOrgId(),r=await fetch('/api/security/organizations/'+encodeURIComponent(org)+'/incidents/'+encodeURIComponent(id)+'/transition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phase:next,reason,evidenceRefs:[evidence]})});const d=await r.json();if(!r.ok){alert(d.error||'Incident transition failed');return}await window.loadIncidentWorkspace();
 };

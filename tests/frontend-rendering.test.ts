@@ -58,3 +58,5 @@ test('audit dashboard exposes conservative breach impact review',async()=>{
 });
 
 test('CSP delegated auth actions are explicitly registered for login and account creation',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/Object\.assign\(globalThis,\{authMode,togglePassword,openReset,closeReset,resetPassword,doLogin,startEnroll,finishEnroll\}\)/);assert.match(js,/const fn=globalThis\[m\[1\]\]/);});
+
+test('authentication UI does not depend on named DOM elements becoming window globals',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/const authEl=id=>document\.getElementById\(id\)/);for(const id of ['profileFields','signinFields','enrollStart','loginMsg','email','pw','otp','login','app'])assert.match(js,new RegExp(id+"=authEl\\('"+id+"'\\)"));});

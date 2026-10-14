@@ -254,3 +254,15 @@ test('authorized assessments are tenant-bound and access denials cannot crash as
   assert.match(block,/catch\(e:any\)\{res\.status\(e\.statusCode\|\|400\)\.json/);
  }
 });
+
+
+test('offensive workspace renders persisted execution evidence during load and polling',async()=>{
+ const ui=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ assert.match(ui,/async function loadExecutionEvidence\(\)/);
+ assert.match(ui,/\/api\/assessments\/'\+assessmentId\+'\/evidence/);
+ assert.match(ui,/rows\.map\(evidenceView\)/);
+ assert.match(ui,/await loadExecutionEvidence\(\);transientErrors=0/);
+ assert.match(ui,/renderFindings\(r\.findings\|\|\[\]\);await loadExecutionEvidence\(\)/);
+ assert.match(ui,/provenanceFingerprint/);
+ assert.match(ui,/full record remains stored/);
+});

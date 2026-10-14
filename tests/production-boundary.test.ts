@@ -236,3 +236,21 @@ test('URL offensive workflow automatically runs full evidence assessment and pre
  assert.match(css,/Enterprise density \+ account placement v6/);
  assert.match(css,/\.top-actions\{order:2/);
 });
+
+
+test('authorized assessments are tenant-bound and access denials cannot crash async read routes',async()=>{
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ const store=await readFile(new URL('../src/store.ts',import.meta.url),'utf8');
+ assert.match(server,/const u=await currentUser\(req\);if\(!u\)return res\.status\(401\)\.json\(\{error:'User session required'\}\);\n    if\(req\.body\?\.authorized!==true\)/);
+ assert.match(server,/createdBy:u\.userId,organizationId:org\.id/);
+ assert.match(server,/ASSESSMENT_AUTHORIZED',actor:u\.userId/);
+ assert.match(store,/created_by,organization_id/);
+ assert.match(store,/meta\.createdBy\|\|null,meta\.organizationId\|\|null/);
+ for(const route of ["audit","evidence","documents"]){
+  const marker="app.get('/api/assessments/:id/"+route+"'";
+  const start=server.indexOf(marker);assert.ok(start>=0,marker);
+  const block=server.slice(start,start+650);
+  assert.match(block,/try\{/);
+  assert.match(block,/catch\(e:any\)\{res\.status\(e\.statusCode\|\|400\)\.json/);
+ }
+});

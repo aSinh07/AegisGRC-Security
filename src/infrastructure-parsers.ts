@@ -40,7 +40,7 @@ export function sqlmapTextFindings(assessmentId:string,asset:string,evidenceHash
    id:crypto.randomUUID(),assessmentId,source:'sqlmap',
    title:'SQL injection reported · '+parameter,
    description:'SQLmap reported an injectable parameter'+(type?' using '+type:'')+(title?' ('+title+')':'')+'. The payload is retained in hashed scanner evidence rather than promoted as proof of data access.',
-   severity:'HIGH',cwe:'CWE-89',cvss:8.8,asset,evidenceHash,createdAt:new Date().toISOString(),
+   severity:'HIGH',cwe:'CWE-89',cvss:undefined,asset,evidenceHash,createdAt:new Date().toISOString(),
    mappings:{owasp:['A05:2025 Injection']},remediation:'Use parameterized queries/prepared statements, validate server-side input, apply least-privilege database permissions, then retest the affected parameter.',
    status:'OPEN',confidence:'SCANNER_REPORTED',externalIds:{cwe:['CWE-89'],scannerId:'sqlmap:'+parameter}
   }));

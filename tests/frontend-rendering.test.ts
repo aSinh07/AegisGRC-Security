@@ -56,3 +56,5 @@ test('audit dashboard exposes conservative breach impact review',async()=>{
  assert.match(ui,/breachAssessmentsRequiringReview/);
  assert.match(html,/never treats this panel as forensic or regulatory confirmation/);
 });
+
+test('CSP delegated auth actions are explicitly registered for login and account creation',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/Object\.assign\(globalThis,\{authMode,togglePassword,openReset,closeReset,resetPassword,doLogin,startEnroll,finishEnroll\}\)/);assert.match(js,/const fn=globalThis\[m\[1\]\]/);});

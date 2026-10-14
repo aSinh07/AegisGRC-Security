@@ -58,6 +58,15 @@ const rules:Record<string,Rule[]>={
   {control:'MEASURE',match:any(/ai|llm|model|prompt/),rationale:'AI-system evidence requires measurement and evaluation.',requiredEvidence:'Test methodology, metrics, results and limitations.'},
   {control:'MANAGE',match:any(/ai|llm|model|prompt/),rationale:'AI risk evidence requires treatment and prioritization.',requiredEvidence:'Risk treatment, owner, acceptance criteria and monitoring.'}
  ],
+ EU_AI_ACT:[
+  {control:'Risk management',match:any(/ai|llm|model|prompt|risk/),rationale:'AI-system evidence is an input to risk-based regulatory assessment; legal applicability and AI-system classification require accountable review.',requiredEvidence:'AI-system inventory, intended purpose, risk classification, risk-management records and accountable legal/GRC review.'},
+  {control:'Data governance',match:any(/ai|model|data|privacy|personal|dataset/),rationale:'AI/data evidence may be relevant to data-governance obligations where the Act applies.',requiredEvidence:'Data governance records, provenance, quality criteria, privacy assessment and applicability review.'},
+  {control:'Logging and human oversight',match:any(/ai|llm|model|prompt|log|monitor|human/),rationale:'Operational AI evidence may be relevant to logging and human-oversight obligations.',requiredEvidence:'Logging design, retained records, human-oversight procedure, escalation path and test evidence.'}
+ ],
+ ISO27701:[
+  {control:'Privacy information management',match:any(/privacy|personal|pii|data subject|retention|consent|deletion|access/),rationale:'Privacy-related evidence requires PIMS scope and organizational review; technical observations alone do not establish conformity.',requiredEvidence:'PIMS scope, privacy roles, processing inventory, policies, risk assessment and independently reviewed evidence.'},
+  {control:'PII processing controls',match:any(/privacy|personal|pii|data|retention|deletion|access|auth|crypto|tls/),rationale:'Data/security evidence may support review of PII processing controls when PII is actually in scope.',requiredEvidence:'PII inventory and flows, lawful processing context, access/retention/deletion controls, processor/controller evidence and validation.'}
+ ],
  SOC2:[
   {control:'CC6 Logical and Physical Access Controls',match:any(/auth|access|permission|session/),rationale:'Access findings relate to logical access control criteria.',requiredEvidence:'Access policy/configuration and validation.'},
   {control:'CC7 System Operations',match:any(/vulnerab|scan|incident|monitor|service|port/),rationale:'Technical security findings are relevant to system operations and vulnerability response.',requiredEvidence:'Monitoring/vulnerability process, ticket, owner and retest.'}

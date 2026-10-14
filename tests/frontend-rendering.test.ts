@@ -75,3 +75,17 @@ test('all shipped browser JavaScript parses successfully in Node',()=>{for(const
 
 test('extracted dashboard stylesheet contains no HTML or escaped-newline migration artifacts',async()=>{const css=await readFile('public/dashboard.css','utf8');assert.equal(css.includes('<style>'),false);assert.equal(css.includes('\\n'),false);assert.match(css,/\.loginbox\.auth-reference\{[^}]*width:min\(1180px,96vw\)/);assert.match(css,/\.profile-shell\{position:relative\}/)});
 test('enterprise shell presents one workspace identity and top-right profile action',async()=>{const html=await readFile('public/index.html','utf8');const css=await readFile('public/dashboard.css','utf8');assert.equal((html.match(/Security & GRC Workspace/g)||[]).length,0);assert.match(html,/class="top-actions"[\s\S]*id="profileAvatar"/);assert.match(css,/\.top\{display:flex;justify-content:space-between;align-items:center\}/);assert.match(css,/\.top-actions\{display:flex;align-items:center;gap:12px\}/);assert.match(css,/\.profile-shell\{position:relative\}/)});
+
+
+test('authentication controls have one runtime owner and bypass dashboard delegation',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const auth=await readFile(new URL('../public/auth.js',import.meta.url),'utf8');
+ const dashboard=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ assert.match(dashboard,/event\.target\.closest\('#login'\)\)return/);
+ assert.doesNotMatch(dashboard,/\nbindAuthControls\(\);/);
+ for(const action of ['doLogin()','startEnroll()','finishEnroll()','openReset()','closeReset()','resetPassword()']){
+  assert.match(html,new RegExp('data-aegis-click="'+action.replace(/[()]/g,'\\$&')+'"'));
+ }
+ assert.match(auth,/bind\('\[data-aegis-click="doLogin\(\)"\]'/);
+ assert.match(auth,/bind\('\[data-aegis-click="togglePassword\(\\'resetPw\\',this\)"\]'/);
+});

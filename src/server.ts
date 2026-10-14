@@ -74,7 +74,7 @@ import {findingFingerprint} from './finding-correlation.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
 import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage,reconcileContainerCoverage,activeContainerAsset,reconcileCloudCoverage,activeCloudAsset,reconcileIdentityCoverage,reconcileDataSecurityCoverage,reconcileAttackSurfaceCoverage,reconcilePrivacyCoverage,reconcileBreachTelemetryCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
-import {initIncidentResponse,createIncident,transitionIncident,ingestIdentitySignal,incidentDashboard} from './incident-response.js';
+import {initIncidentResponse,createIncident,transitionIncident,ingestIdentitySignal,reviewIdentitySignal,incidentDashboard} from './incident-response.js';
 import {initSecurityReportHandoffs,createSecurityReportHandoff,reviewSecurityReportHandoff,listSecurityReportHandoffs} from './security-report-handoff.js';
 import {initBreachAssessment,deriveBreachAssessment,listBreachAssessments} from './breach-assessment.js';
 import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,recoverStaleScannerJobs,executeClaimedScannerJob,scannerRegistry} from './scanner-jobs.js';
@@ -444,6 +444,7 @@ app.get('/api/security/organizations/:orgId/incidents',async(req,res)=>{try{cons
 app.post('/api/security/organizations/:orgId/incidents',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json({incident:await createIncident(u.userId,req.params.orgId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/security/organizations/:orgId/incidents/:incidentId/transition',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({incident:await transitionIncident(u.userId,req.params.orgId,req.params.incidentId,String(req.body?.phase||'').toUpperCase() as any,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/security/organizations/:orgId/identity-signals',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json({signal:await ingestIdentitySignal(u.userId,req.params.orgId,req.body)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/security/organizations/:orgId/identity-signals/:signalId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({signal:await reviewIdentitySignal(u.userId,req.params.orgId,req.params.signalId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 app.use('/api/grc',(_req,res)=>res.status(503).json({error:'This GRC module remains gated until tenant authorization and workflow enforcement are complete',code:'GRC_MODULE_IMPLEMENTATION_PENDING'}));
 

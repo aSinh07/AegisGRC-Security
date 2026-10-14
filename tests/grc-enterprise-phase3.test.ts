@@ -26,3 +26,11 @@ test('phase 3 enterprise workspace exposes risk SoA AI impact and privacy record
  for(const label of ['Risk · SoA · AI Impact · ISO 27701 Privacy','Configurable scoring','EU AI risk context','ISO 27701 evidence'])assert.ok(html.includes(label));
  for(const fn of ['loadEnterprisePhase3','createEnterpriseRiskMethod','saveEnterpriseSoa','createEnterpriseAiImpact','createEnterprisePrivacyAssessment'])assert.match(js,new RegExp(fn));
 });
+
+test('SoA approval enforces accountable segregation and resolved applicability',async()=>{
+ const core=await readFile(new URL('../src/grc-core.ts',import.meta.url),'utf8');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(core,/SoA owner cannot approve their own applicability decision/);
+ assert.match(core,/Pending applicability cannot be approved/);
+ assert.match(server,/actorUserId:u\.userId/);
+});

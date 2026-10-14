@@ -34,10 +34,13 @@ export async function initControlRegistry(){
   applicability_justification text,
   implementation text NOT NULL DEFAULT 'NOT_IMPLEMENTED' CHECK(implementation IN ('NOT_IMPLEMENTED','PLANNED','PARTIAL','IMPLEMENTED')),
   owner_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  related_risk_ids jsonb NOT NULL DEFAULT '[]'::jsonb,evidence_refs jsonb NOT NULL DEFAULT '[]'::jsonb,
   approved_by uuid REFERENCES app_users(id) ON DELETE SET NULL,approved_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(scope_id,control_id)
  );
+ ALTER TABLE grc_scope_controls ADD COLUMN IF NOT EXISTS related_risk_ids jsonb NOT NULL DEFAULT '[]'::jsonb;
+ ALTER TABLE grc_scope_controls ADD COLUMN IF NOT EXISTS evidence_refs jsonb NOT NULL DEFAULT '[]'::jsonb;
  CREATE INDEX IF NOT EXISTS grc_scope_controls_org_scope_idx ON grc_scope_controls(organization_id,scope_id);
  `);
 }
@@ -69,7 +72,7 @@ async function assertScope(orgId:string,scopeId:string){
  const r=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[scopeId,orgId])).rows[0];
  if(!r)throw Object.assign(new Error('Scope not found in organization'),{statusCode:404});
 }
-export async function setScopeControl(userId:string,orgId:string,scopeId:string,input:{controlId:string;applicability:Applicability;justification?:string;implementation?:Implementation;ownerUserId?:string}){
+export async function setScopeControl(userId:string,orgId:string,scopeId:string,input:{controlId:string;applicability:Applicability;justification?:string;implementation?:Implementation;ownerUserId?:string;relatedRiskIds?:string[];evidenceRefs?:string[]}){
  await requireOrgPermission(userId,orgId,'manageControl');await assertScope(orgId,scopeId);
  const applicability=String(input.applicability||'PENDING').toUpperCase() as Applicability;
  if(!['APPLICABLE','NOT_APPLICABLE','PENDING'].includes(applicability))throw new Error('Invalid applicability');
@@ -78,10 +81,12 @@ export async function setScopeControl(userId:string,orgId:string,scopeId:string,
  const implementation=String(input.implementation||'NOT_IMPLEMENTED').toUpperCase() as Implementation;
  if(!['NOT_IMPLEMENTED','PLANNED','PARTIAL','IMPLEMENTED'].includes(implementation))throw new Error('Invalid implementation status');
  if(input.ownerUserId)await requireOrgPermission(input.ownerUserId,orgId,'read');
- return (await pool.query(`INSERT INTO grc_scope_controls(id,organization_id,scope_id,control_id,applicability,applicability_justification,implementation,owner_user_id)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(scope_id,control_id) DO UPDATE SET applicability=EXCLUDED.applicability,
- applicability_justification=EXCLUDED.applicability_justification,implementation=EXCLUDED.implementation,owner_user_id=EXCLUDED.owner_user_id,approved_by=NULL,approved_at=NULL,updated_at=now() RETURNING *`,
- [crypto.randomUUID(),orgId,scopeId,input.controlId,applicability,justification||null,implementation,input.ownerUserId||null])).rows[0];
+ const riskIds=Array.isArray(input.relatedRiskIds)?input.relatedRiskIds:[],evidenceRefs=Array.isArray(input.evidenceRefs)?input.evidenceRefs:[];
+ if(riskIds.length){const n=Number((await pool.query('SELECT count(*) n FROM grc_enterprise_risks WHERE organization_id=$1 AND id = ANY($2::uuid[])',[orgId,riskIds])).rows[0]?.n||0);if(n!==new Set(riskIds).size)throw new Error('SoA risk references must belong to the organization')}
+ return (await pool.query(`INSERT INTO grc_scope_controls(id,organization_id,scope_id,control_id,applicability,applicability_justification,implementation,owner_user_id,related_risk_ids,evidence_refs)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(scope_id,control_id) DO UPDATE SET applicability=EXCLUDED.applicability,
+ applicability_justification=EXCLUDED.applicability_justification,implementation=EXCLUDED.implementation,owner_user_id=EXCLUDED.owner_user_id,related_risk_ids=EXCLUDED.related_risk_ids,evidence_refs=EXCLUDED.evidence_refs,approved_by=NULL,approved_at=NULL,updated_at=now() RETURNING *`,
+ [crypto.randomUUID(),orgId,scopeId,input.controlId,applicability,justification||null,implementation,input.ownerUserId||null,riskIds,evidenceRefs])).rows[0];
 }
 export async function approveScopeControl(userId:string,orgId:string,scopeId:string,scopeControlId:string){
  await requireOrgPermission(userId,orgId,'review');await assertScope(orgId,scopeId);
@@ -101,7 +106,7 @@ export async function approveScopeControl(userId:string,orgId:string,scopeId:str
 }
 export async function statementOfApplicability(userId:string,orgId:string,scopeId:string){
  await requireOrgPermission(userId,orgId,'read');await assertScope(orgId,scopeId);
- const rows=(await pool.query(`SELECT sc.id,sc.applicability,sc.applicability_justification,sc.implementation,sc.owner_user_id,sc.approved_by,sc.approved_at,
+ const rows=(await pool.query(`SELECT sc.id,sc.applicability,sc.applicability_justification,sc.implementation,sc.owner_user_id,sc.related_risk_ids,sc.evidence_refs,sc.approved_by,sc.approved_at,
  c.control_key,c.title,c.domain,
  COALESCE(json_agg(json_build_object('framework',fr.framework,'version',fr.framework_version,'requirementKey',fr.requirement_key,'title',fr.title,'mappingType',m.mapping_type))
  FILTER(WHERE fr.id IS NOT NULL),'[]'::json) mappings

@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS grc_enterprise_risks(
  inherent_score int NOT NULL,inherent_rating text NOT NULL,treatment text NOT NULL CHECK(treatment IN ('MITIGATE','ACCEPT','TRANSFER','AVOID')),
  residual_likelihood int CHECK(residual_likelihood BETWEEN 1 AND 5),residual_impact int CHECK(residual_impact BETWEEN 1 AND 5),residual_score int,residual_rating text,
  owner_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,status text NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN','TREATMENT','ACCEPTANCE_PENDING','ACCEPTED','CLOSED')),
- acceptance_expires_at timestamptz,accepted_by uuid REFERENCES app_users(id) ON DELETE SET NULL,created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+ methodology_id uuid REFERENCES grc_risk_methodologies(id) ON DELETE SET NULL,acceptance_rationale text,
+ acceptance_expires_at timestamptz,accepted_by uuid REFERENCES app_users(id) ON DELETE SET NULL,accepted_at timestamptz,created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
  created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS grc_issue_risks(issue_id uuid NOT NULL REFERENCES grc_issues(id) ON DELETE CASCADE,risk_id uuid NOT NULL REFERENCES grc_enterprise_risks(id) ON DELETE CASCADE,PRIMARY KEY(issue_id,risk_id));
@@ -28,6 +29,9 @@ CREATE TABLE IF NOT EXISTS grc_capa(
 CREATE TABLE IF NOT EXISTS grc_capa_evidence(capa_id uuid NOT NULL REFERENCES grc_capa(id) ON DELETE CASCADE,evidence_version_id uuid NOT NULL REFERENCES grc_evidence_versions(id) ON DELETE RESTRICT,linked_by uuid REFERENCES app_users(id) ON DELETE SET NULL,linked_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(capa_id,evidence_version_id));
 CREATE TABLE IF NOT EXISTS grc_record_events(id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,record_type text NOT NULL,record_id uuid NOT NULL,event text NOT NULL,actor_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,reason text,snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE grc_capa ADD COLUMN IF NOT EXISTS finding_retest_id uuid;
+ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS methodology_id uuid REFERENCES grc_risk_methodologies(id) ON DELETE SET NULL;
+ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS acceptance_rationale text;
+ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
 CREATE INDEX IF NOT EXISTS grc_capa_org_status_idx ON grc_capa(organization_id,status,due_at);CREATE INDEX IF NOT EXISTS grc_erisk_org_idx ON grc_enterprise_risks(organization_id,status,inherent_score DESC);
 `)}
 type Queryable={query:(text:string,values?:any[])=>Promise<any>};
@@ -35,8 +39,10 @@ async function event(org:string,type:string,id:string,eventName:string,actor:str
 export async function listIssues(user:string,org:string){await requireOrgPermission(user,org,'read');return (await pool.query('SELECT * FROM grc_issues WHERE organization_id=$1 ORDER BY created_at DESC',[org])).rows}
 export async function createRiskFromIssue(user:string,org:string,issueId:string,input:any){
  await requireOrgPermission(user,org,'manageRisk');
- const l=Number(input.likelihood),i=Number(input.impact);if(!Number.isInteger(l)||!Number.isInteger(i)||l<1||l>5||i<1||i>5)throw new Error('Likelihood and impact must be 1-5');
- const score=l*i,t=String(input.treatment||'MITIGATE').toUpperCase();if(!['MITIGATE','ACCEPT','TRANSFER','AVOID'].includes(t))throw new Error('Invalid treatment');
+ let likelihoodMax=5,impactMax=5,methodologyId:string|null=null,thresholds:any={critical:20,high:15,medium:8,low:4};
+ if(input.methodologyId){const m=(await pool.query('SELECT * FROM grc_risk_methodologies WHERE id=$1 AND organization_id=$2',[String(input.methodologyId),org])).rows[0];if(!m)throw Object.assign(new Error('Risk methodology not found in organization'),{statusCode:404});methodologyId=m.id;likelihoodMax=Number(m.likelihood_max);impactMax=Number(m.impact_max);thresholds=m.thresholds||thresholds}
+ const l=Number(input.likelihood),i=Number(input.impact);if(!Number.isInteger(l)||!Number.isInteger(i)||l<1||l>likelihoodMax||i<1||i>impactMax)throw new Error('Likelihood and impact exceed the selected risk methodology');
+ const score=l*i,band=(s:number)=>s>=Number(thresholds.critical||20)?'CRITICAL':s>=Number(thresholds.high||15)?'HIGH':s>=Number(thresholds.medium||8)?'MEDIUM':s>=Number(thresholds.low||4)?'LOW':'VERY_LOW',t=String(input.treatment||'MITIGATE').toUpperCase();if(!['MITIGATE','ACCEPT','TRANSFER','AVOID'].includes(t))throw new Error('Invalid treatment');
  if(input.ownerUserId)await requireOrgPermission(input.ownerUserId,org,'read');
  const id=crypto.randomUUID(),client=await pool.connect();
  try{
@@ -52,6 +58,7 @@ export async function createRiskFromIssue(user:string,org:string,issueId:string,
 }
 export async function approveRiskAcceptance(user:string,org:string,riskId:string,input:any){
  await requireOrgPermission(user,org,'review');
+ const reason=String(input.reason||'').trim();if(reason.length<10)throw new Error('Risk acceptance requires a meaningful rationale');
  const expiry=new Date(String(input.expiresAt||''));if(!Number.isFinite(expiry.getTime())||expiry<=new Date())throw new Error('Future acceptance expiry required');
  const client=await pool.connect();
  try{
@@ -62,7 +69,7 @@ export async function approveRiskAcceptance(user:string,org:string,riskId:string
   if(r.created_by===user||r.owner_user_id===user)throw Object.assign(new Error('Risk creator/owner cannot approve own acceptance'),{statusCode:409});
   const out=(await client.query(`UPDATE grc_enterprise_risks SET status='ACCEPTED',acceptance_expires_at=$2,accepted_by=$3,updated_at=now() WHERE id=$1 AND organization_id=$4 AND status='ACCEPTANCE_PENDING' RETURNING *`,[riskId,expiry,user,org])).rows[0];
   if(!out)throw Object.assign(new Error('Risk state changed before acceptance'),{statusCode:409});
-  await event(org,'RISK',riskId,'RISK_ACCEPTED',user,String(input.reason||''),{expiresAt:expiry.toISOString()},client);
+  await event(org,'RISK',riskId,'RISK_ACCEPTED',user,reason,{expiresAt:expiry.toISOString()},client);
   await client.query('COMMIT');return out;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }

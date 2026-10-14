@@ -47,14 +47,25 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
  fs.forEach((f,i)=>row(['F-'+String(i+1).padStart(2,'0'),f.title,status(f),f.severity,String(f.cvss??'N/A'),refs(f)],[38,170,92,55,48,100]));
  d.moveDown(.5);p('A numeric CVSS value is shown only when normalized evidence supplies one. N/A is not a zero score and is not interpreted as PASS.');
 
+ h1('Detailed Finding Analysis');
+ if(!fs.length)p('No persisted evidence-backed findings were recorded. This statement is not equivalent to vulnerability-free assurance; review the coverage and limitations sections.');
+ fs.forEach((f,i)=>{ensure(150);const fid='F-'+String(i+1).padStart(2,'0');d.roundedRect(46,d.y,503,28,4).fill(navy);d.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(9).text(fid+' · '+f.severity+' · '+status(f),57,d.y+9,{width:480});d.y+=38;label(f.title);p(f.description||'No additional normalized finding description was persisted.');d.moveDown(.35);row(['ASSET','SOURCE','CONFIDENCE','CVSS'],[180,110,115,98],true);row([String(f.asset||'N/A'),String(f.source||'N/A').toUpperCase(),String(f.confidence||'N/A'),String(f.cvss??'N/A')],[180,110,115,98]);d.moveDown(.35);label('Control / vulnerability references');p([...(f.externalIds?.cve||[]),...(f.externalIds?.cwe||[]),refs(f)].filter(Boolean).join(', ')||'N/A');label('Evidence binding');p('SHA-256: '+String(f.evidenceHash||'N/A')+(f.fingerprint?' | Fingerprint: '+f.fingerprint:' | Fingerprint: not persisted'));label('Recommended mitigation');p(f.remediation||'Validate the affected defensive control and define a remediation appropriate to the authorized asset.');d.moveDown(.8)});
+
  h1('Developer Defensive Remediation Plan');
  row(['PRIORITY','ACTION','OWNER FOCUS','ACCEPTANCE EVIDENCE'],[60,205,95,143],true);
  fs.filter(f=>!['REMEDIATED','FALSE_POSITIVE'].includes(String(f.status||''))).forEach(f=>row([priority(f.severity),f.remediation||'Validate and remediate the affected defensive control.','Security / Platform','Successful same-source targeted retest bound to the same finding fingerprint, or governed residual-risk disposition.'],[60,205,95,143]));
+
+ h1('Remediation Priority and Ownership');
+ row(['PRIORITY','SEVERITY','OPEN FINDINGS','RESPONSE EXPECTATION'],[70,85,90,258],true);(['P1','P2','P3'] as const).forEach(pr=>{const group=open.filter(f=>priority(f.severity)===pr);const sev=pr==='P1'?'CRITICAL / HIGH':pr==='P2'?'MEDIUM':'LOW / INFO';row([pr,sev,String(group.length),pr==='P1'?'Immediate engineering/security review; preserve evidence and retest after mitigation.':pr==='P2'?'Plan corrective action and evidence-backed retest.':'Track hardening or informational improvement according to risk context.'],[70,85,90,258])});
+ p('Finding owners, due dates and risk acceptance remain governed workflow data. This report does not invent an owner or SLA when none is persisted.');
 
  h1('Verification and Expected Evidence');
  p('Verification must be performed only against authorized assets. Retesting should repeat the originating defensive validation wherever possible and preserve the resulting evidence hash, scanner source, timestamp and finding fingerprint. A frontend refusal, recommendation, configuration change, or automated response alone does not prove remediation.');
  d.moveDown();row(['ENGINE / SOURCE','RECORDS','LAST EXIT','ASSURANCE'],[180,70,70,183],true);
  [...new Set(ev.map(e=>String(e.source).toUpperCase()))].forEach(src=>{const es=ev.filter(e=>String(e.source).toUpperCase()===src),last=es.at(-1);row([src,String(es.length),String(last?.exitCode??'N/A'),last?.exitCode===0?'Evidence recorded; interpret findings/coverage':'Failed/incomplete evidence must remain visible'],[180,70,70,183])});
+
+ h1('Retest Acceptance Criteria');
+ row(['REQUIREMENT','ACCEPTANCE RULE'],[160,343],true);[['Authorization','Retest only the authorized assessment asset and registered inventory context.'],['Scanner provenance','Use the originating scanner/source where the governed workflow requires same-source verification.'],['Finding identity','The original vulnerability fingerprint must be absent from successful fresh evidence.'],['Freshness','Retest evidence must be newer than the original finding evidence.'],['Execution quality','Timeout, truncation, unavailable engine, malformed output or non-success execution cannot establish remediation.'],['Closure','REMEDIATED requires the server-governed analyst review gate; evidence capture alone cannot close the finding.']].forEach(x=>row(x,[160,343]));
 
  h1('Evidence Appendix');
  if(!ev.length)p('No persisted scanner evidence is available for this assessment.');

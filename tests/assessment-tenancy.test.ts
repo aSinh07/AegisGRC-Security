@@ -91,7 +91,8 @@ test('finding import evidence findings and audit persist atomically',async()=>{
  assert.match(tx,/INSERT INTO audit_events/);
  assert.match(tx,/client\.query\('COMMIT'\)/);
  assert.match(tx,/client\.query\('ROLLBACK'\)/);
- const route=server.slice(server.indexOf("app.post('/api/grc/assessments/:assessmentId/finding-import'"),server.indexOf("app.post('/api/grc/assessments/:assessmentId/findings/:findingId/review'"));
+ const routeStart=server.indexOf("app.post('/api/grc/assessments/:assessmentId/finding-import'");
+ const route=server.slice(routeStart,server.indexOf("app.post(",routeStart+1));
  assert.match(route,/db\.saveFindingImport\(ev,parsed\.findings,audit\)/);
  assert.doesNotMatch(route,/db\.saveEvidence\(ev\)/);
 });

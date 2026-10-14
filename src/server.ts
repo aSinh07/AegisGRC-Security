@@ -30,7 +30,7 @@ import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,m
 import { initEvidenceEngine,createEvidenceRequest,submitEvidence,submitVerifiedEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence,listControlTests } from './grc-evidence.js';
 import { initIssueRiskCapa,listIssues,createRiskFromIssue,approveRiskAcceptance,createCapa,submitCapaEvidence,attachRetest,closeCapa,listCapa,listEnterpriseRisks } from './grc-remediation.js';
 import { initGrcOperations,myWork,timeline,operationsDashboard,sla,notifications,markNotification,enterpriseReportData } from './grc-operations.js';
-import {initGrcAutomation,createAutomationRule,listAutomation,runAutomationRule,runDueAutomations} from './grc-automation.js';
+import {initGrcAutomation,createAutomationRule,listAutomation,automationCenter,runAutomationRule,runDueAutomations} from './grc-automation.js';
 import multer from 'multer';
 import { frameworkCatalog,mapFinding } from './grc.js';
 import { assessFramework } from './grc-engine.js';
@@ -418,6 +418,7 @@ app.post('/api/internal/grc/automation/run-due',async(req,res)=>{try{
  const results=await runDueAutomations(Number(req.body?.limit||50));
  res.json({executed:results.length,results});
  }catch(e:any){res.status(500).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/automation-center',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await automationCenter(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/automation',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await listAutomation(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/automation/rules',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createAutomationRule(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/automation/rules/:ruleId/run',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await runAutomationRule(u.userId,req.params.orgId,req.params.ruleId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

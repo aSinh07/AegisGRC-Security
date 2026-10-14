@@ -69,7 +69,7 @@ async function execute(client:any,org:string,kind:Kind,config:any){
     if(t.owner_user_id)await client.query(`INSERT INTO grc_notifications(id,organization_id,user_id,severity,title,message,record_type,record_id,dedupe_key) VALUES($1,$2,$3,'WARNING',$4,$5,'CONTROL',$6,$7) ON CONFLICT(organization_id,user_id,dedupe_key) DO NOTHING`,[crypto.randomUUID(),org,t.owner_user_id,'Control test due: '+t.name,'This control test requires human execution or review.',t.scope_control_id,'CONTROL_TEST_DUE:'+t.id]);
     continue;
    }
-   const ev=(await client.query(`SELECT v.id FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.organization_id=$1 AND r.scope_control_id=$2 AND r.status='VALID' AND v.validated_at IS NOT NULL AND v.valid_until>now() ORDER BY v.validated_at DESC LIMIT 1`,[org,t.scope_control_id])).rows[0];
+   const ev=(await client.query(`SELECT v.id FROM grc_evidence_requests r JOIN grc_evidence_versions v ON v.evidence_request_id=r.id WHERE r.organization_id=$1 AND r.scope_control_id=$2 AND r.status='VALID' AND v.integrity_status='SERVER_VERIFIED' AND v.validated_at IS NOT NULL AND v.valid_until>now() ORDER BY v.validated_at DESC LIMIT 1`,[org,t.scope_control_id])).rows[0];
    const result=ev?'PASS':'FAIL',rationale=ev?'Current independently validated evidence is present':'No current independently validated evidence is present';
    await client.query(`INSERT INTO grc_control_test_runs(id,organization_id,test_definition_id,result,rationale,evidence_version_id,executed_by) VALUES($1,$2,$3,$4,$5,$6,NULL)`,[crypto.randomUUID(),org,t.id,result,rationale,ev?.id||null]);
    autoRun++;if(ev)passed++;else{

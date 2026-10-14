@@ -310,3 +310,19 @@ hr{border:0;border-top:1px solid rgba(91,157,184,.13);margin:18px 0}
 
 /* Security operations domain coverage */
 .capability-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.capability-card{padding:13px 14px;border:1px solid rgba(73,194,201,.16);border-radius:12px;background:rgba(4,18,30,.72)}.capability-card b{display:block;color:#d9f8fb;margin-bottom:5px}.capability-card small{display:block;color:#8fb4c3;line-height:1.5;margin-bottom:7px}.security-command-grid hr{border:0;border-top:1px solid rgba(90,140,160,.18);margin:16px 0}@media(max-width:760px){.capability-grid{grid-template-columns:1fr}}
+
+
+/* Defensive governed finding review + closure */
+.defense-closure{margin-top:12px;border:1px solid rgba(84,176,190,.18);border-radius:11px;background:rgba(3,15,25,.58);overflow:hidden}
+.defense-closure summary{padding:11px 13px;cursor:pointer;color:#bfe9eb;font-size:11px;font-weight:700;letter-spacing:.04em;list-style:none}
+.defense-closure summary::-webkit-details-marker{display:none}
+.defense-closure summary:after{content:"+";float:right;color:#62d9d2;font-size:16px;line-height:1}
+.defense-closure[open] summary{border-bottom:1px solid rgba(84,176,190,.14);background:rgba(12,38,52,.52)}
+.defense-closure[open] summary:after{content:"−"}
+.defense-closure-grid{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1fr);gap:9px;padding:12px}
+.defense-closure-grid textarea{grid-column:1/-1;resize:vertical;min-height:72px}
+.defense-closure-grid .btn{width:100%}
+.defense-history{margin:0 12px 12px;padding:10px 12px;border-left:2px solid rgba(70,215,203,.38);border-radius:0 8px 8px 0;background:rgba(7,27,39,.6);font-size:11px;line-height:1.55}
+.defense-history>div{padding:8px 0;border-bottom:1px solid rgba(91,151,180,.12)}
+.defense-history>div:last-child{border-bottom:0}
+@media(max-width:760px){.defense-closure-grid{grid-template-columns:1fr}.defense-closure-grid textarea{grid-column:auto}}

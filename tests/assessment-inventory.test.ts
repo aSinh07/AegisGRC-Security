@@ -56,3 +56,6 @@ test('scoped coverage binds exact asset id or asset key',async()=>{const s=await
 test('defense in depth matrix includes independent TLS SBOM secrets IaC Kubernetes image and host checks',async()=>{const s=await readFile(new URL('../src/scanner-orchestration.ts',import.meta.url),'utf8');for(const e of ['TESTSSL','GRYPE','SYFT','KUBESCAPE','CHECKOV','GITLEAKS','LYNIS'])assert.match(s,new RegExp(e));});
 
 test('corroborative scanners persist evidence and audit without claiming primary coverage',async()=>{const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');const jobs=await readFile(new URL('../src/scanner-jobs.ts',import.meta.url),'utf8');assert.match(server,/defense-scan/);assert.match(jobs,/CORROBORATIVE_SCANNER_EVIDENCE_CAPTURED/);assert.match(jobs,/corroborative:true/);assert.match(jobs,/saveEvidence/)});
+
+
+test('native Trivy targeted retest fails closed and persists fingerprint-bound evidence',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/original\.source!=='trivy'/);assert.match(s,/scanContainerImageWithTrivy\(imageRef\)/);assert.match(s,/out\.exitCode!==0\|\|out\.timedOut\|\|out\.truncated/);assert.match(s,/scannerSource:'trivy'/);assert.match(s,/TARGETED_RETEST_COMPLETED/)});

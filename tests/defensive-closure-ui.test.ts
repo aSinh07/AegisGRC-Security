@@ -32,3 +32,6 @@ test('Defensive Prowler findings use same-asset fingerprint-bound imported retes
 
 
 test('Defensive OpenVAS findings expose existing fingerprint-bound infrastructure retest',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/Import OpenVAS targeted retest/);assert.match(js,/runOpenvasDefensiveRetest/);assert.match(js,/\/openvas-retest/);assert.match(js,/same OpenVAS vulnerability fingerprint is still present/);assert.match(js,/ready for governed REMEDIATED review/)});
+
+
+test('Defensive Trivy findings execute native same-asset fingerprint-bound retest',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(js,/Run native Trivy targeted retest/);assert.match(js,/runTrivyDefensiveRetest/);assert.match(server,/\/trivy-retest/);assert.match(server,/Trivy retest must use the same container asset as the original finding/);assert.match(server,/NATIVE_TRIVY_TARGETED_RETEST/);assert.match(server,/remediation state was not advanced/)});

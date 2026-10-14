@@ -224,6 +224,9 @@ test('URL offensive workflow automatically runs full evidence assessment and pre
  assert.match(js,/tool\.value='all';await scan\(\)/);
  assert.match(js,/highest\.toFixed\(1\)/);
  assert.match(js,/NOT ESTABLISHED/);
+ assert.match(js,/progressTimer=setInterval/);
+ assert.match(js,/Evidence refreshes as each engine completes/);
+ assert.match(js,/Stored so far:/);
  assert.match(server,/tool==='nuclei'\?\['-u',safeTarget\.url\.origin,'-jsonl'/);
  assert.match(server,/tool==='sqlmap'\?sqlmapTextFindings/);
 });

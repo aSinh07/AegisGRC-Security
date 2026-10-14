@@ -9,9 +9,9 @@ ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS closed_by uuid REFERENCES app_us
 ALTER TABLE grc_issues ADD COLUMN IF NOT EXISTS closed_at timestamptz;
 CREATE TABLE IF NOT EXISTS grc_enterprise_risks(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,risk_key text UNIQUE NOT NULL,
- title text NOT NULL,description text NOT NULL DEFAULT '',likelihood int NOT NULL CHECK(likelihood BETWEEN 1 AND 5),impact int NOT NULL CHECK(impact BETWEEN 1 AND 5),
+ title text NOT NULL,description text NOT NULL DEFAULT '',likelihood int NOT NULL CHECK(likelihood BETWEEN 1 AND 10),impact int NOT NULL CHECK(impact BETWEEN 1 AND 10),
  inherent_score int NOT NULL,inherent_rating text NOT NULL,treatment text NOT NULL CHECK(treatment IN ('MITIGATE','ACCEPT','TRANSFER','AVOID')),
- residual_likelihood int CHECK(residual_likelihood BETWEEN 1 AND 5),residual_impact int CHECK(residual_impact BETWEEN 1 AND 5),residual_score int,residual_rating text,
+ residual_likelihood int CHECK(residual_likelihood BETWEEN 1 AND 10),residual_impact int CHECK(residual_impact BETWEEN 1 AND 10),residual_score int,residual_rating text,
  owner_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,status text NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN','TREATMENT','ACCEPTANCE_PENDING','ACCEPTED','CLOSED')),
  methodology_id uuid REFERENCES grc_risk_methodologies(id) ON DELETE SET NULL,acceptance_rationale text,
  acceptance_expires_at timestamptz,accepted_by uuid REFERENCES app_users(id) ON DELETE SET NULL,accepted_at timestamptz,created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
@@ -32,6 +32,14 @@ ALTER TABLE grc_capa ADD COLUMN IF NOT EXISTS finding_retest_id uuid;
 ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS methodology_id uuid REFERENCES grc_risk_methodologies(id) ON DELETE SET NULL;
 ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS acceptance_rationale text;
 ALTER TABLE grc_enterprise_risks ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
+ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_likelihood_check;
+ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_likelihood_check CHECK(likelihood BETWEEN 1 AND 10) NOT VALID;
+ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_impact_check;
+ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_impact_check CHECK(impact BETWEEN 1 AND 10) NOT VALID;
+ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_residual_likelihood_check;
+ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_residual_likelihood_check CHECK(residual_likelihood IS NULL OR residual_likelihood BETWEEN 1 AND 10) NOT VALID;
+ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_residual_impact_check;
+ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_residual_impact_check CHECK(residual_impact IS NULL OR residual_impact BETWEEN 1 AND 10) NOT VALID;
 CREATE INDEX IF NOT EXISTS grc_capa_org_status_idx ON grc_capa(organization_id,status,due_at);CREATE INDEX IF NOT EXISTS grc_erisk_org_idx ON grc_enterprise_risks(organization_id,status,inherent_score DESC);
 `)}
 type Queryable={query:(text:string,values?:any[])=>Promise<any>};
@@ -50,7 +58,7 @@ export async function createRiskFromIssue(user:string,org:string,issueId:string,
   const issue=(await client.query('SELECT * FROM grc_issues WHERE id=$1 AND organization_id=$2 FOR UPDATE',[issueId,org])).rows[0];
   if(!issue)throw Object.assign(new Error('Issue not found'),{statusCode:404});
   if(issue.status==='CLOSED')throw Object.assign(new Error('Closed issue cannot create a new risk'),{statusCode:409});
-  const risk=(await client.query(`INSERT INTO grc_enterprise_risks(id,organization_id,risk_key,title,description,likelihood,impact,inherent_score,inherent_rating,treatment,owner_user_id,status,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,[id,org,key('RISK'),String(input.title||issue.title),String(input.description||issue.description||''),l,i,score,riskBand(score),t,input.ownerUserId||null,t==='ACCEPT'?'ACCEPTANCE_PENDING':'TREATMENT',user])).rows[0];
+  const risk=(await client.query(`INSERT INTO grc_enterprise_risks(id,organization_id,risk_key,title,description,likelihood,impact,inherent_score,inherent_rating,treatment,owner_user_id,status,created_by,methodology_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,[id,org,key('RISK'),String(input.title||issue.title),String(input.description||issue.description||''),l,i,score,band(score),t,input.ownerUserId||null,t==='ACCEPT'?'ACCEPTANCE_PENDING':'TREATMENT',user,methodologyId])).rows[0];
   await client.query('INSERT INTO grc_issue_risks(issue_id,risk_id) VALUES($1,$2)',[issueId,id]);
   await event(org,'RISK',id,'CREATED',user,undefined,{issueId,score,treatment:t},client);
   await client.query('COMMIT');return risk;
@@ -67,7 +75,7 @@ export async function approveRiskAcceptance(user:string,org:string,riskId:string
   if(!r)throw Object.assign(new Error('Risk not found'),{statusCode:404});
   if(r.treatment!=='ACCEPT'||r.status!=='ACCEPTANCE_PENDING')throw Object.assign(new Error('Risk is not awaiting acceptance'),{statusCode:409});
   if(r.created_by===user||r.owner_user_id===user)throw Object.assign(new Error('Risk creator/owner cannot approve own acceptance'),{statusCode:409});
-  const out=(await client.query(`UPDATE grc_enterprise_risks SET status='ACCEPTED',acceptance_expires_at=$2,accepted_by=$3,updated_at=now() WHERE id=$1 AND organization_id=$4 AND status='ACCEPTANCE_PENDING' RETURNING *`,[riskId,expiry,user,org])).rows[0];
+  const out=(await client.query(`UPDATE grc_enterprise_risks SET status='ACCEPTED',acceptance_expires_at=$2,accepted_by=$3,acceptance_rationale=$5,accepted_at=now(),updated_at=now() WHERE id=$1 AND organization_id=$4 AND status='ACCEPTANCE_PENDING' RETURNING *`,[riskId,expiry,user,org,reason])).rows[0];
   if(!out)throw Object.assign(new Error('Risk state changed before acceptance'),{statusCode:409});
   await event(org,'RISK',riskId,'RISK_ACCEPTED',user,reason,{expiresAt:expiry.toISOString()},client);
   await client.query('COMMIT');return out;

@@ -62,3 +62,6 @@ test('native Trivy targeted retest fails closed and binds retest to original ima
 
 
 test('Semgrep source scans are bound to active registered repository workspace',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8'),i=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(i,/activeRepositoryAsset/);assert.match(i,/asset_type='REPOSITORY'/);assert.match(s,/Active repository asset required/);assert.match(s,/registered repository workspace path/);assert.match(s,/repositoryKey:asset\.asset_key/);assert.match(s,/semgrepFindings\(assessmentId,asset\.asset_key/)});
+
+
+test('Gitleaks evidence is redacted before persistence',async()=>{const s=await readFile(new URL('../src/external-scanners.ts',import.meta.url),'utf8');assert.match(s,/redactGitleaksReport/);assert.match(s,/RuleID/);assert.match(s,/File/);assert.match(s,/StartLine/);assert.match(s,/Fingerprint/);assert.match(s,/secretsRedacted:true/);assert.doesNotMatch(s,/Secret:String|Match:String/);});

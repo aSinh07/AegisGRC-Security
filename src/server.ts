@@ -553,15 +553,21 @@ app.get('/api/health',async(_req,res)=>{
 });
 app.post('/api/assessment/authorize',async(req,res)=>{
   try{
+    const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
     if(req.body?.authorized!==true) return res.status(403).json({error:'Explicit authorization confirmation is required'});
     const t=await validateTarget(String(req.body.targetUrl||''));
-    const token=crypto.createHmac('sha256',process.env.EVIDENCE_HMAC_KEY||'dev-only').update(t.url.origin+'|'+Date.now()).digest('hex');
-    const assessment:Assessment={id:crypto.randomUUID(),target:t.url.origin,authorizedAt:new Date().toISOString(),status:'AUTHORIZED',findings:[],evidenceIds:[]};
+    let orgs=await memberships(u.userId);
+    if(!orgs.length){await createOrganization(u.userId,{name:'Personal Security Workspace'});orgs=await memberships(u.userId)}
+    const requestedOrg=String(req.body?.organizationId||'');
+    const org=requestedOrg?orgs.find((x:any)=>x.id===requestedOrg):orgs.length===1?orgs[0]:null;
+    if(!org)return res.status(409).json({error:'Select an organization for this assessment',organizations:orgs.map((x:any)=>({id:x.id,name:x.name,role:x.role}))});
+    await requireOrgPermission(u.userId,org.id,'manageAssessment');
+    const assessment=(<Assessment&{createdBy:string;organizationId:string}>{id:crypto.randomUUID(),target:t.url.origin,authorizedAt:new Date().toISOString(),status:'AUTHORIZED',findings:[],evidenceIds:[],createdBy:u.userId,organizationId:org.id});
     await db.saveAssessment(assessment);
     const sessionToken=issueSession(assessment.id,t.url.origin);
-    await db.saveAudit({id:crypto.randomUUID(),assessmentId:assessment.id,action:'ASSESSMENT_AUTHORIZED',actor:'operator',createdAt:new Date().toISOString(),metadata:{target:t.url.origin,resolvedAddresses:t.addresses}});
-    res.json({authorized:true,assessmentId:assessment.id,targetOrigin:t.url.origin,resolvedAddresses:t.addresses,sessionToken});
-  }catch(e:any){res.status(400).json({error:e.message})}
+    await db.saveAudit({id:crypto.randomUUID(),assessmentId:assessment.id,action:'ASSESSMENT_AUTHORIZED',actor:u.userId,createdAt:new Date().toISOString(),metadata:{target:t.url.origin,resolvedAddresses:t.addresses,organizationId:org.id}});
+    res.json({authorized:true,assessmentId:assessment.id,targetOrigin:t.url.origin,resolvedAddresses:t.addresses,organization:{id:org.id,name:org.name},sessionToken});
+  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}
 });
 app.post('/api/scans/quick',async(req,res)=>{try{
  const session=verifySession(String(req.headers['x-assessment-session']||''));const assessmentId=session.assessmentId;
@@ -723,8 +729,8 @@ app.post('/api/source/semgrep',async(req,res)=>{
 });
 app.get('/api/assessments',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await db.assessmentsForUser(u.userId))});
 app.get('/api/assessments/:id',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});res.json(a)});
-app.get('/api/assessments/:id/audit',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.auditsForAssessment(req.params.id))});
-app.get('/api/assessments/:id/evidence',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.evidenceForAssessment(req.params.id))});
+app.get('/api/assessments/:id/audit',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.auditsForAssessment(req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/assessments/:id/evidence',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.evidenceForAssessment(req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/assessments/:id/report',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});const fs=await db.findingsForAssessment(req.params.id);res.json(assessmentReport(a,fs))});
 app.get('/api/security/offensive/catalog',(_req,res)=>res.json({domains:offensiveCapabilityCatalog(),truthBoundary:'Coverage describes supported assessment domains and evidence engines. Actual coverage is established only by successful execution or imported evidence for the declared scope.'}));
 app.get('/api/assessments/:id/security-workspace',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});await requireAssessmentAccess(u.userId,req.params.id);const fs=await db.findingsForAssessment(req.params.id),ev=await db.evidenceForAssessment(req.params.id);res.json(securityWorkspaceSummary(a,fs,ev))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
@@ -738,7 +744,7 @@ app.get('/api/frameworks',(_req,res)=>res.json({frameworks:frameworkCatalog,note
 app.post('/api/assessments/:id/documents',upload.array('files',10),async(req,res)=>{
  try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const access=await requireAssessmentAccess(u.userId,req.params.id);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');const files=(req.files||[]) as Express.Multer.File[];if(!files.length)return res.status(400).json({error:'No files supplied'});const documentType=String(req.body?.documentType||'OTHER').toUpperCase();const allowedDocumentTypes=['ARCHITECTURE','DATA_FLOW','NETWORK_DIAGRAM','ASSET_INVENTORY','EMPLOYEE_ROSTER','SECURITY_POLICY','CONTROL_DESCRIPTION','FIREWALL_CONFIGURATION','CLOUD_CONFIGURATION','IAM_CONFIGURATION','LOG_EXPORT','INCIDENT_REPORT','VULNERABILITY_REPORT','PENTEST_REPORT','COMPLIANCE_EVIDENCE','OTHER'];if(!allowedDocumentTypes.includes(documentType))return res.status(400).json({error:'Unsupported assessment evidence document type'});const description=String(req.body?.description||'').trim().slice(0,1000);const denied=/\.(exe|dll|so|dylib|msi|apk|bat|cmd|ps1|sh|scr|com|jar)$/i;const saved=[];for(const file of files){if(denied.test(file.originalname))return res.status(400).json({error:'Executable/script uploads are not accepted'});const id=crypto.randomUUID(),sha256=crypto.createHash('sha256').update(file.buffer).digest('hex'),createdAt=new Date().toISOString();await db.saveDocument({id,assessmentId:a.id,filename:file.originalname.replace(/[\\/\0]/g,'_'),mimeType:file.mimetype||'application/octet-stream',size:file.size,sha256,createdAt,content:file.buffer});await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:'operator',createdAt,metadata:{documentId:id,filename:file.originalname,size:file.size,sha256,documentType,description}});saved.push({id,filename:file.originalname,size:file.size,sha256,createdAt,documentType,description})}res.json({stored:true,documents:saved})}catch(e:any){res.status(400).json({error:e.message})}
 });
-app.get('/api/assessments/:id/documents',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.documents(req.params.id))});
+app.get('/api/assessments/:id/documents',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireAssessmentAccess(u.userId,req.params.id);res.json(await db.documents(req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/assessments/:id/documents/:docId/security-assess',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});const access=await requireAssessmentAccess(u.userId,req.params.id);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');
  const d=await db.document(req.params.docId);if(!d||d.assessmentId!==a.id)return res.status(404).json({error:'Document not found'});

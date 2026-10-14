@@ -68,7 +68,16 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
  h1('Production Readiness Checklist');
  row(['CATEGORY','CONTROL','CURRENT STATUS','REQUIRED NEXT STEP'],[110,145,105,143],true);
  const cats=[['HTTP / Application Hardening','Headers, TLS, input/session controls'],['Network Segmentation','Restricted services and unnecessary exposure'],['Identity / Least Privilege','Restricted human and service identities'],['Endpoint / Detection','Telemetry and detection coverage'],['Cloud / Container','Configuration, image and runtime posture'],['Data Security','Access, encryption and exposure controls'],['Observability','Traceable security-relevant events'],['Remediation Verification','Fingerprint-bound targeted retest']];
- cats.forEach(([cat,control])=>{const related=open.filter(f=>(f.title+' '+f.description+' '+f.asset).toLowerCase().includes(cat.split(' ')[0].toLowerCase()));row([cat,control,related.length?related.length+' open related finding(s)':'REVIEW EVIDENCE','Validate applicable evidence and retain clean retest/analyst disposition.'],[110,145,105,143])});
+ const readinessCoverage:Record<string,any>={
+ 'HTTP / Application Hardening':trace?.webAssurance,
+ 'Network Segmentation':trace?.infrastructureAssurance,
+ 'Identity / Least Privilege':trace?.identityAssurance,
+ 'Endpoint / Detection':trace?.endpointAssurance,
+ 'Cloud / Container':{status:[trace?.cloudAssurance?.status,trace?.containerAssurance?.status].filter(Boolean).join(' / ')||'NOT_STARTED',evidenceCount:Number(trace?.cloudAssurance?.evidenceCount||0)+Number(trace?.containerAssurance?.evidenceCount||0),failureReasons:[...(trace?.cloudAssurance?.failureReasons||[]),...(trace?.containerAssurance?.failureReasons||[])]},
+ 'Data Security':trace?.dataSecurityAssurance,
+ 'Observability':trace?.breachTelemetryAssurance,
+ 'Remediation Verification':{status:chains.some((x:any)=>Array.isArray(x.retests)&&x.retests.length)?'EVIDENCE_RECORDED':'NOT_OBSERVED',evidenceCount:chains.reduce((n:number,x:any)=>n+(Array.isArray(x.retests)?x.retests.length:0),0),failureReasons:[]}
+};cats.forEach(([cat,control])=>{const x=readinessCoverage[cat]||{status:'NOT_OBSERVED',evidenceCount:0,failureReasons:['Applicable authoritative coverage was not recorded']},state=String(x.status||'NOT_OBSERVED'),count=Number(x.evidenceCount||0),failed=(x.failureReasons||[]).length>0;const current=state+(count?' · '+count+' evidence':'')+(failed?' · LIMITATION':'');row([cat,control,current,state==='COMPLETE'||state==='EVIDENCE_RECORDED'?'Retain evidence and verify applicable open findings are dispositioned.':'Complete applicable coverage and retain successful evidence before approval.'],[110,145,105,143])});
 
  h1('Deployment Gate and Final Disposition');
  p('Recommended defensive deployment gate: critical/high evidence-backed findings are treated or explicitly accepted; failed/not-run coverage is visible; least-privilege and segmentation controls are validated where applicable; security telemetry is retained; and remediated findings have newer successful same-source retest evidence bound to the same vulnerability fingerprint. Final disposition: '+disposition+'.');

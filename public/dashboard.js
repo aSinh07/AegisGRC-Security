@@ -79,7 +79,9 @@ function cyber(){const c=document.getElementById('cyberbg'),x=c.getContext('2d')
 
 
 // CSP migration bridge: static markup actions are delegated from data attributes.
-// This preserves existing behavior while removing executable inline event attributes.
+// Explicitly publish auth handlers required before login; do not rely on browser
+// top-level function declarations becoming properties of globalThis.
+Object.assign(globalThis,{authMode,togglePassword,openReset,closeReset,resetPassword,doLogin,startEnroll,finishEnroll});
 function runAegisUiAction(code,event,element){
  const actions=String(code||'').split(';').map(x=>x.trim()).filter(Boolean);
  for(const action of actions){

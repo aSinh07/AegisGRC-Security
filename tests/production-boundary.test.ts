@@ -226,7 +226,8 @@ test('URL offensive workflow automatically runs full evidence assessment and pre
  assert.match(js,/NOT ESTABLISHED/);
  assert.match(js,/async function pollFullAssessment/);
  assert.match(js,/server-side assessment accepted/);
- assert.match(js,/workspace remains usable while scanners execute in the background/);
+ assert.match(js,/evidenceRows\.length\+' evidence record\(s\) rendered'/);
+ assert.doesNotMatch(js,/raw\.textContent='FULL URL ASSESSMENT · '\+status/);
  assert.match(server,/const activeFullScans=new Map<string,Promise<void>>/);
  assert.match(server,/res\.status\(202\)\.json\(\{execution:'REAL_FULL_ASSESSMENT',status:'RUNNING'/);
  assert.match(server,/--top-ports','1000'/);

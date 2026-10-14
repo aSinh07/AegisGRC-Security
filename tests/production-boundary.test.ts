@@ -281,7 +281,7 @@ test('professional security exports preserve report purpose and evidence boundar
  assert.match(pdf,/Offensive Security Technical Assessment/);
  assert.match(pdf,/Tool Execution & Evidence Provenance/);
  assert.match(pdf,/Raw console output is supporting evidence, not the assessment narrative/);
- assert.match(pdf,/full evidence remains stored/);
+ assert.match(pdf,/complete persisted evidence record remains in the AegisGRC evidence store/);
  assert.match(exporters,/Executive Security Summary/);
  assert.match(exporters,/Tool Execution & Coverage Matrix/);
  assert.match(exporters,/Professional Findings Register/);

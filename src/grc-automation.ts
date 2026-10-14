@@ -147,7 +147,15 @@ export async function runAutomationRule(user:string,org:string,ruleId:string){
   await client.query(`UPDATE grc_automation_runs SET status='SUCCEEDED',finished_at=now(),actions_count=$2,summary=$3 WHERE id=$1`,[runId,count,{actions}]);
   await client.query(`UPDATE grc_automation_rules SET last_run_at=now(),next_run_at=now()+(interval_hours::text||' hours')::interval,updated_at=now() WHERE id=$1`,[ruleId]);
   await client.query('COMMIT');return {runId,status:'SUCCEEDED',actionsCount:count,actions};
- }catch(e:any){await client.query('ROLLBACK');throw e}finally{client.release()}
+ }catch(e:any){
+  await client.query('ROLLBACK');
+  const error=String(e?.message||e).slice(0,500);
+  try{
+   const exists=(await client.query('SELECT id FROM grc_automation_rules WHERE id=$1 AND organization_id=$2',[ruleId,org])).rows[0];
+   if(exists)await client.query("INSERT INTO grc_automation_runs(id,organization_id,rule_id,status,finished_at,actions_count,summary,error) VALUES($1,$2,$3,'FAILED',now(),0,$4,$5)",[runId,org,ruleId,{trigger:'MANUAL',actorUserId:user},error]);
+  }catch(recordError){}
+  throw e;
+ }finally{client.release()}
 }
 
 

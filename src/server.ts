@@ -857,6 +857,7 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
   const fs=await db.findingsForAssessment(req.params.id);const ev=await db.evidenceForAssessment(req.params.id);
   const kinds=['grc','remediation','architecture','technical','executive']; const formats=['pdf','docx','pptx','xlsx','csv','json','txt'];
   const kind=(kinds.includes(req.params.kind)?req.params.kind:'grc') as ReportKind, format=req.params.format.toLowerCase();
+  if(kind==='remediation'&&format!=='pdf')return res.status(400).json({error:'Defensive Security Report is available in PDF format only'});
   if(!formats.includes(format))return res.status(400).json({error:'Unsupported report format'});
   let body:Buffer; let mime='application/octet-stream';
   if(format==='pdf'){body=kind==='remediation'?await renderDefensiveSecurityPdf(a,fs,ev,await assessmentTrace(u.userId,a.id)):await renderPdf(a,fs,ev,kind);mime='application/pdf'}

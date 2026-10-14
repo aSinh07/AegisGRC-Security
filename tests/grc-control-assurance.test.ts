@@ -46,3 +46,12 @@ test('control assurance records are tenant-bound through their scope',async()=>{
  assert.match(core,/JOIN grc_control_assessments ca ON ca\.id=e\.assessment_id JOIN grc_scopes s/);
  assert.match(server,/organizationId:req\.params\.orgId/);
 });
+
+test('enterprise workspace exposes unified automation and human control assurance',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ for(const label of ['Unified Control Assurance','AUTOMATION RESULT','MANUAL REVIEW','Design + Operating','Human approval gated'])assert.match(html,new RegExp(label.replace(/[+]/g,'\\+')));
+ for(const id of ['assuranceControl','assuranceEvidence','assuranceManual','assuranceDesign','assuranceOperating','assuranceApproval','assuranceNotes','assuranceHistory'])assert.match(html,new RegExp('id="'+id+'"'));
+ assert.match(js,/loadControlAssurance/);assert.match(js,/submitControlAssuranceReview/);assert.match(js,/loadControlAssuranceHistory/);
+ assert.match(js,/\/control-assessments/);
+});

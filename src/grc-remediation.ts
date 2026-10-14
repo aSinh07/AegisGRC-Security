@@ -75,7 +75,7 @@ export async function approveRiskAcceptance(user:string,org:string,riskId:string
   if(!r)throw Object.assign(new Error('Risk not found'),{statusCode:404});
   if(r.treatment!=='ACCEPT'||r.status!=='ACCEPTANCE_PENDING')throw Object.assign(new Error('Risk is not awaiting acceptance'),{statusCode:409});
   if(r.created_by===user||r.owner_user_id===user)throw Object.assign(new Error('Risk creator/owner cannot approve own acceptance'),{statusCode:409});
-  const out=(await client.query(`UPDATE grc_enterprise_risks SET status='ACCEPTED',acceptance_expires_at=$2,accepted_by=$3,updated_at=now() WHERE id=$1 AND organization_id=$4 AND status='ACCEPTANCE_PENDING' RETURNING *`,[riskId,expiry,user,org])).rows[0];
+  const out=(await client.query(`UPDATE grc_enterprise_risks SET status='ACCEPTED',acceptance_expires_at=$2,accepted_by=$3,acceptance_rationale=$5,accepted_at=now(),updated_at=now() WHERE id=$1 AND organization_id=$4 AND status='ACCEPTANCE_PENDING' RETURNING *`,[riskId,expiry,user,org,reason])).rows[0];
   if(!out)throw Object.assign(new Error('Risk state changed before acceptance'),{statusCode:409});
   await event(org,'RISK',riskId,'RISK_ACCEPTED',user,reason,{expiresAt:expiry.toISOString()},client);
   await client.query('COMMIT');return out;

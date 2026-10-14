@@ -14,3 +14,6 @@ test('Defensive PDF consumes governed retests and authoritative layer coverage',
 
 
 test('Production readiness uses authoritative assessment assurance instead of title heuristics',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');assert.match(src,/readinessCoverage/);assert.match(src,/trace\?\.webAssurance/);assert.match(src,/trace\?\.infrastructureAssurance/);assert.match(src,/trace\?\.identityAssurance/);assert.match(src,/trace\?\.endpointAssurance/);assert.match(src,/trace\?\.breachTelemetryAssurance/);assert.match(src,/EVIDENCE_RECORDED/);assert.doesNotMatch(src,/cat\.split\(' '\)\[0\]/);});
+
+
+test('Defensive report has professional document control scope limitations and pagination',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');for(const heading of ['Document Control','Assessment Scope and Coverage','Residual Exposure and Limitations'])assert.match(src,new RegExp(heading));assert.match(src,/capability presence is not PASS/i);assert.match(src,/point-in-time security assessment record/);assert.match(src,/Page '\+\(i\+1\)\+' of '/);assert.match(src,/bufferedPageRange/);});

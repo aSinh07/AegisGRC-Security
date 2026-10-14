@@ -7,7 +7,7 @@ function status(f:Finding){return String(f.status||'OBSERVED').replaceAll('_',' 
 function refs(f:Finding){const m:any=f.mappings||{};return [...(m.owasp||[]),...(m.nist||m.nistCsf||[]),...(m.iso27001||[]),...(m.iso42001||[])].join(', ')||'N/A'}
 
 export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence[]=[],trace:any=null){return new Promise<Buffer>((resolve,reject)=>{
- const d:any=new PDFDocument({size:'A4',margin:46,bufferPages:true}),chunks:Buffer[]=[];d.on('data',(x:Buffer)=>chunks.push(x));d.on('end',()=>resolve(Buffer.concat(chunks)));d.on('error',reject);
+ const d:any=new PDFDocument({size:'A4',margin:46,bufferPages:true,info:{Title:'AegisGRC Defensive Security Report',Author:'AegisGRC',Subject:'Evidence-driven defensive security remediation and verification report'}}),chunks:Buffer[]=[];d.on('data',(x:Buffer)=>chunks.push(x));d.on('end',()=>resolve(Buffer.concat(chunks)));d.on('error',reject);
  const ink='#172033',muted='#667085',navy='#0B1830',cyan='#16B8C7',line='#D9E2F0',soft='#F5F8FC',green='#067647',amber='#B54708',red='#B42318';
  let sectionNo=0;
  const footer=()=>{const y=805;d.strokeColor(line).moveTo(46,y).lineTo(549,y).stroke();d.fillColor(muted).font('Helvetica').fontSize(7).text('AEGISGRC | DEFENSIVE SECURITY | CONFIDENTIAL',46,y+8,{width:360});};
@@ -24,6 +24,10 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
  d.moveDown();d.roundedRect(46,d.y,503,92,6).fill(soft);const sy=d.y+15;d.fillColor(cyan).font('Helvetica-Bold').fontSize(8).text('EVIDENCE-DRIVEN ASSESSMENT STATEMENT',61,sy);d.fillColor(ink).font('Helvetica').fontSize(9).text('This report separates confirmed weaknesses from scanner observations, false positives, positive controls and unproven hypotheses. No breach, exploitation or data exfiltration is claimed unless persisted evidence demonstrates that impact. Missing or failed coverage is never interpreted as PASS.',61,sy+20,{width:470,lineGap:2});
  page();
 
+ h1('Document Control');
+ row(['FIELD','VALUE'],[145,358],true);[['Document','Defensive Security Remediation & Verification Report'],['Assessment ID',a.id],['Target',a.target],['Classification','Confidential · Manager + Developer Technical Security Report'],['Assessment status',String(a.status)],['Authorization recorded',String(a.authorizedAt)],['Generated',new Date().toISOString()],['Evidence model','Persisted assessment evidence + governed analyst/retest trace']].forEach(x=>row(x,[145,358]));
+ d.moveDown(.5);p('This document is a point-in-time security assessment record. Later configuration, asset, scanner, evidence, or finding changes require a new report snapshot.');
+
  h1('Defensive Summary');
  const open=fs.filter(f=>!['REMEDIATED','FALSE_POSITIVE'].includes(String(f.status||''))),critical=open.filter(f=>f.severity==='CRITICAL').length,high=open.filter(f=>f.severity==='HIGH').length;
  p('The current defensive posture contains '+open.length+' open evidence-backed finding(s), including '+critical+' critical and '+high+' high. Priority is assigned from persisted technical evidence. Closure remains evidence-gated: remediation requires a successful targeted retest against the same finding fingerprint; recommendations or automation cannot close a finding.');
@@ -33,6 +37,10 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
  p('Authorized target: '+a.target+'. This report does not invent private architecture. Architecture, trust-boundary and technology conclusions require stored assessment evidence or uploaded architecture/configuration artifacts.');
  row(['LAYER / DOMAIN','DEFENSIVE SECURITY RELEVANCE'],[165,338],true);
  [['Web / API','Input handling, authentication/session controls, HTTP/TLS hardening, application exposure.'],['Network / Infrastructure','Ports, services, segmentation, host hardening and exposure.'],['Cloud / Identity','IAM, privilege, logging, encryption, storage and configuration posture.'],['Container / Supply Chain','Image/package vulnerabilities, SBOM, secrets, IaC and runtime hardening.'],['Endpoint / Detection','Endpoint telemetry, identity signals, detection and incident evidence.'],['Data / Database','Least privilege, access posture, encryption, service exposure and telemetry.']].forEach(x=>row(x,[165,338]));
+
+ h1('Assessment Scope and Coverage');
+ p('Scope is limited to the authorized assessment target and persisted asset/evidence records. Capability support is not treated as proof that a control was executed for this assessment. Failed, missing, stale or unobserved coverage remains an explicit limitation.');
+ row(['SCOPE ITEM','VALUE'],[165,338],true);[['Authorized target',a.target],['Persisted findings',String(fs.length)],['Persisted evidence records',String(ev.length)],['Open evidence-backed findings',String(open.length)],['Coverage interpretation','Authoritative assessment assurance only; capability presence is not PASS']].forEach(x=>row(x,[165,338]));
 
  h1('Findings Register');
  row(['ID','FINDING','EVIDENCE STATUS','RISK','CVSS','MAPPING'],[38,170,92,55,48,100],true);
@@ -56,6 +64,11 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
  const chains=Array.isArray(trace?.chains)?trace.chains:[];if(!chains.length)p('No governed analyst/retest trace was available. Finding status alone is not treated as independent retest proof.');else chains.forEach((c:any)=>{const latest=Array.isArray(c.reviews)&&c.reviews.length?c.reviews[c.reviews.length-1]:null,retests=Array.isArray(c.retests)?c.retests:[];label((c.findingId||'Finding')+' · '+String(c.source||'unknown').toUpperCase()+' · '+(latest?.decision||'UNREVIEWED'));p('Targeted retests: '+retests.length+(latest?.rationale?' | Analyst rationale: '+latest.rationale:''));retests.forEach((r:any)=>p('Evidence '+r.evidence_id+' | '+r.scanner_source+' | fingerprint '+String(r.fingerprint||'').slice(0,24)+'… | '+String(r.created_at||''))) });
  h1('Authoritative Assessment Coverage');
  const assurance=[['Infrastructure',trace?.infrastructureAssurance],['Endpoint',trace?.endpointAssurance],['Web',trace?.webAssurance],['API',trace?.apiAssurance],['Source Code',trace?.sourceCodeAssurance],['Dependencies',trace?.dependencyAssurance],['Container',trace?.containerAssurance],['Cloud',trace?.cloudAssurance],['Identity',trace?.identityAssurance],['Data Security',trace?.dataSecurityAssurance],['Privacy',trace?.privacyAssurance],['Attack Surface',trace?.attackSurfaceAssurance],['Breach Telemetry',trace?.breachTelemetryAssurance]];row(['LAYER','STATUS','EVIDENCE','ENGINES'],[135,90,70,208],true);assurance.forEach(([name,x]:any)=>{const y=x||{status:'NOT_STARTED',evidenceCount:0,engines:[],failureReasons:['Coverage record unavailable']};row([name,y.status,String(y.evidenceCount||0),(y.engines||[]).join(', ')||'None'],[135,90,70,208]);if(y.failureReasons?.length)p('Limitation: '+y.failureReasons.join('; '))});
+
+ h1('Residual Exposure and Limitations');
+ const limitations=assurance.flatMap(([name,x]:any)=>{const y=x||{status:'NOT_STARTED',failureReasons:['Coverage record unavailable']};const reasons=Array.isArray(y.failureReasons)?y.failureReasons:[];return (String(y.status||'NOT_STARTED')==='COMPLETE'&&!reasons.length)?[]:[name+': '+String(y.status||'NOT_STARTED')+(reasons.length?' — '+reasons.join('; '):'')]} );
+ if(!limitations.length)p('No assessment-layer coverage limitations were recorded in the authoritative trace. This does not imply absence of vulnerabilities outside the authorized scope or after the assessment time.');else limitations.forEach((x:string)=>p('• '+x));
+ d.moveDown(.5);p('Residual exposure also includes accepted risk, unresolved findings, unobserved assets, scanner blind spots, and changes made after evidence collection.');
 
  h1('Management Conclusion');
  const disposition=critical||high?'REMEDIATION REQUIRED':open.length?'REMEDIATION / RETEST REQUIRED':'NO OPEN EVIDENCE-BACKED FINDINGS';
@@ -83,5 +96,5 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
  p('Recommended defensive deployment gate: critical/high evidence-backed findings are treated or explicitly accepted; failed/not-run coverage is visible; least-privilege and segmentation controls are validated where applicable; security telemetry is retained; and remediated findings have newer successful same-source retest evidence bound to the same vulnerability fingerprint. Final disposition: '+disposition+'.');
  d.moveDown();d.fillColor(amber).font('Helvetica-Bold').fontSize(8).text('AUTOMATION AND ADVISORY BOUNDARY');p('Recommendations and automation are advisory unless backed by governed execution evidence. They cannot mark a finding remediated, manufacture successful evidence, or override the server-side closure gate.');
 
- footer();d.end();
+ const range=d.bufferedPageRange();for(let i=range.start;i<range.start+range.count;i++){d.switchToPage(i);d.fillColor(muted).font('Helvetica').fontSize(7).text('Page '+(i+1)+' of '+range.count,455,813,{width:94,align:'right'});}d.end();
 })}

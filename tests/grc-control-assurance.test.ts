@@ -36,3 +36,13 @@ test('governed control assurance API requires organization permissions and serve
  assert.match(s,/requireOrgPermission\(u\.userId,req\.params\.orgId,'findingReview'\)/);
  assert.match(s,/actorUserId:u\.userId/);
 });
+
+test('control assurance records are tenant-bound through their scope',async()=>{
+ const core=await readFile(new URL('../src/grc-core.ts',import.meta.url),'utf8');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(core,/JOIN grc_scopes s ON s\.id=ca\.scope_id WHERE ca\.id=\$1 AND s\.organization_id=\$2/);
+ assert.match(core,/Scope not found in organization/);
+ assert.match(core,/FOR UPDATE OF ca/);
+ assert.match(core,/JOIN grc_control_assessments ca ON ca\.id=e\.assessment_id JOIN grc_scopes s/);
+ assert.match(server,/organizationId:req\.params\.orgId/);
+});

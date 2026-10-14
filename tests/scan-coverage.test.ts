@@ -24,3 +24,16 @@ test('nonzero or missing exit is failed',()=>{
 test('timeout or truncated evidence cannot count as successful coverage',()=>{
  assert.equal(scannerRunStatus(0,undefined,true),'FAILED');
 });
+
+
+test('failed scanner coverage preserves operational failure reason',()=>{
+ const c=scanCoverage(['nuclei','zap'],[
+  {tool:'nuclei',status:'FAILED',timedOut:true,exitCode:null},
+  {tool:'zap',status:'FAILED',error:'service unavailable'}
+ ]);
+ assert.deepEqual(c.failed,['nuclei','zap']);
+ assert.equal(c.failureDetails?.[0]?.reason,'TIMEOUT');
+ assert.equal(c.failureDetails?.[1]?.reason,'SPAWN_OR_SERVICE_ERROR');
+ assert.equal(c.complete,false);
+ assert.equal(assessmentStatusForCoverage(c),'FAILED');
+});

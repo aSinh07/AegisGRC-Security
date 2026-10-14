@@ -26,6 +26,28 @@ export function nucleiJsonlFindings(assessmentId:string,asset:string,evidenceHas
  return out;
 }
 
+
+export function sqlmapTextFindings(assessmentId:string,asset:string,evidenceHash:string,raw:string):Finding[]{
+ const out:Finding[]=[];
+ const blocks=raw.split(/\n(?=Parameter:\s)/i);
+ for(const block of blocks){
+  const parameter=block.match(/Parameter:\s*([^\r\n]+)/i)?.[1]?.trim();
+  const type=block.match(/Type:\s*([^\r\n]+)/i)?.[1]?.trim();
+  const title=block.match(/Title:\s*([^\r\n]+)/i)?.[1]?.trim();
+  const payload=block.match(/Payload:\s*([^\r\n]+)/i)?.[1]?.trim();
+  if(!parameter||(!type&&!payload))continue;
+  out.push(mapFinding({
+   id:crypto.randomUUID(),assessmentId,source:'sqlmap',
+   title:'SQL injection reported · '+parameter,
+   description:'SQLmap reported an injectable parameter'+(type?' using '+type:'')+(title?' ('+title+')':'')+'. The payload is retained in hashed scanner evidence rather than promoted as proof of data access.',
+   severity:'HIGH',cwe:'CWE-89',cvss:8.8,asset,evidenceHash,createdAt:new Date().toISOString(),
+   mappings:{owasp:['A05:2025 Injection']},remediation:'Use parameterized queries/prepared statements, validate server-side input, apply least-privilege database permissions, then retest the affected parameter.',
+   status:'OPEN',confidence:'SCANNER_REPORTED',externalIds:{cwe:['CWE-89'],scannerId:'sqlmap:'+parameter}
+  }));
+ }
+ return out;
+}
+
 export function trivyJsonFindings(assessmentId:string,asset:string,evidenceHash:string,raw:string):Finding[]{
  let doc:any;try{doc=JSON.parse(raw)}catch{return []}
  const out:Finding[]=[];

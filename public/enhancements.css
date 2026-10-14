@@ -56,3 +56,24 @@ html{scroll-behavior:smooth}body{color:var(--ux-text)}button:focus-visible,input
 #offensive .heat div{padding:10px 6px}
 #offensive .sev{font-size:20px}
 @media(max-width:850px){.top-actions{margin-left:auto}.top:after{display:none}.top-title h1{font-size:20px}}
+
+/* Defensive evidence workflow v1 */
+.defensive-workspace{display:grid;gap:14px}
+.defense-posture-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.defense-posture-strip>div{border:1px solid var(--line,#d9e2f0);border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.025)}
+.defense-posture-strip span,.defense-evidence-line strong,.defense-step strong,.defense-section-title,.defense-guidance strong,.defense-limitations strong{display:block;font-size:10px;letter-spacing:.08em;font-weight:800}
+.defense-posture-strip b{display:block;font-size:20px;margin-top:4px}
+.defense-lifecycle{display:flex;gap:6px;flex-wrap:wrap}
+.defense-lifecycle span,.defense-priority,.defense-severity{font-size:10px;font-weight:800;letter-spacing:.05em;border:1px solid var(--line,#d9e2f0);border-radius:999px;padding:5px 8px}
+.defense-evidence-line,.defense-guidance>div,.defense-limitations{display:grid;gap:5px;border-left:3px solid #155eef;padding:8px 11px;background:rgba(21,94,239,.045)}
+.defense-section-title{margin-top:4px}
+.defense-remediation-list{display:grid;gap:10px}
+.defense-remediation-item{border:1px solid var(--line,#d9e2f0);border-radius:12px;padding:12px;display:grid;gap:9px;background:rgba(255,255,255,.02)}
+.defense-remediation-head{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.defense-asset,.defense-remediation-item small{font-size:11px;opacity:.72;overflow-wrap:anywhere}
+.defense-step{display:grid;grid-template-columns:112px 1fr;gap:10px;font-size:12px;line-height:1.45}
+.defense-critical{border-color:#b42318}.defense-high{border-color:#d92d20}.defense-medium{border-color:#f79009}.defense-low{border-color:#1570ef}
+.defense-guidance{display:grid;gap:7px}.defense-guidance>div{grid-template-columns:105px 1fr}
+.defense-limitations span{display:block;font-size:11px;line-height:1.45;margin-top:4px}
+.defense-empty{border:1px dashed var(--line,#d9e2f0);border-radius:10px;padding:14px;font-size:12px;opacity:.78}
+@media(max-width:760px){.defense-posture-strip{grid-template-columns:repeat(2,1fr)}.defense-step,.defense-guidance>div{grid-template-columns:1fr}}

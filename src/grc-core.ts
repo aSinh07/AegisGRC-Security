@@ -220,6 +220,9 @@ export async function createAiImpactAssessment(input:{organizationId:string;scop
  return (await pool.query(`INSERT INTO grc_ai_impact_assessments(id,organization_id,scope_id,system_name,intended_use,affected_parties,data_categories,human_oversight,potential_impacts,mitigations,evidence_refs,eu_risk_class)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.scopeId||null,input.systemName.trim(),input.intendedUse.trim(),input.affectedParties||null,input.dataCategories||null,input.humanOversight||null,input.potentialImpacts||null,input.mitigations||null,input.evidenceRefs||[],input.euRiskClass||'UNDETERMINED'])).rows[0];
 }
+export async function listAiImpactAssessments(organizationId:string){return (await pool.query('SELECT * FROM grc_ai_impact_assessments WHERE organization_id=$1 ORDER BY created_at DESC',[organizationId])).rows}
+export async function listPrivacyAssessments(organizationId:string){return (await pool.query('SELECT * FROM grc_privacy_assessments WHERE organization_id=$1 ORDER BY created_at DESC',[organizationId])).rows}
+
 export async function createPrivacyAssessment(input:{organizationId:string;scopeId?:string;processingActivity:string;piiCategories?:string;purposes?:string;dataSubjects?:string;retention?:string;recipients?:string;safeguards?:string;evidenceRefs?:string[]}){
  if(!input.organizationId||!input.processingActivity?.trim())throw new Error('Organization and processing activity are required');
  if(input.scopeId){const x=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];if(!x)throw new Error('Scope not found in organization')}

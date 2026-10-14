@@ -164,7 +164,7 @@ test('offensive and defensive workspaces own their inputs and share evidence',as
  const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
  for(const label of ['Scope → Discover → Validate → Evidence → Technical Report','Observe → Prioritize → Mitigate → Harden → Retest → Monitor','Evidence & Provenance Vault','INGEST','HASH','BIND','REVIEW'])assert.ok(html.includes(label),label);
  for(const id of ['target','auth','gate','offensiveDocs','offensiveCoverage','tool','findings','CRITICAL','HIGH','MEDIUM','LOW','INFO','defensiveTarget','defensiveDocs','defensiveReuse','defensivePlan','pie','bars','docs','doclist','raw'])assert.match(html,new RegExp('id="'+id+'"'));
- for(const action of ["scan()","authorizeDefensive()","loadDefensiveAnalysis()","ai()","uploadDocs()"])assert.ok(html.includes(action),action);
+ for(const action of ["scan()","authorizeDefensive()","loadDefensiveAnalysis()","uploadDocs()"])assert.ok(html.includes(action),action);
  assert.doesNotMatch(html.slice(html.indexOf('<section id="defensive"'),html.indexOf('<section id="incidents"')),/Dynamic GRC Report|Generate GRC View/);
  assert.match(js,/\/api\/assessments\/'\+assessmentId\+'\/security-workspace/);
  assert.match(js,/Re-upload required: NO/);

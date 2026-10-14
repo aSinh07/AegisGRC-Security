@@ -1,6 +1,6 @@
 let assessmentId=null,targetOrigin=null,sessionToken=null,selectedFramework=null;
 // Register delegated UI listeners before optional graphics or async startup can fail.
-document.addEventListener('click',event=>{if(!(event.target instanceof Element))return;const actionElement=event.target.closest('[data-action]');if(actionElement){const action=actionElement.dataset.action,fn=globalThis[action];if(typeof fn==='function'){if(action==='advancePrivacyBreach'||action==='decideReview')fn(actionElement.dataset.id,actionElement.dataset.status);else if(action==='selectFramework')fn(actionElement.dataset.id,actionElement.dataset.name);else fn(actionElement.dataset.id);return;}}const element=event.target.closest('[data-aegis-click]');if(element)runAegisUiAction(element.dataset.aegisClick,event,element);});
+document.addEventListener('click',event=>{if(!(event.target instanceof Element))return;if(event.target.closest('#login'))return;const actionElement=event.target.closest('[data-action]');if(actionElement){const action=actionElement.dataset.action,fn=globalThis[action];if(typeof fn==='function'){if(action==='advancePrivacyBreach'||action==='decideReview')fn(actionElement.dataset.id,actionElement.dataset.status);else if(action==='selectFramework')fn(actionElement.dataset.id,actionElement.dataset.name);else fn(actionElement.dataset.id);return;}}const element=event.target.closest('[data-aegis-click]');if(element)runAegisUiAction(element.dataset.aegisClick,event,element);});
 document.addEventListener('change',event=>{if(!(event.target instanceof Element))return;const element=event.target.closest('[data-aegis-change]');if(element)runAegisUiAction(element.dataset.aegisChange,event,element);});
 function openLearning(){
  const msg='Opening the Learning Hub will leave this dashboard. Unsaved or in-progress assessment data on this page may be lost. Stored evidence and completed server-side data will remain available. Continue?';
@@ -30,7 +30,7 @@ function bindAuthControls(){
  bind('[data-aegis-click="closeReset()"]',()=>closeReset());
  document.documentElement.dataset.aegisJs='ready';
 }
-bindAuthControls();
+// Authentication controls are owned exclusively by auth.js.
 async function showApp(){login.classList.add('hidden');app.classList.remove('hidden');copilot.classList.remove('hidden');await loadUserProfile();loadIntegrations();loadFrameworks()}
 function profileInitials(name,email){const v=(name||email||'A').trim().split(/\s+/).filter(Boolean);return ((v[0]?.[0]||'A')+(v.length>1?v[v.length-1][0]:'')).toUpperCase()}
 async function loadUserProfile(){try{const d=await jf('/api/auth/profile'),p=d.profile||{},initials=profileInitials(p.fullName,p.email);profileAvatar.textContent=initials;profileAvatarLarge.textContent=initials;profileName.textContent=p.fullName||'AegisGRC User';profileTitle.textContent=p.designation||'Workspace user';profileCompany.textContent=p.companyName||'—';profileDepartment.textContent=p.department||'—';profileWork.textContent=p.workProfile||'—';profileRole.textContent=String(p.role||'analyst').replaceAll('_',' ');profileEmail.textContent=p.email||'—'}catch(e){console.warn('Profile unavailable')}}

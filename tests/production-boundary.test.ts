@@ -303,3 +303,20 @@ test('defensive workspace restores newest persisted authorized assessment withou
  assert.match(ui,/await loadSecurityWorkspace\(\);await loadSecurityAssets\(\);await loadDefensiveAnalysis\(\)/);
  assert.match(ui,/await restoreLatestAssessment\(\)/);
 });
+
+
+test('security report visual system is structured and scanner runtime uses writable tool directories',async()=>{
+ const pdf=await readFile(new URL('../src/pdf.ts',import.meta.url),'utf8');
+ const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(pdf,/SECURITY ASSESSMENT REPORT/);
+ assert.match(pdf,/EVIDENCE ASSURANCE STATEMENT/);
+ assert.match(pdf,/const section=/);
+ assert.match(pdf,/const card=/);
+ assert.match(pdf,/const tableRow=/);
+ assert.match(pdf,/const badge=/);
+ assert.match(pdf,/Professional Findings Register/);
+ assert.match(pdf,/Evidence & Provenance Appendix/);
+ assert.match(pdf,/Page '\+pageNo/);
+ assert.match(server,/HOME:'\/tmp\/aegis-tools'/);
+ assert.match(server,/XDG_CONFIG_HOME:'\/tmp\/aegis-tools\/config'/);
+});

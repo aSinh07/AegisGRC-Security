@@ -47,13 +47,13 @@ async function execute(client:any,org:string,kind:Kind,config:any){
   const staleDays=Math.max(1,Number(config?.staleWarningDays||14));
   const stale=(await client.query(`UPDATE grc_evidence_requests r SET status='STALE',updated_at=now()
    WHERE r.organization_id=$1 AND r.status='VALID' AND EXISTS(
-    SELECT 1 FROM grc_evidence_versions v WHERE v.evidence_request_id=r.id AND v.validated_at IS NOT NULL
+    SELECT 1 FROM grc_evidence_versions v WHERE v.evidence_request_id=r.id AND v.integrity_status='SERVER_VERIFIED' AND v.validated_at IS NOT NULL
     AND v.valid_until>now() AND v.valid_until<=now()+($2::text||' days')::interval
     AND v.version=(SELECT max(v2.version) FROM grc_evidence_versions v2 WHERE v2.evidence_request_id=r.id))
    RETURNING id,title`,[org,staleDays])).rows;
   const expired=(await client.query(`UPDATE grc_evidence_requests r SET status='EXPIRED',updated_at=now()
    WHERE r.organization_id=$1 AND r.status IN ('VALID','STALE') AND EXISTS(
-    SELECT 1 FROM grc_evidence_versions v WHERE v.evidence_request_id=r.id AND v.validated_at IS NOT NULL AND v.valid_until<=now()
+    SELECT 1 FROM grc_evidence_versions v WHERE v.evidence_request_id=r.id AND v.integrity_status='SERVER_VERIFIED' AND v.validated_at IS NOT NULL AND v.valid_until<=now()
     AND v.version=(SELECT max(v2.version) FROM grc_evidence_versions v2 WHERE v2.evidence_request_id=r.id))
    RETURNING id,title`,[org])).rows;
   events.push({stale:stale.length,expired:expired.length});

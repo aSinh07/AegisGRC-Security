@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+import {spawnSync} from 'node:child_process';
 test('dashboard HTML has no literal escaped newline between sections',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
  assert.doesNotMatch(html,/<\/section>\\n<section/);
@@ -69,3 +70,5 @@ test('authentication actions are published before non-auth dashboard startup',as
 
 
 test('authentication runtime is isolated from dashboard dispatcher and loaded first',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');const auth=await readFile(new URL('../public/auth.js',import.meta.url),'utf8');assert.ok(html.indexOf('<script src="/auth.js"></script>')>=0);assert.ok(html.indexOf('/auth.js')<html.indexOf('/dashboard.js'));assert.match(auth,/bind\('#signinTab'/);assert.match(auth,/bind\('#signupTab'/);assert.match(auth,/dataset\.aegisAuth='ready'/);assert.match(auth,/\/api\/auth\/user-login/);assert.match(auth,/\/api\/auth\/register/);assert.match(auth,/\/api\/auth\/register\/confirm/);assert.match(auth,/\/api\/auth\/reset-password/);});
+
+test('all shipped browser JavaScript parses successfully in Node',()=>{for(const file of ['public/auth.js','public/dashboard.js','public/enhancements.js','public/architecture-3d.js','public/enterprise-ops.js']){const result=spawnSync(process.execPath,['--check',file],{encoding:'utf8'});assert.equal(result.status,0,file+' failed syntax validation: '+result.stderr);}});

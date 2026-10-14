@@ -10,12 +10,12 @@ const rows=(v:any)=>Array.isArray(v)?v:[];
 
 export function buildEnterpriseGrcReport(input:{
  organization:any;scope:any;readiness:any;soa:any;risks:any[];issues:any[];capa:any[];
- dashboard?:any;sla?:any;assessmentTraces?:any[];securityHandoffs?:any[];automationRuns?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;generatedAt?:string;
+ dashboard?:any;sla?:any;assessmentTraces?:any[];securityHandoffs?:any[];automationRuns?:any[];incidents?:any[];identitySignals?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;generatedAt?:string;
 }){
  const generatedAt=input.generatedAt||new Date().toISOString();
  const controls=rows(input.readiness?.controls);
  const soaControls=rows(input.soa?.controls);
- const risks=rows(input.risks),issues=rows(input.issues),capa=rows(input.capa),traces=rows(input.assessmentTraces),securityHandoffs=rows(input.securityHandoffs),automationRuns=rows(input.automationRuns);
+ const risks=rows(input.risks),issues=rows(input.issues),capa=rows(input.capa),traces=rows(input.assessmentTraces),securityHandoffs=rows(input.securityHandoffs),automationRuns=rows(input.automationRuns),incidents=rows(input.incidents),identitySignals=rows(input.identitySignals);
  const applicable=controls.filter((x:any)=>x.applicability==='APPLICABLE');
  const ready=controls.filter((x:any)=>x.readiness==='EVIDENCE_READY');
  const actionRequired=controls.filter((x:any)=>x.readiness!=='EVIDENCE_READY');
@@ -33,6 +33,9 @@ export function buildEnterpriseGrcReport(input:{
  const acceptedSecurityHandoffs=securityHandoffs.filter((x:any)=>x.status==='EVIDENCE_ACCEPTED');
  const pendingSecurityHandoffs=securityHandoffs.filter((x:any)=>x.status==='REVIEW_REQUIRED');
  const failedAutomationRuns=automationRuns.filter((x:any)=>x.status==='FAILED');
+ const openIncidents=incidents.filter((x:any)=>x.phase!=='CLOSED');
+ const criticalOpenIncidents=openIncidents.filter((x:any)=>x.severity==='CRITICAL');
+ const identityReviewRequired=identitySignals.filter((x:any)=>x.status==='REVIEW_REQUIRED');
  const enterpriseGaps=Number(input.architecture?.summary?.gaps||0)+Number(input.resilience?.summary?.gaps||0)+Number(input.continuousCompliance?.summary?.overdueObligations||0)+Number(input.continuousCompliance?.summary?.expiredExceptions||0)+Number(input.policy?.summary?.overdueReview||0)+Number(input.policy?.summary?.unmapped||0)+Number(input.audit?.summary?.unreviewed||0)+Number(input.thirdParty?.summary?.criticalIncidents||0)+Number(input.thirdParty?.summary?.dueReview||0);
  let opinion:ConsultantOpinion='AUDIT_READY';
  if(!total||!soaControls.length)opinion='INSUFFICIENT_EVIDENCE';
@@ -74,7 +77,7 @@ export function buildEnterpriseGrcReport(input:{
    controlsTotal:total,controlsApplicable:applicable.length,controlsEvidenceReady:ready.length,controlsActionRequired:actionRequired.length,
    openIssues:openIssues.length,overdueIssues:overdueIssues.length,openRisks:openRisks.length,highCriticalRisks:highRisks.length,
    acceptedRisks:acceptedRisks.length,expiredRiskAcceptances:expiredAcceptance.length,openCapa:openCapa.length,overdueCapa:overdueCapa.length,
-   evidenceSources:sourceRegister.length,enterpriseWorkflowGaps:enterpriseGaps,acceptedSecurityEvidence:acceptedSecurityHandoffs.length,pendingSecurityEvidenceReview:pendingSecurityHandoffs.length,recentAutomationFailures:failedAutomationRuns.length
+   evidenceSources:sourceRegister.length,enterpriseWorkflowGaps:enterpriseGaps,acceptedSecurityEvidence:acceptedSecurityHandoffs.length,pendingSecurityEvidenceReview:pendingSecurityHandoffs.length,recentAutomationFailures:failedAutomationRuns.length,openSecurityIncidents:openIncidents.length,criticalOpenSecurityIncidents:criticalOpenIncidents.length,identitySignalsReviewRequired:identityReviewRequired.length
   },
   methodology:[
    'Assess scope and applicability before control effectiveness.',
@@ -98,6 +101,7 @@ export function buildEnterpriseGrcReport(input:{
   technicalAssuranceCoverage:technicalCoverage,
   securityReportEvidence:{accepted:acceptedSecurityHandoffs,pendingReview:pendingSecurityHandoffs,total:securityHandoffs.length,assuranceNote:'Accepted technical reports are governed evidence inputs, not automatic proof of control conformity.'},
   automationAssurance:{recentRuns:automationRuns,failedRuns:failedAutomationRuns,assuranceNote:'Automation execution health is disclosed because failed or missing automation cannot be treated as successful control testing.'},
+  incidentAndIdentityAssurance:{openIncidents,criticalOpenIncidents,identitySignalsReviewRequired:identityReviewRequired,assuranceNote:'Incident and identity signals are operational risk indicators requiring investigation; they are not automatic declarations of breach, compromise, or control failure.'},
   thirdPartyRisk:input.thirdParty||{vendors:[],incidents:[],summary:{}},
   architectureAssurance:input.architecture||{components:[],edges:[],firewallReviews:[],gaps:[],summary:{}},
   continuousCompliance:input.continuousCompliance||{obligations:[],exceptions:[],summary:{}},

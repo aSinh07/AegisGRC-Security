@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';import * as XLSX from 'xlsx';
+import {reportModel,xlsxReport} from '../src/exporters.js';
+const a:any={id:'a1',target:'https://example.test',authorizedAt:'2026-01-01',status:'COMPLETED',findings:[],evidenceIds:[]};
+const fs:any[]=[{id:'f1',assessmentId:'a1',source:'zap',title:'Observed weakness',description:'Evidence-backed observation',severity:'HIGH',asset:'https://example.test',evidenceHash:'a'.repeat(64),createdAt:'2026-01-01',mappings:{},remediation:'Apply fix and retest.'}];
+const ev:any[]=[{id:'e1',assessmentId:'a1',source:'zap',sha256:'a'.repeat(64),createdAt:'2026-01-01',exitCode:0,metadata:{target:'https://example.test'}}];
+
+test('technical report is explicitly offensive-security focused rather than GRC',()=>{const m=reportModel(a,fs,'technical',ev);assert.equal(m.purpose.title,'Offensive Security Technical Assessment');assert.match(m.purpose.objective,/attack-surface testing/i);assert.doesNotMatch(m.purpose.title,/GRC/);});
+test('remediation report contains defensive mitigation and retest lifecycle',()=>{const m=reportModel(a,fs,'remediation',ev);assert.equal(m.purpose.title,'Defensive Security Remediation & Hardening Plan');assert.equal(m.defensive?.actions.length,1);assert.match(m.defensive?.actions[0].validation||'',/retest/i);});
+test('defensive XLSX includes a dedicated mitigation and retest sheet',()=>{const b=xlsxReport(a,fs,'remediation',ev);const wb=XLSX.read(b,{type:'buffer'});assert.ok(wb.SheetNames.includes('Mitigation Retest'));assert.ok(wb.SheetNames.includes('Evidence Provenance'));});

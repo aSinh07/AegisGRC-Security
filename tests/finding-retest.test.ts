@@ -35,3 +35,6 @@ test('CAPA closure requires independent approval after targeted finding retest',
  assert.match(review,/TECHNICAL_REMEDIATION_VERIFIED/);
  assert.match(review,/closure:'INDEPENDENT_REVIEW_REQUIRED'/);
 });
+
+
+test('Semgrep remediation verification requires successful same-repository native rescan',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/original\.source!=='semgrep'/);assert.match(s,/activeRepositoryAsset/);assert.match(s,/scanSource\(sourcePath\)/);assert.match(s,/result\.exitCode!==0/);assert.match(s,/scannerSource:'semgrep'/);assert.match(s,/stillPresent\?409:200/)});

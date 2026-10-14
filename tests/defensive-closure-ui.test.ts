@@ -38,3 +38,6 @@ test('Defensive Trivy findings execute native same-asset fingerprint-bound retes
 
 
 test('native web and network retests distinguish execution success from vulnerability absence',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(server,/\['nmap','wapiti','zap','nuclei'\]/);assert.match(server,/const stillPresent=Array\.isArray\(rr\.findings\)/);assert.match(server,/stillPresent\?409:200/);assert.match(js,/runNativeDefensiveRetest/);assert.match(js,/same vulnerability fingerprint is still present/);assert.match(js,/ready for governed REMEDIATED review/)});
+
+
+test('Defensive Semgrep retest is repository-bound and fingerprint-gated',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(js,/Run native Semgrep targeted retest/);assert.match(server,/Semgrep retest must use the same repository asset as the original finding/);assert.match(server,/NATIVE_SEMGREP_TARGETED_RETEST/);assert.match(server,/mode:'SEMGREP_TARGETED_RETEST'/);assert.match(js,/rule\/file\/location fingerprint is still present/)});

@@ -27,3 +27,12 @@ test('unapproved review cannot become an effective final control status',async()
  const s=await readFile(new URL('../src/grc-core.ts',import.meta.url),'utf8');
  assert.match(s,/approval==='APPROVED'\?overall:'NOT_ASSESSED'/);
 });
+
+test('governed control assurance API requires organization permissions and server-bound reviewer identity',async()=>{
+ const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
+ assert.match(s,/\/control-assessments'\/);
+ assert.match(s,/\/control-assessments\/:id\/review/);
+ assert.match(s,/\/control-assessments\/:id\/history/);
+ assert.match(s,/requireOrgPermission\(u\.userId,req\.params\.orgId,'findingReview'\)/);
+ assert.match(s,/actorUserId:u\.userId/);
+});

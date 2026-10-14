@@ -23,6 +23,7 @@ import {initFindingRisk} from '../src/finding-risk.js';
 import {initAssessmentInventory} from '../src/assessment-inventory.js';
 import {initBreachAssessment} from '../src/breach-assessment.js';
 import {initScannerJobs} from '../src/scanner-jobs.js';
+import {initIncidentResponse} from '../src/incident-response.js';
 
 const ciDb=process.env.NODE_ENV==='test'&&/^postgres(?:ql)?:\/\/[^/]*@(?:localhost|127\.0\.0\.1):5432\//.test(process.env.DATABASE_URL||'');
 test('real PostgreSQL schema, runtime initializers and scheduled automation smoke', {skip:!ciDb},async()=>{
@@ -31,7 +32,7 @@ test('real PostgreSQL schema, runtime initializers and scheduled automation smok
  try{
   const schema=await readFile(new URL('../db/schema.sql',import.meta.url),'utf8');
   await pool.query(schema);
-  for(const init of [initUsers,initGrcReviews,initGrcCore,initOrganizations,initControlRegistry,initThirdPartyRisk,initArchitectureAssurance,initContinuousCompliance,initBusinessContinuity,initPolicyGovernance,initAuditManagement,initEvidenceEngine,initIssueRiskCapa,initGrcOperations,initGrcAutomation,initFindingReview,initFindingRisk,initAssessmentInventory,initBreachAssessment,initScannerJobs])await init();
+  for(const init of [initUsers,initGrcReviews,initGrcCore,initOrganizations,initControlRegistry,initThirdPartyRisk,initArchitectureAssurance,initContinuousCompliance,initBusinessContinuity,initPolicyGovernance,initAuditManagement,initEvidenceEngine,initIssueRiskCapa,initGrcOperations,initGrcAutomation,initFindingReview,initFindingRisk,initAssessmentInventory,initBreachAssessment,initScannerJobs,initIncidentResponse])await init();
   await pool.query('INSERT INTO grc_organizations(id,name) VALUES($1,$2)',[org,'CI automation smoke']);
   await pool.query("INSERT INTO grc_automation_rules(id,organization_id,name,kind) VALUES($1,$2,'CI due obligations','OBLIGATION_DUE')",[rule,org]);
   const results=await runDueAutomations(100);

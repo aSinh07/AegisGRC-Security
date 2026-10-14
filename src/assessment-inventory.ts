@@ -129,6 +129,8 @@ export async function reconcileContainerCoverage(userId:string,organizationId:st
  return {layer:'CONTAINER',status,requiredEngines:['TRIVY'],evidenceCount:valid.length,reasons,totalAssets:assets.length,coveredAssets:assets.length-missing.length};
 }
 
+export async function activeRepositoryAsset(userId:string,organizationId:string,assetId:string){await requireOrgPermission(userId,organizationId,'manageAssessment');return (await pool.query("SELECT id,asset_key,metadata FROM assessment_assets WHERE id=$1 AND organization_id=$2 AND asset_type='REPOSITORY' AND status='ACTIVE'",[assetId,organizationId])).rows[0]||null}
+
 export async function activeCloudAsset(userId:string,organizationId:string,assetId:string){await requireOrgPermission(userId,organizationId,'manageAssessment');return (await pool.query("SELECT id,asset_key,metadata FROM assessment_assets WHERE id=$1 AND organization_id=$2 AND asset_type='CLOUD_ACCOUNT' AND status='ACTIVE'",[assetId,organizationId])).rows[0]||null}
 export async function reconcileCloudCoverage(userId:string,organizationId:string,assessmentId:string){
  await requireOrgPermission(userId,organizationId,'manageAssessment');const access=await requireAssessmentAccess(userId,assessmentId);if(access.organization_id!==organizationId)throw Object.assign(new Error('Assessment does not belong to this organization'),{statusCode:403});

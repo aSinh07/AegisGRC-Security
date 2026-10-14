@@ -18,3 +18,6 @@ test('unrelated scanner observations are not merged',()=>{
  const b=base({id:'2',externalIds:{scannerId:'check-b'}});
  assert.notEqual(findingFingerprint(a),findingFingerprint(b));assert.equal(correlateFindings([a,b]).length,2);
 });
+
+
+test('Semgrep scanner identity preserves rule path and location for deterministic retest identity',async()=>{const {semgrepFindings}=await import('../src/parsers.js');const rows=[{check_id:'rule.x',path:'src/a.ts',start:{line:10},extra:{message:'x',severity:'HIGH'}},{check_id:'rule.x',path:'src/b.ts',start:{line:20},extra:{message:'x',severity:'HIGH'}}];const f=semgrepFindings('a','repo','h',rows);assert.notEqual(f[0].externalIds?.scannerId,f[1].externalIds?.scannerId);assert.match(String(f[0].externalIds?.scannerId),/src\/a\.ts\|10/)});

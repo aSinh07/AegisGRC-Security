@@ -59,3 +59,6 @@ test('corroborative scanners persist evidence and audit without claiming primary
 
 
 test('native Trivy targeted retest fails closed and persists fingerprint-bound evidence',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');assert.match(s,/original\.source!=='trivy'/);assert.match(s,/scanContainerImageWithTrivy\(imageRef\)/);assert.match(s,/out\.exitCode!==0\|\|out\.timedOut\|\|out\.truncated/);assert.match(s,/scannerSource:'trivy'/);assert.match(s,/TARGETED_RETEST_COMPLETED/)});
+
+
+test('Semgrep source scans are bound to active registered repository workspace',async()=>{const s=await readFile(new URL('../src/server.ts',import.meta.url),'utf8'),i=await readFile(new URL('../src/assessment-inventory.ts',import.meta.url),'utf8');assert.match(i,/activeRepositoryAsset/);assert.match(i,/asset_type='REPOSITORY'/);assert.match(s,/Active repository asset required/);assert.match(s,/registered repository workspace path/);assert.match(s,/repositoryKey:asset\.asset_key/);assert.match(s,/semgrepFindings\(assessmentId,asset\.asset_key/)});

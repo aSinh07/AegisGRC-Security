@@ -73,7 +73,7 @@ import {initAuditManagement,createAudit,addWorkpaper,reviewWorkpaper,setAuditSta
 import {scanCoverage,assessmentStatusForCoverage,scannerRunStatus} from './scan-coverage.js';
 import {findingFingerprint} from './finding-correlation.js';
 import {recommendFindingGrcLinkage} from './finding-grc-linkage.js';
-import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage,reconcileContainerCoverage,activeContainerAsset,reconcileCloudCoverage,activeCloudAsset,reconcileIdentityCoverage,reconcileDataSecurityCoverage,reconcileAttackSurfaceCoverage,reconcilePrivacyCoverage,reconcileBreachTelemetryCoverage} from './assessment-inventory.js';
+import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initializeLayerCoverage,recordLayerResult,assessmentLayerCoverage,reconcileInfrastructureCoverage,reconcileEndpointCoverage,reconcileWebCoverage,reconcileApiCoverage,reconcileSourceCodeCoverage,reconcileDependencyCoverage,reconcileContainerCoverage,activeContainerAsset,reconcileCloudCoverage,activeCloudAsset,activeRepositoryAsset,reconcileIdentityCoverage,reconcileDataSecurityCoverage,reconcileAttackSurfaceCoverage,reconcilePrivacyCoverage,reconcileBreachTelemetryCoverage} from './assessment-inventory.js';
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import {initIncidentResponse,createIncident,transitionIncident,ingestIdentitySignal,reviewIdentitySignal,incidentDashboard} from './incident-response.js';
 import {initSecurityReportHandoffs,createSecurityReportHandoff,reviewSecurityReportHandoff,listSecurityReportHandoffs} from './security-report-handoff.js';
@@ -724,14 +724,11 @@ app.post('/api/scans/run',async(req,res)=>{
 });
 app.post('/api/source/semgrep',async(req,res)=>{
  try{
-  const session=verifySession(String(req.headers['x-assessment-session']||'')); const assessmentId=session.assessmentId; const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const assessment=await db.assessmentForUser(u.userId,assessmentId);
-  if(!assessment) return res.status(404).json({error:'Assessment not found'});
-  const result=await scanSource(String(req.body.sourcePath||'/workspace/source'));
-  const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'semgrep',sha256:result.evidence.sha256,createdAt:new Date().toISOString(),exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{sourcePath:req.body.sourcePath||'/workspace/source'}};
-  await db.saveEvidence(ev); const findings=semgrepFindings(assessmentId,String(req.body.sourcePath||'/workspace/source'),ev.sha256,result.results); await db.saveFindings(findings);
-  await db.saveAssessment({...assessment,status:'COMPLETED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});
-  res.json({...result,assessmentId,findings});
- }catch(e:any){res.status(400).json({error:e.message})}
+  const session=verifySession(String(req.headers['x-assessment-session']||''));const assessmentId=session.assessmentId;const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const assessment=await db.assessmentForUser(u.userId,assessmentId);if(!assessment)return res.status(404).json({error:'Assessment not found'});const access=await requireAssessmentAccess(u.userId,assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');
+  const assetId=String(req.body?.assetId||''),asset=await activeRepositoryAsset(u.userId,access.organization_id,assetId);if(!asset)return res.status(400).json({error:'Active repository asset required'});const sourcePath=String(req.body?.sourcePath||asset.metadata?.workspacePath||'').trim();if(!sourcePath)return res.status(400).json({error:'Repository workspace path required'});const registeredPath=String(asset.metadata?.workspacePath||'').trim();if(!registeredPath||sourcePath!==registeredPath)return res.status(409).json({error:'Semgrep scan must use the registered repository workspace path'});
+  const result=await scanSource(sourcePath);const createdAt=new Date().toISOString();const ev:Evidence={id:crypto.randomUUID(),assessmentId,source:'semgrep',sha256:result.evidence.sha256,createdAt,exitCode:result.exitCode,stdout:result.stdout,stderr:result.stderr,metadata:{sourcePath,assetId,repositoryKey:asset.asset_key}};
+  await db.saveEvidence(ev);const findings=semgrepFindings(assessmentId,asset.asset_key,ev.sha256,result.results);if(findings.length)await db.saveFindings(findings);await db.saveAssessment({...assessment,status:result.exitCode===0?'COMPLETED':'FAILED',evidenceIds:[...assessment.evidenceIds,ev.id],findings:[...assessment.findings,...findings]});res.status(result.exitCode===0?200:502).json({...result,assessmentId,assetId,findings});
+ }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}
 });
 app.get('/api/assessments',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await db.assessmentsForUser(u.userId))});
 app.get('/api/assessments/:id',async(req,res)=>{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Not found'});res.json(a)});

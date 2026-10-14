@@ -334,3 +334,20 @@ test('technical PDF derives final disposition from findings and execution covera
  assert.match(pdf,/failure is not interpreted as PASS/);
  assert.match(pdf,/No breach, exploitation, data theft/);
 });
+
+
+test('defensive workspace renders shared evidence remediation workflow without GRC export',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const ui=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ const engine=await readFile(new URL('../src/security-operations.ts',import.meta.url),'utf8');
+ const defensive=html.slice(html.indexOf('<section id="defensive"'),html.indexOf('<section id="incidents"'));
+ assert.match(defensive,/Same evidence, no duplicate upload required/);
+ assert.match(defensive,/Export Defensive Remediation Report/);
+ assert.doesNotMatch(defensive,/downloadKind\('grc'\)/);
+ assert.match(ui,/function renderDefensiveAnalysis\(d\)/);
+ assert.match(ui,/Prioritized remediation & targeted retest/);
+ assert.match(ui,/Detection & hardening guidance/);
+ assert.match(ui,/Assurance boundary/);
+ assert.match(engine,/A finding is not considered remediated until a successful targeted retest and governed closure/);
+ assert.match(engine,/reuploadRequired:false/);
+});

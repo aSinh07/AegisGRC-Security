@@ -1,7 +1,7 @@
 let assessmentId=null,targetOrigin=null,sessionToken=null,selectedFramework=null;
 // Register delegated UI listeners before optional graphics or async startup can fail.
-document.addEventListener('click',event=>{const actionElement=event.target.closest('[data-action]');if(actionElement){const action=actionElement.dataset.action,fn=globalThis[action];if(typeof fn==='function'){if(action==='advancePrivacyBreach'||action==='decideReview')fn(actionElement.dataset.id,actionElement.dataset.status);else if(action==='selectFramework')fn(actionElement.dataset.id,actionElement.dataset.name);else fn(actionElement.dataset.id);return;}}const element=event.target.closest('[data-aegis-click]');if(element)runAegisUiAction(element.dataset.aegisClick,event,element);});
-document.addEventListener('change',event=>{const element=event.target.closest('[data-aegis-change]');if(element)runAegisUiAction(element.dataset.aegisChange,event,element);});
+document.addEventListener('click',event=>{if(!(event.target instanceof Element))return;const actionElement=event.target.closest('[data-action]');if(actionElement){const action=actionElement.dataset.action,fn=globalThis[action];if(typeof fn==='function'){if(action==='advancePrivacyBreach'||action==='decideReview')fn(actionElement.dataset.id,actionElement.dataset.status);else if(action==='selectFramework')fn(actionElement.dataset.id,actionElement.dataset.name);else fn(actionElement.dataset.id);return;}}const element=event.target.closest('[data-aegis-click]');if(element)runAegisUiAction(element.dataset.aegisClick,event,element);});
+document.addEventListener('change',event=>{if(!(event.target instanceof Element))return;const element=event.target.closest('[data-aegis-change]');if(element)runAegisUiAction(element.dataset.aegisChange,event,element);});
 function openLearning(){
  const msg='Opening the Learning Hub will leave this dashboard. Unsaved or in-progress assessment data on this page may be lost. Stored evidence and completed server-side data will remain available. Continue?';
  if(confirm(msg)) location.href='/knowledge.html';
@@ -19,11 +19,23 @@ async function doLogin(){loginMsg.textContent='Verifying account and authenticat
 async function startEnroll(){loginMsg.textContent='Creating secure profile…';try{const d=await jf('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value,password:pw.value,fullName:fullName.value,designation:designation.value,companyName:companyName.value,department:department.value,workProfile:workProfile.value})});enrollUserId=d.userId;enroll.classList.remove('hidden');qr.innerHTML='<img src="'+d.qrDataUrl+'" width="220" height="220" alt="TOTP QR compatible with Google Authenticator and Microsoft Authenticator">';secret.textContent='Manual setup key: '+d.secret;loginMsg.textContent='Scan with Google Authenticator or Microsoft Authenticator, then enter the current 6-digit code.'}catch(e){loginMsg.textContent=e.message}}
 async function finishEnroll(){loginMsg.textContent='Checking authenticator code…';try{await jf('/api/auth/register/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:enrollUserId,code:enrollOtp.value})});enroll.classList.add('hidden');loginMsg.textContent='Authenticator verified. Signing you in…';await showApp()}catch(e){loginMsg.textContent=e.message}}
 Object.assign(globalThis,{authMode,togglePassword,openReset,closeReset,resetPassword,doLogin,startEnroll,finishEnroll});
+function bindAuthControls(){
+ const bind=(selector,handler)=>{const el=document.querySelector(selector);if(el)el.addEventListener('click',event=>{event.preventDefault();handler(event,el)})};
+ bind('[data-aegis-click="authMode(\'signin\')"]',()=>authMode('signin'));
+ bind('[data-aegis-click="authMode(\'signup\')"]',()=>authMode('signup'));
+ bind('[data-aegis-click="doLogin()"]',()=>doLogin());
+ bind('[data-aegis-click="startEnroll()"]',()=>startEnroll());
+ bind('[data-aegis-click="finishEnroll()"]',()=>finishEnroll());
+ bind('[data-aegis-click="openReset()"]',()=>openReset());
+ bind('[data-aegis-click="closeReset()"]',()=>closeReset());
+ document.documentElement.dataset.aegisJs='ready';
+}
+bindAuthControls();
 async function showApp(){login.classList.add('hidden');app.classList.remove('hidden');copilot.classList.remove('hidden');await loadUserProfile();loadIntegrations();loadFrameworks()}
 function profileInitials(name,email){const v=(name||email||'A').trim().split(/\s+/).filter(Boolean);return ((v[0]?.[0]||'A')+(v.length>1?v[v.length-1][0]:'')).toUpperCase()}
 async function loadUserProfile(){try{const d=await jf('/api/auth/profile'),p=d.profile||{},initials=profileInitials(p.fullName,p.email);profileAvatar.textContent=initials;profileAvatarLarge.textContent=initials;profileName.textContent=p.fullName||'AegisGRC User';profileTitle.textContent=p.designation||'Workspace user';profileCompany.textContent=p.companyName||'—';profileDepartment.textContent=p.department||'—';profileWork.textContent=p.workProfile||'—';profileRole.textContent=String(p.role||'analyst').replaceAll('_',' ');profileEmail.textContent=p.email||'—'}catch(e){console.warn('Profile unavailable')}}
 function toggleProfileMenu(){profileMenu.classList.toggle('hidden')}
-document.addEventListener('click',e=>{if(!e.target.closest('.profile-shell'))profileMenu?.classList.add('hidden')})
+document.addEventListener('click',e=>{if(!(e.target instanceof Element))return;if(!e.target.closest('.profile-shell'))profileMenu?.classList.add('hidden')})
 async function logout(){await jf('/api/auth/logout',{method:'POST'});location.reload()}
 let activeGrcOrg='',activeGrcScope='';
 function grcEmpty(v){return v===null||v===undefined||v===''?'—':String(v)}

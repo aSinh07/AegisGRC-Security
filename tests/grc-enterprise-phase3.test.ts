@@ -19,3 +19,10 @@ test('enterprise GRC phase 3 APIs are permission gated',async()=>{
  assert.match(s,/requireOrgPermission\(u\.userId,req\.params\.orgId,'findingReview'\)/);
  assert.match(s,/requireOrgPermission\(u\.userId,req\.params\.orgId,'read'\)/);
 });
+
+test('phase 3 enterprise workspace exposes risk SoA AI impact and privacy records',async()=>{
+ const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+ const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
+ for(const label of ['Risk · SoA · AI Impact · ISO 27701 Privacy','Configurable scoring','EU AI risk context','ISO 27701 evidence'])assert.ok(html.includes(label));
+ for(const fn of ['loadEnterprisePhase3','createEnterpriseRiskMethod','saveEnterpriseSoa','createEnterpriseAiImpact','createEnterprisePrivacyAssessment'])assert.match(js,new RegExp(fn));
+});

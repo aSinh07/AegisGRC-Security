@@ -865,7 +865,7 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
   else if(format==='xlsx'){body=xlsxReport(a,fs,kind,ev);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
   else if(format==='csv'){body=csvReport(fs);mime='text/csv'}
   else if(format==='txt'){body=txtReport(a,fs,kind,ev);mime='text/plain'}
-  else {body=Buffer.from(JSON.stringify(reportModel(a,fs,kind),null,2));mime='application/json'}
+  else {body=Buffer.from(JSON.stringify(kind==='remediation'?{...reportModel(a,fs,kind),evidence:ev.map(e=>({id:e.id,source:e.source,sha256:e.sha256,createdAt:e.createdAt,exitCode:e.exitCode??null})),trace:await assessmentTrace(u.userId,a.id)}:reportModel(a,fs,kind),null,2));mime='application/json'}
   res.setHeader('Content-Disposition',`attachment; filename="aegis-${kind}-${a.id}.${format}"`);res.type(mime).send(body);
  }catch(e:any){res.status(500).json({error:e.message})}
 });

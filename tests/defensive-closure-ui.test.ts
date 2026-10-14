@@ -23,3 +23,6 @@ test('Defensive closure controls have responsive presentation rules',async()=>{
  assert.match(css,/\.defense-history\{/);
  assert.match(css,/@media\(max-width:760px\)\{\.defense-closure-grid\{grid-template-columns:1fr\}/);
 });
+
+
+test('Defensive Wazuh findings expose fingerprint-bound targeted retest workflow',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/Import Wazuh targeted retest/);assert.match(js,/runWazuhDefensiveRetest/);assert.match(js,/\/wazuh-retest/);assert.match(js,/same vulnerability\/detection fingerprint is still present/);assert.match(js,/d\.evidenceId/)});

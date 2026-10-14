@@ -342,7 +342,7 @@ test('defensive workspace renders shared evidence remediation workflow without G
  const engine=await readFile(new URL('../src/security-operations.ts',import.meta.url),'utf8');
  const defensive=html.slice(html.indexOf('<section id="defensive"'),html.indexOf('<section id="incidents"'));
  assert.match(defensive,/Same evidence, no duplicate upload required/);
- assert.match(defensive,/Export Defensive Remediation Report/);
+ assert.match(defensive,/Download Defensive Security Report/);
  assert.doesNotMatch(defensive,/downloadKind\('grc'\)/);
  assert.match(ui,/function renderDefensiveAnalysis\(d\)/);
  assert.match(ui,/Prioritized remediation & targeted retest/);

@@ -10,7 +10,7 @@ test('premium workspace keeps reports contextual and profile driven',()=>{
  assert.match(ui,/OFFENSIVE SECURITY/);
  assert.match(ui,/Export Offensive Technical Report/);
  assert.match(ui,/DEFENSIVE SECURITY/);
- assert.match(ui,/Export Defensive Remediation Report/);
+ assert.match(ui,/Download Defensive Security Report/);
  assert.match(ui,/profileAvatar/);
  assert.match(ui,/\/api\/auth\/profile/);
  assert.match(ui,/department:department\.value/);

@@ -26,7 +26,7 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
 
  h1('Defensive Summary');
  const open=fs.filter(f=>!['REMEDIATED','FALSE_POSITIVE'].includes(String(f.status||''))),critical=open.filter(f=>f.severity==='CRITICAL').length,high=open.filter(f=>f.severity==='HIGH').length;
- p('The current defensive posture contains '+open.length+' open evidence-backed finding(s), including '+critical+' critical and '+high+' high. Priority is assigned from persisted technical evidence. Closure remains evidence-gated: remediation requires a successful targeted retest against the same finding fingerprint; AI guidance cannot close a finding.');
+ p('The current defensive posture contains '+open.length+' open evidence-backed finding(s), including '+critical+' critical and '+high+' high. Priority is assigned from persisted technical evidence. Closure remains evidence-gated: remediation requires a successful targeted retest against the same finding fingerprint; recommendations or automation cannot close a finding.');
  d.moveDown();label('Evidence sources');p([...new Set(ev.map(e=>String(e.source).toUpperCase()))].join(', ')||'No persisted scanner evidence');
 
  h1('System Architecture and Security Context');
@@ -44,7 +44,7 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
  fs.filter(f=>!['REMEDIATED','FALSE_POSITIVE'].includes(String(f.status||''))).forEach(f=>row([priority(f.severity),f.remediation||'Validate and remediate the affected defensive control.','Security / Platform','Successful same-source targeted retest bound to the same finding fingerprint, or governed residual-risk disposition.'],[60,205,95,143]));
 
  h1('Verification and Expected Evidence');
- p('Verification must be performed only against authorized assets. Retesting should repeat the originating defensive validation wherever possible and preserve the resulting evidence hash, scanner source, timestamp and finding fingerprint. A frontend refusal, recommendation, configuration change, or AI response alone does not prove remediation.');
+ p('Verification must be performed only against authorized assets. Retesting should repeat the originating defensive validation wherever possible and preserve the resulting evidence hash, scanner source, timestamp and finding fingerprint. A frontend refusal, recommendation, configuration change, or automated response alone does not prove remediation.');
  d.moveDown();row(['ENGINE / SOURCE','RECORDS','LAST EXIT','ASSURANCE'],[180,70,70,183],true);
  [...new Set(ev.map(e=>String(e.source).toUpperCase()))].forEach(src=>{const es=ev.filter(e=>String(e.source).toUpperCase()===src),last=es.at(-1);row([src,String(es.length),String(last?.exitCode??'N/A'),last?.exitCode===0?'Evidence recorded; interpret findings/coverage':'Failed/incomplete evidence must remain visible'],[180,70,70,183])});
 
@@ -72,7 +72,7 @@ export function renderDefensiveSecurityPdf(a:Assessment,fs:Finding[],ev:Evidence
 
  h1('Deployment Gate and Final Disposition');
  p('Recommended defensive deployment gate: critical/high evidence-backed findings are treated or explicitly accepted; failed/not-run coverage is visible; least-privilege and segmentation controls are validated where applicable; security telemetry is retained; and remediated findings have newer successful same-source retest evidence bound to the same vulnerability fingerprint. Final disposition: '+disposition+'.');
- d.moveDown();d.fillColor(amber).font('Helvetica-Bold').fontSize(8).text('AI ADVISORY BOUNDARY');p('AI may explain or prioritize evidence, but it cannot mark a finding remediated, manufacture successful evidence, or override the server-side closure gate.');
+ d.moveDown();d.fillColor(amber).font('Helvetica-Bold').fontSize(8).text('AUTOMATION AND ADVISORY BOUNDARY');p('Recommendations and automation are advisory unless backed by governed execution evidence. They cannot mark a finding remediated, manufacture successful evidence, or override the server-side closure gate.');
 
  footer();d.end();
 })}

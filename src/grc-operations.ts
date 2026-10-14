@@ -79,7 +79,7 @@ export async function enterpriseReportData(user:string,org:string,scopeId:string
  const scope=(await pool.query('SELECT id,organization_id,name,description,status,created_at,updated_at FROM grc_scopes WHERE id=$1 AND organization_id=$2',[scopeId,org])).rows[0];
  if(!scope)throw Object.assign(new Error('Scope not found in organization'),{statusCode:404});
  const organization=(await pool.query('SELECT id,name,industry,status,created_at,updated_at FROM grc_organizations WHERE id=$1',[org])).rows[0];
- const [risks,issues,capa,assessments,securityHandoffs,automationRuns]=await Promise.all([
+ const [risks,issues,capa,assessments,securityHandoffs,automationRuns,incidents,identitySignals]=await Promise.all([
   pool.query('SELECT * FROM grc_enterprise_risks WHERE organization_id=$1 ORDER BY inherent_score DESC,created_at DESC',[org]),
   pool.query(`SELECT i.* FROM grc_issues i LEFT JOIN grc_scope_controls sc ON sc.id=i.scope_control_id
    WHERE i.organization_id=$1 AND (sc.scope_id=$2 OR i.scope_control_id IS NULL) ORDER BY i.created_at DESC`,[org,scopeId]),
@@ -87,7 +87,9 @@ export async function enterpriseReportData(user:string,org:string,scopeId:string
    WHERE c.organization_id=$1 AND (sc.scope_id=$2 OR i.scope_control_id IS NULL) ORDER BY c.created_at DESC`,[org,scopeId]),
   pool.query('SELECT id,target,status,authorized_at,updated_at FROM assessments WHERE organization_id=$1 ORDER BY authorized_at DESC',[org]),
   pool.query(`SELECT id,assessment_id,report_id,source,sha256,recorded_at,evidence_refs,frameworks_requested,status,created_at,reviewed_at FROM grc_security_report_handoffs WHERE organization_id=$1 ORDER BY created_at DESC`,[org]),
-  pool.query(`SELECT r.id,r.rule_id,r.status,r.started_at,r.finished_at,r.actions_count,r.summary,r.error,a.name rule_name,a.kind rule_kind FROM grc_automation_runs r JOIN grc_automation_rules a ON a.id=r.rule_id AND a.organization_id=r.organization_id WHERE r.organization_id=$1 ORDER BY r.started_at DESC LIMIT 100`,[org])
+  pool.query(`SELECT r.id,r.rule_id,r.status,r.started_at,r.finished_at,r.actions_count,r.summary,r.error,a.name rule_name,a.kind rule_kind FROM grc_automation_runs r JOIN grc_automation_rules a ON a.id=r.rule_id AND a.organization_id=r.organization_id WHERE r.organization_id=$1 ORDER BY r.started_at DESC LIMIT 100`,[org]),
+  pool.query(`SELECT id,incident_key,title,severity,phase,source,affected_assets,summary,created_at,updated_at,closed_at FROM security_incidents WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 200`,[org]),
+  pool.query(`SELECT id,incident_id,kind,principal_id,source,observed_at,status,reviewed_at,disposition,created_at FROM security_identity_signals WHERE organization_id=$1 ORDER BY observed_at DESC LIMIT 200`,[org])
  ]);
- return {organization,scope,risks:risks.rows,issues:issues.rows,capa:capa.rows,assessments:assessments.rows,securityHandoffs:securityHandoffs.rows,automationRuns:automationRuns.rows};
+ return {organization,scope,risks:risks.rows,issues:issues.rows,capa:capa.rows,assessments:assessments.rows,securityHandoffs:securityHandoffs.rows,automationRuns:automationRuns.rows,incidents:incidents.rows,identitySignals:identitySignals.rows};
 }

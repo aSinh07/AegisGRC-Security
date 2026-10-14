@@ -20,3 +20,6 @@ test('Defensive report has professional document control scope limitations and p
 
 
 test('Defensive report provides finding-level developer detail and explicit retest acceptance criteria',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');for(const heading of ['Detailed Finding Analysis','Remediation Priority and Ownership','Retest Acceptance Criteria'])assert.match(src,new RegExp(heading));assert.match(src,/Evidence binding/);assert.match(src,/original vulnerability fingerprint must be absent/i);assert.match(src,/does not invent an owner or SLA/i);assert.match(src,/malformed output or non-success execution cannot establish remediation/i);});
+
+
+test('Defensive report download offers focused PDF DOCX JSON and CSV formats',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8'),server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');const card=html.match(/<div class="reportcard"><b>Defensive Security Report<\/b>[\s\S]*?<\/div>/)?.[0]||'';for(const label of ['PDF — Recommended','DOCX — Editable','JSON — Evidence & trace','CSV — Findings'])assert.match(card,new RegExp(label));assert.doesNotMatch(card,/pptx|xlsx|txt/i);assert.match(server,/kind==='remediation'\?\{\.\.\.reportModel/);assert.match(server,/trace:await assessmentTrace/);});

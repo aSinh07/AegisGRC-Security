@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {nucleiJsonlFindings,trivyJsonFindings} from '../src/infrastructure-parsers.js';
+import {nucleiJsonlFindings,sqlmapTextFindings,trivyJsonFindings} from '../src/infrastructure-parsers.js';
 
 test('Nuclei parser preserves scanner supplied CVE and template identity',()=>{
  const raw=JSON.stringify({'template-id':'CVE-2024-12345','matched-at':'https://host.test/x',info:{name:'Scanner match',severity:'high',classification:{'cve-id':['CVE-2024-12345'],'cwe-id':['CWE-79'],'cvss-score':8.1}}});

@@ -30,3 +30,6 @@ test('Defensive PDF renderer produces a real multi-page PDF from assessment evid
 
 
 test('Defensive PDF uses fixed reference grid without cursor-dependent body alignment',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');assert.match(src,/margin:0,bufferPages:true/);assert.match(src,/text\(s,46,d\.y,\{width:503,lineGap:1\.5\}\)/);assert.match(src,/d\.x=46;d\.y=y\+h/);assert.match(src,/lineBreak:false/);});
+
+
+test('Defensive report hierarchy follows supplied technical reference',async()=>{const src=await readFile(new URL('../src/defensive-report.ts',import.meta.url),'utf8');assert.match(src,/h1\('Developer Remediation Plan'\)/);assert.match(src,/h1\('Verification Commands and Expected Evidence'\)/);assert.match(src,/subhead\('Detailed Finding Analysis'\)/);assert.match(src,/subhead\('Residual Exposure and Limitations'\)/);assert.match(src,/rect\(0,800,595\.28,41\.89\)\.fill\('#FFFFFF'\)/);});

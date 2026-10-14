@@ -24,7 +24,7 @@ export function defensiveAssessment(a:Assessment,findings:Finding[],evidence:Evi
  const open=findings.filter(f=>!['REMEDIATED','FALSE_POSITIVE'].includes(String(f.status||'OPEN')));
  const prioritized=[...open].sort((x,y)=>severityWeight(y.severity)-severityWeight(x.severity)||Number(y.cvss||0)-Number(x.cvss||0));
  const actions=prioritized.map(f=>({
-  findingId:f.id,severity:f.severity,title:f.title,asset:f.asset,
+  findingId:f.id,status:f.status||'OPEN',source:f.source,severity:f.severity,title:f.title,asset:f.asset,
   mitigation:f.remediation||'Analyst remediation required from validated technical evidence.',
   validation:'Apply the mitigation in a controlled change, then run a targeted retest against the same asset/fingerprint before closure.',
   residualRisk:f.severity==='CRITICAL'||f.severity==='HIGH'?'HIGH UNTIL SUCCESSFUL RETEST':'REVIEW AFTER RETEST',

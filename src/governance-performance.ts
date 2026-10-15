@@ -1,8 +1,9 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {requireOrgPermission} from './grc-organizations.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 const err=(m:string,code=400)=>Object.assign(new Error(m),{statusCode:code});
 const rating=(v:any)=>{const x=String(v||'MEDIUM').toUpperCase();if(!['LOW','MEDIUM','HIGH','CRITICAL'].includes(x))throw err('Invalid risk rating');return x};
 const direction=(v:any)=>{const x=String(v||'MAX').toUpperCase();if(!['MAX','MIN','RANGE'].includes(x))throw err('Metric direction must be MAX, MIN or RANGE');return x};

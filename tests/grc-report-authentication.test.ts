@@ -25,3 +25,5 @@ test('public verification reveals approval validity without report evidence',asy
  assert.match(src,/\/api\/report-verification\/:reviewId/);
  assert.match(src,/Cryptographic AegisGRC issuance\/approval verification only/);
 });
+
+test('enterprise GRC exports require the same password and authenticator step-up gate',async()=>{const src=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');const start=src.indexOf("app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-report.:format'");const end=src.indexOf('\napp.',start+10);const route=src.slice(start,end);assert.match(route,/reportAuthorized\(req\)/);assert.match(route,/Password and authenticator verification required for enterprise report download/)});

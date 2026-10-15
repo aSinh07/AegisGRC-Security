@@ -291,3 +291,26 @@ async function advanceAimsAudit(){const msg=document.getElementById('aimsAuditMs
 async function createCsaAicmAudit(){const msg=document.getElementById('aimsAuditMsg');if(!activeGrcOrg)return msg.textContent='Select an Enterprise GRC organization first.';const key=document.getElementById('aimsAuditKey').value.trim();if(!key)return msg.textContent='Enter a unique audit key.';try{const d=await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/csa-aicm/audit-playbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auditKey:key,scopeId:activeGrcScope||null})});msg.textContent='Created CSA AICM domain-level audit '+d.audit_key+' with '+d.workpapersCreated+' NOT_TESTED workpapers. Official AI-CAIQ/control-level verification is separate.';await loadAimsAudits();document.getElementById('aimsAuditSelect').value=d.id;await loadAimsAuditWorkpapers()}catch(e){msg.textContent=e.message}}
 
 async function createNist80053Audit(){const msg=document.getElementById('aimsAuditMsg');if(!activeGrcOrg)return msg.textContent='Select an Enterprise GRC organization first.';const key=document.getElementById('aimsAuditKey').value.trim();if(!key)return msg.textContent='Enter a unique audit key.';try{const d=await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/nist80053/audit-playbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auditKey:key,scopeId:activeGrcScope||null})});msg.textContent='Created NIST 800-53 family-level audit '+d.audit_key+' with '+d.workpapersCreated+' NOT_TESTED workpapers. Full control and baseline selection remain separate.';await loadAimsAudits();document.getElementById('aimsAuditSelect').value=d.id;await loadAimsAuditWorkpapers()}catch(e){msg.textContent=e.message}}
+
+globalThis.openCopilot = openCopilot;
+globalThis.closeCopilot = closeCopilot;
+globalThis.askCopilot = askCopilot;
+globalThis.listenCopilot = listenCopilot;
+globalThis.toggleVoice = toggleVoice;
+
+document.addEventListener('click', function (e) {
+  const button = e.target.closest('[data-ai-mode]');
+  if (!button) return;
+
+  const mode = button.dataset.aiMode;
+  const selector = document.getElementById('cpmode');
+  if (!selector) return;
+
+  selector.value = mode;
+
+  document.querySelectorAll('[data-ai-mode]').forEach(function (b) {
+    b.classList.toggle('active', b === button);
+  });
+});
+
+document.querySelector('[data-ai-mode="beginner"]')?.classList.add('active');

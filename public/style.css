@@ -1,0 +1,161 @@
+
+/* AEGIS AI dropdown positioning fix */
+#copilot {
+  position: fixed !important;
+  left: 18px !important;
+  bottom: 18px !important;
+  z-index: 99999 !important;
+}
+
+#copilot.open {
+  width: min(420px, calc(100vw - 36px)) !important;
+  max-height: min(680px, calc(100vh - 36px)) !important;
+  overflow: hidden !important;
+}
+
+#copilot.open .cpbody,
+#copilot.open .cphead {
+  display: block;
+}
+
+#copilot.open .cpbody {
+  overflow-y: auto;
+  max-height: calc(100vh - 130px);
+}
+
+#copilot.open #cpmsgs {
+  overflow-y: auto;
+  max-height: 360px;
+}
+
+@media (max-width: 600px) {
+  #copilot.open {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    width: auto !important;
+    max-height: calc(100vh - 20px) !important;
+  }
+}
+
+/* === AEGIS AI interaction/layout fix === */
+
+#copilot {
+  z-index: 100000 !important;
+}
+
+#copilot.open {
+  position: fixed !important;
+  left: 20px !important;
+  bottom: 20px !important;
+  width: 430px !important;
+  max-width: calc(100vw - 40px) !important;
+  height: auto !important;
+  max-height: calc(100vh - 40px) !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+}
+
+#copilot.open .cphead,
+#copilot.open .cpbody,
+#copilot.open .copilot-controls,
+#copilot.open .ai-suggestions,
+#copilot.open .cpinput {
+  position: relative !important;
+  pointer-events: auto !important;
+  z-index: 100001 !important;
+}
+
+#copilot.open .cpbody {
+  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  max-height: calc(100vh - 100px) !important;
+}
+
+#copilot.open select,
+#copilot.open input,
+#copilot.open button {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 100002 !important;
+}
+
+#copilot.open #cpmode {
+  cursor: pointer !important;
+}
+
+#copilot.open #cpmsgs {
+  max-height: 300px !important;
+  overflow-y: auto !important;
+}
+
+#copilot.open .ai-nudge {
+  display: none !important;
+}
+
+@media (max-width: 600px) {
+  #copilot.open {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100vh - 20px) !important;
+  }
+}
+
+/* FINAL AEGIS AI control interaction override */
+#copilot.open {
+  overflow: visible !important;
+}
+
+#copilot.open .cpbody {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+#copilot.open .copilot-controls {
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 100010 !important;
+}
+
+#copilot.open #cpmode {
+  appearance: auto !important;
+  -webkit-appearance: menulist !important;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  position: relative !important;
+  z-index: 100020 !important;
+}
+
+#copilot.open #cpmode option {
+  pointer-events: auto !important;
+}
+
+.ai-mode-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 8px 0;
+}
+
+.ai-mode-buttons button {
+  border: 1px solid #155e75;
+  border-radius: 9px;
+  padding: 8px 11px;
+  background: #071827;
+  color: #d9f7ff;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.ai-mode-buttons button.active {
+  border-color: #67e8f9;
+  background: #164e63;
+}
+
+#cpmode {
+  display: none !important;
+}

@@ -7,7 +7,7 @@ test('ISO 42001 and CSA AICM audit playbooks persist, isolate tenants and fail c
  const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:false});let orgId='';
  try{
   for(const x of [a,b,outsider])assert.ok(await confirmRegistration(x.userId,totp(x.secret)));
-  const org=await createOrganization(a.userId,{name:'Audit Test '+suffix});orgId=org.id;await addMember(a.userId,org.id,b.userId,'REVIEWER');const scope=await createScope(a.userId,org.id,{name:'Audit Scope '+suffix});
+  const org=await createOrganization(a.userId,{name:'Audit Test '+suffix});orgId=org.id;await addMember(a.userId,org.id,b.userId,'REVIEWER');const scope=await createScope(a.userId,org.id,{name:'Audit Scope '+suffix});await pool.query("UPDATE grc_organization_members SET role='GRC_MANAGER' WHERE organization_id=$1 AND user_id=$2",[org.id,a.userId]);
   const aims=await createIso42001AuditPlaybook(a.userId,org.id,{auditKey:'AIMS-'+suffix,scopeId:scope.id});assert.equal(aims.workpapersCreated,14);const papers=await listAuditWorkpapers(a.userId,org.id,aims.id);assert.equal(papers.length,14);assert.ok(papers.every(x=>x.result==='NOT_TESTED'&&x.reviewed_at===null));
   await assert.rejects(()=>listAuditWorkpapers(outsider.userId,org.id,aims.id),/Organization membership required/);
   await assert.rejects(()=>createIso42001AuditPlaybook(a.userId,org.id,{auditKey:'AIMS-'+suffix,scopeId:scope.id}),/duplicate key|unique constraint/i);

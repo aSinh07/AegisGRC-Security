@@ -64,11 +64,11 @@ async function requireCurrentSupplierEvidence(org:string,refs:string[]){if(refs.
 export async function assessIso42001AiSupplier(user:string,org:string,vendorId:string,input:any){
  await requireOrgPermission(user,org,'manageRisk');const supplier=validateIso42001AiSupplier(input?.supplier);await requireCurrentSupplierEvidence(org,supplier.evidenceRefs);
  const evidence=Array.from(new Set([...(Array.isArray(input?.evidence)?input.evidence:[]),...supplier.evidenceRefs]));
- return assessThirdParty(user,org,vendorId,{...input,assessmentType:ISO42001_AI_SUPPLIER_ASSESSMENT,findings:[...(Array.isArray(input?.findings)?input.findings:[]),{profile:ISO42001_AI_SUPPLIER_ASSESSMENT,supplier}],evidence});
+ return assessThirdParty(user,org,vendorId,{...input,assessmentType:ISO42001_AI_SUPPLIER_ASSESSMENT,findings:[...(Array.isArray(input?.findings)?input.findings:[]),{profile:ISO42001_AI_SUPPLIER_ASSESSMENT,supplier}],evidence},true);
 }
 
-export async function assessThirdParty(user:string,org:string,vendorId:string,input:any){
- await requireOrgPermission(user,org,'manageRisk');const vendor=(await pool.query('SELECT * FROM grc_third_parties WHERE id=$1 AND organization_id=$2',[vendorId,org])).rows[0];if(!vendor)throw Object.assign(new Error('Third party not found'),{statusCode:404});
+export async function assessThirdParty(user:string,org:string,vendorId:string,input:any,allowReservedProfile=false){
+ await requireOrgPermission(user,org,'manageRisk');if(String(input?.assessmentType||'').toUpperCase()===ISO42001_AI_SUPPLIER_ASSESSMENT&&!allowReservedProfile)throw Object.assign(new Error('Use the ISO 42001 AI supplier assessment workflow for reserved AI supplier records'),{statusCode:409});const vendor=(await pool.query('SELECT * FROM grc_third_parties WHERE id=$1 AND organization_id=$2',[vendorId,org])).rows[0];if(!vendor)throw Object.assign(new Error('Third party not found'),{statusCode:404});
  const inherent=Number(input.inherentRisk);if(!Number.isInteger(inherent)||inherent<1||inherent>25)throw new Error('Inherent risk must be 1-25');if(!Array.isArray(input.findings||[])||!Array.isArray(input.evidence||[]))throw new Error('Vendor findings and evidence must be arrays');if(input.nextReviewAt&&Number.isNaN(new Date(input.nextReviewAt).getTime()))throw new Error('Invalid vendor next review date');
  return (await pool.query(`INSERT INTO grc_third_party_assessments(id,organization_id,third_party_id,assessment_type,status,inherent_risk,security_rating,findings,evidence,rationale,assessor_user_id,next_review_at)
  VALUES($1,$2,$3,$4,'OPEN',$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),org,vendorId,String(input.assessmentType||'DUE_DILIGENCE').toUpperCase(),inherent,input.securityRating||null,JSON.stringify(input.findings||[]),JSON.stringify(input.evidence||[]),String(input.rationale||''),user,input.nextReviewAt||null])).rows[0]

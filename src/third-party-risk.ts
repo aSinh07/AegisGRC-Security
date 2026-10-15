@@ -50,6 +50,22 @@ SELECT v.*,COALESCE(a.inherent_risk,0) latest_inherent_risk,a.residual_risk late
  (SELECT count(*) FROM grc_third_party_incidents i WHERE i.third_party_id=v.id AND i.status<>'CLOSED') open_incidents
 FROM grc_third_parties v LEFT JOIN LATERAL(SELECT * FROM grc_third_party_assessments x WHERE x.third_party_id=v.id ORDER BY x.created_at DESC LIMIT 1)a ON true
 WHERE v.organization_id=$1 ORDER BY CASE v.tier WHEN 'TIER_1' THEN 1 WHEN 'TIER_2' THEN 2 WHEN 'TIER_3' THEN 3 ELSE 4 END,v.name`,[org])).rows}
+export const ISO42001_AI_SUPPLIER_ASSESSMENT='ISO42001_AI_SUPPLIER';
+const meaningful=(v:any,min=8)=>String(v||'').trim().length>=min;
+export function validateIso42001AiSupplier(input:any){
+ const x=input&&typeof input==='object'?input:{};
+ const required:[string,any][]=[['aiService',x.aiService],['responsibilityAllocation',x.responsibilityAllocation],['securityReview',x.securityReview],['privacyReview',x.privacyReview],['contractualObligations',x.contractualObligations],['changeNotification',x.changeNotification],['exitArrangement',x.exitArrangement]];
+ const missing=required.filter(([,v])=>!meaningful(v)).map(([k])=>k);
+ const evidence=Array.isArray(x.evidenceRefs)?x.evidenceRefs.map((v:any)=>String(v||'').trim()).filter(Boolean):[];if(evidence.length===0)missing.push('evidenceRefs');
+ if(missing.length)throw Object.assign(new Error('ISO 42001 AI supplier assessment incomplete: '+[...new Set(missing)].join(', ')),{statusCode:409});
+ return {...x,profile:ISO42001_AI_SUPPLIER_ASSESSMENT,evidenceRefs:evidence};
+}
+export async function assessIso42001AiSupplier(user:string,org:string,vendorId:string,input:any){
+ const supplier=validateIso42001AiSupplier(input?.supplier);
+ const evidence=Array.from(new Set([...(Array.isArray(input?.evidence)?input.evidence:[]),...supplier.evidenceRefs]));
+ return assessThirdParty(user,org,vendorId,{...input,assessmentType:ISO42001_AI_SUPPLIER_ASSESSMENT,findings:[...(Array.isArray(input?.findings)?input.findings:[]),{profile:ISO42001_AI_SUPPLIER_ASSESSMENT,supplier}],evidence});
+}
+
 export async function assessThirdParty(user:string,org:string,vendorId:string,input:any){
  await requireOrgPermission(user,org,'manageRisk');const vendor=(await pool.query('SELECT * FROM grc_third_parties WHERE id=$1 AND organization_id=$2',[vendorId,org])).rows[0];if(!vendor)throw Object.assign(new Error('Third party not found'),{statusCode:404});
  const inherent=Number(input.inherentRisk);if(!Number.isInteger(inherent)||inherent<1||inherent>25)throw new Error('Inherent risk must be 1-25');if(!Array.isArray(input.findings||[])||!Array.isArray(input.evidence||[]))throw new Error('Vendor findings and evidence must be arrays');if(input.nextReviewAt&&Number.isNaN(new Date(input.nextReviewAt).getTime()))throw new Error('Invalid vendor next review date');

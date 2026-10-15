@@ -433,6 +433,7 @@ app.post('/api/grc/organizations/:orgId/architecture/firewall-reviews',async(req
 app.get('/api/grc/organizations/:orgId/scopes/:scopeId/architecture-assurance',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await architectureAssurance(u.userId,req.params.orgId,req.params.scopeId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-report.:format',async(req,res)=>{try{
+ const step=await reportAuthorized(req);if(!step.ok)return res.status(401).json({code:step.reason,error:'Password and authenticator verification required for enterprise report download'});
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
  const base=await enterpriseReportData(u.userId,req.params.orgId,req.params.scopeId);
  const readiness=await organizationAuditReadiness(u.userId,req.params.orgId,req.params.scopeId);

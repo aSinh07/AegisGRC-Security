@@ -29,6 +29,7 @@ import { initOrganizations,createOrganization,memberships,createScope,listScopes
 import {organizationAuditReadiness,auditReadinessReportModel} from './grc-readiness.js';
 import {readinessPdf,readinessDocx,readinessXlsx} from './readiness-exporters.js';
 import { initControlRegistry,createCanonicalControl,createFrameworkRequirement,mapControl,setScopeControl,approveScopeControl,statementOfApplicability,listCanonicalControls,listFrameworkRequirements } from './grc-controls.js';
+import {initBuiltInFrameworkLibrary} from './framework-library.js';
 import { initEvidenceEngine,createEvidenceRequest,submitEvidence,submitVerifiedEvidence,validateEvidence,createTestDefinition,runControlTest,listEvidence,listControlTests } from './grc-evidence.js';
 import { initIssueRiskCapa,listIssues,createRiskFromIssue,approveRiskAcceptance,createCapa,submitCapaEvidence,attachRetest,closeCapa,listCapa,listEnterpriseRisks } from './grc-remediation.js';
 import { initGrcOperations,myWork,timeline,operationsDashboard,sla,notifications,markNotification,enterpriseReportData } from './grc-operations.js';
@@ -92,6 +93,7 @@ await initGrcReviews();
 await initGrcCore();
 await initOrganizations();
 await initControlRegistry();
+await initBuiltInFrameworkLibrary();
 await initThirdPartyRisk();await initTprmWorkflow();await initAutomationOutbox();
 await initPrivacyOperations();
 await initArchitectureAssurance();

@@ -8,3 +8,5 @@ test('architecture CAD and interactive view use enterprise infrastructure zones'
 test('Learning Hub covers final non-AI enterprise workspaces',()=>{const s=read('src/knowledge.ts');for(const id of ['iso27001','iso27701','iso42001','dpdp','nist-ai-rmf','offensive-operations','defensive-operations','incident-idr','tprm','audit-assurance','architecture'])assert.ok(s.includes("id:'"+id+"'"),id);});
 
 test('security engine inventory is not exposed anonymously',()=>{const s=read('src/server.ts'),i=s.indexOf("app.get('/api/integrations'"),r=s.slice(i,i+500);assert.match(r,/currentUser\(req\)/);assert.match(r,/401/);});
+
+test('architecture and document-analysis uploads require an authenticated session',()=>{const s=read('src/server.ts');for(const route of ["app.post('/api/architecture/document-model'","app.post('/api/documents/security-scan'"]){const i=s.indexOf(route),x=s.slice(i,i+500);assert.ok(i>=0);assert.match(x,/currentUser\(req\)/);assert.match(x,/401/);}});

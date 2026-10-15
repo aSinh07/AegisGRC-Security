@@ -155,10 +155,11 @@ app.use((req,res,next)=>{
  }
  next();
 });
-const PUBLIC_PREAUTH_ASSETS=new Set(['/aegis-logo.svg','/landing.css','/auth.js','/manifest.webmanifest','/privacy.html','/terms.html']);
+const PUBLIC_PREAUTH_ASSETS=new Set(['/aegis-logo.svg','/landing.css','/auth.js','/manifest.webmanifest','/privacy.html','/terms.html','/security.html']);
 app.get('/',(_req,res)=>res.sendFile(process.cwd()+'/public/landing.html'));
 app.get('/privacy',(_req,res)=>res.sendFile(process.cwd()+'/public/privacy.html'));
 app.get('/terms',(_req,res)=>res.sendFile(process.cwd()+'/public/terms.html'));
+app.get('/security',(_req,res)=>res.sendFile(process.cwd()+'/public/security.html'));
 app.use(async(req,res,next)=>{
  if(req.path.startsWith('/api/'))return next();
  if(req.path==='/'||PUBLIC_PREAUTH_ASSETS.has(req.path))return next();

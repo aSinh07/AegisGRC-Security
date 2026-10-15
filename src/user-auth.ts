@@ -1,5 +1,6 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';import pg from 'pg';import QRCode from 'qrcode';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 const TTL=8*60*60*1000;
 function b32buf(s:string){const a='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const c of s.toUpperCase().replace(/[^A-Z2-7]/g,'')){const n=a.indexOf(c);if(n>=0)bits+=n.toString(2).padStart(5,'0')}const out=[];for(let i=0;i+8<=bits.length;i+=8)out.push(parseInt(bits.slice(i,i+8),2));return Buffer.from(out)}
 function b32enc(b:Buffer){const a='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const x of b)bits+=x.toString(2).padStart(8,'0');let out='';for(let i=0;i<bits.length;i+=5)out+=a[parseInt(bits.slice(i,i+5).padEnd(5,'0'),2)];return out}

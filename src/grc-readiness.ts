@@ -1,7 +1,8 @@
+import {pool} from './db-pool.js';
 import pg from 'pg';
 import {requireOrgPermission} from './grc-organizations.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 
 export function evaluateReadiness(rows:any[]){
  const controls=rows.map(x=>{

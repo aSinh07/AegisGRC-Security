@@ -5,7 +5,7 @@ import {SOURCE_GROUNDED_READINESS_PACKS,validateReadinessPackDefinitions} from '
 
 test('source-grounded readiness packs are bounded and traceable',()=>{
  const result=validateReadinessPackDefinitions();
- assert.equal(result.packs,5);
+ assert.equal(result.packs,SOURCE_GROUNDED_READINESS_PACKS.length);
  assert.ok(result.items>=26);
  for(const pack of SOURCE_GROUNDED_READINESS_PACKS){
   assert.match(pack.disclaimer,/does not reproduce or replace an official standard/);
@@ -15,9 +15,7 @@ test('source-grounded readiness packs are bounded and traceable',()=>{
 });
 
 test('readiness catalog covers supplied ISO NIST AI-impact and LLM materials',()=>{
- assert.deepEqual(SOURCE_GROUNDED_READINESS_PACKS.map(x=>x.key),[
-  'ISO42001_AIMS_READINESS','ISO27001_ISMS_READINESS','NIST_EVIDENCE_READINESS','AI_IMPACT_READINESS','OWASP_LLM_2026_READINESS'
- ]);
+ for(const key of ['ISO42001_AIMS_READINESS','ISO27001_ISMS_READINESS','ISO27701_PIMS_READINESS','NIST_AI_RMF_1_READINESS','DPDP_2023_READINESS','NIST_EVIDENCE_READINESS','AI_IMPACT_READINESS','OWASP_LLM_2026_READINESS'])assert.ok(SOURCE_GROUNDED_READINESS_PACKS.some(x=>x.key===key),key);
 });
 
 test('readiness content does not claim automatic pass or compliance',()=>{
@@ -29,7 +27,7 @@ test('readiness content does not claim automatic pass or compliance',()=>{
 test('readiness catalog helpers return copies and reject unknown packs',async()=>{
  const mod=await import('../src/readiness-pack-definitions.js');
  const catalog=mod.readinessPackCatalog();
- assert.equal(catalog.length,5);
+ assert.equal(catalog.length,SOURCE_GROUNDED_READINESS_PACKS.length);
  assert.equal(mod.readinessPackDefinition('missing'),null);
  const pack=mod.readinessPackDefinition('iso27001_isms_readiness');
  assert.equal(pack?.key,'ISO27001_ISMS_READINESS');

@@ -97,24 +97,33 @@ export function validateIso42001AiImpact(input:any){
  return {...x,profile:ISO42001_AI_IMPACT_PROFILE,riskRating:risk,evidenceRefs:evidence};
 }
 async function requireCurrentEvidence(org:string,refs:string[]){if(refs.some(x=>!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(x)))throw err('Evidence references must be Evidence Vault version UUIDs',409);const q=(await pool.query(`SELECT count(*)::int n FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE r.organization_id=$1 AND v.id=ANY($2::uuid[]) AND r.status='VALID' AND v.integrity_status='SERVER_VERIFIED' AND v.validated_at IS NOT NULL AND v.valid_until>now()`,[org,refs])).rows[0];if(Number(q?.n)!==new Set(refs).size)throw err('Current independently validated Evidence Vault versions required',409)}
-export async function createIso42001AiImpactReview(user:string,org:string,input:any){
- await requireOrgPermission(user,org,'manageRisk');const impact=validateIso42001AiImpact(input?.impact);await requireCurrentEvidence(org,impact.evidenceRefs);
- const decisions=Array.isArray(input?.decisions)?input.decisions:[];
- const actions=Array.isArray(input?.actions)?input.actions:[];
- const rawKey=String(input?.reviewKey||'').trim().toUpperCase();if(!rawKey)throw err('AI impact assessment review key required');const reviewKey=rawKey.startsWith('AI-IMPACT-')?rawKey:'AI-IMPACT-'+rawKey;
- return createManagementReview(user,org,{...input,reviewKey,title:String(input?.title||'ISO 42001 AI Impact Assessment').trim(),inputs:{profile:ISO42001_AI_IMPACT_PROFILE,impact},decisions,actions});
-}
-
-export async function createManagementReview(user:string,org:string,input:any){
- await requireOrgPermission(user,org,'manageRisk');await validateScope(org,input.scopeId);
+async function persistManagementReview(user:string,org:string,input:any){
+ await validateScope(org,input.scopeId);
  const key=String(input.reviewKey||'').trim().toUpperCase(),title=String(input.title||'').trim(),period=String(input.reviewPeriod||'').trim();
  if(!key||title.length<3||!period)throw err('Review key, title and review period required');
  const inputs=input.inputs&&typeof input.inputs==='object'?input.inputs:{},decisions=Array.isArray(input.decisions)?input.decisions:[],actions=Array.isArray(input.actions)?input.actions:[];
  return (await pool.query('INSERT INTO grc_management_reviews(id,organization_id,scope_id,review_key,title,review_period,inputs,decisions,actions,status,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,\'SUBMITTED\',$10) ON CONFLICT(organization_id,review_key) DO UPDATE SET title=EXCLUDED.title,review_period=EXCLUDED.review_period,inputs=EXCLUDED.inputs,decisions=EXCLUDED.decisions,actions=EXCLUDED.actions,status=\'SUBMITTED\',approved_by=NULL,approved_at=NULL,updated_at=now() RETURNING *',[crypto.randomUUID(),org,input.scopeId||null,key,title,period,JSON.stringify(inputs),JSON.stringify(decisions),JSON.stringify(actions),user])).rows[0]
 }
+export async function createIso42001AiImpactReview(user:string,org:string,input:any){
+ await requireOrgPermission(user,org,'manageRisk');const impact=validateIso42001AiImpact(input?.impact);await requireCurrentEvidence(org,impact.evidenceRefs);
+ const decisions=Array.isArray(input?.decisions)?input.decisions:[],actions=Array.isArray(input?.actions)?input.actions:[];
+ const rawKey=String(input?.reviewKey||'').trim().toUpperCase();if(!rawKey)throw err('AI impact assessment review key required');const reviewKey=rawKey.startsWith('AI-IMPACT-')?rawKey:'AI-IMPACT-'+rawKey;
+ return persistManagementReview(user,org,{...input,reviewKey,title:String(input?.title||'ISO 42001 AI Impact Assessment').trim(),inputs:{profile:ISO42001_AI_IMPACT_PROFILE,impact},decisions,actions});
+}
+export async function listIso42001AiImpactReviews(user:string,org:string,scopeId?:string){
+ await requireOrgPermission(user,org,'read');await validateScope(org,scopeId);const args=scopeId?[org,scopeId]:[org],scope=scopeId?' AND (scope_id=$2 OR scope_id IS NULL)':'';
+ return (await pool.query("SELECT * FROM grc_management_reviews WHERE organization_id=$1 AND inputs->>'profile'=$3"+scope+" ORDER BY created_at DESC LIMIT 100",scopeId?[org,scopeId,ISO42001_AI_IMPACT_PROFILE]:[org,ISO42001_AI_IMPACT_PROFILE])).rows
+}
+export async function createManagementReview(user:string,org:string,input:any){
+ await requireOrgPermission(user,org,'manageRisk');const key=String(input.reviewKey||'').trim().toUpperCase();if(key.startsWith('AI-IMPACT-')||input?.inputs?.profile===ISO42001_AI_IMPACT_PROFILE)throw err('Use the ISO 42001 AI impact assessment workflow for reserved AI impact records',409);
+ return persistManagementReview(user,org,input);
+}
 export async function approveManagementReview(user:string,org:string,id:string){
  await requireOrgPermission(user,org,'review');const row=(await pool.query('SELECT * FROM grc_management_reviews WHERE id=$1 AND organization_id=$2',[id,org])).rows[0];if(!row)throw err('Management review not found',404);if(row.created_by===user)throw err('Independent approver required for management review',409);if(row.status!=='SUBMITTED')throw err('Management review must be submitted',409);
  return (await pool.query("UPDATE grc_management_reviews SET status='APPROVED',approved_by=$3,approved_at=now(),updated_at=now() WHERE id=$1 AND organization_id=$2 RETURNING *",[id,org,user])).rows[0]
+}
+export async function approveIso42001AiImpactReview(user:string,org:string,id:string){
+ await requireOrgPermission(user,org,'review');const row=(await pool.query('SELECT inputs FROM grc_management_reviews WHERE id=$1 AND organization_id=$2',[id,org])).rows[0];if(!row)throw err('AI impact assessment not found',404);if(row.inputs?.profile!==ISO42001_AI_IMPACT_PROFILE)throw err('Record is not an ISO 42001 AI impact assessment',409);return approveManagementReview(user,org,id)
 }
 function metricState(m:any,value:any){if(value===null||value===undefined)return 'NO_DATA';const v=Number(value),w=m.warning_value===null?null:Number(m.warning_value),c=m.critical_value===null?null:Number(m.critical_value),d=m.direction;
  if(d==='MAX'){if(c!==null&&v>=c)return 'CRITICAL';if(w!==null&&v>=w)return 'WARNING';return 'WITHIN_TOLERANCE'}

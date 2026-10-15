@@ -242,7 +242,7 @@ test('URL offensive workflow automatically runs full evidence assessment and pre
 test('authorized assessments are tenant-bound and access denials cannot crash async read routes',async()=>{
  const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');
  const store=await readFile(new URL('../src/store.ts',import.meta.url),'utf8');
- assert.match(server,/const u=await currentUser\(req\);if\(!u\)return res\.status\(401\)\.json\(\{error:'User session required'\}\);\n    if\(req\.body\?\.authorized!==true\)/);
+ assert.match(server,/const u=await currentUser\(req\);if\(!u\)return res\.status\(401\)\.json\(\{error:'User session required'\}\);/);\n assert.match(server,/assessmentAuthorizationAllowed\(u\.userId/);\n assert.match(server,/if\(req\.body\?\.authorized!==true\)/);
  assert.match(server,/createdBy:u\.userId,organizationId:org\.id/);
  assert.match(server,/ASSESSMENT_AUTHORIZED',actor:u\.userId/);
  assert.match(store,/created_by,organization_id/);

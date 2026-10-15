@@ -1,3 +1,4 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {requireAssessmentAccess,requireOrgPermission} from './grc-organizations.js';
@@ -7,7 +8,7 @@ import {validatePublicHttpTarget,revalidatePublicHttpTarget} from './network-tar
 export type ScannerEngine='TESTSSL'|'LYNIS'|'GRYPE'|'SYFT'|'KUBESCAPE'|'CHECKOV'|'GITLEAKS';
 export type ScannerJobState='QUEUED'|'RUNNING'|'SUCCEEDED'|'FAILED'|'TIMEOUT'|'TRUNCATED'|'UNAVAILABLE';
 const engines=new Set<ScannerEngine>(['TESTSSL','LYNIS','GRYPE','SYFT','KUBESCAPE','CHECKOV','GITLEAKS']);
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 export const scannerRegistry=Object.freeze({
  TESTSSL:{layer:'WEB',input:'URL_OR_HOST',active:true},LYNIS:{layer:'HOST',input:'WORKSPACE',active:false},
  GRYPE:{layer:'DEPENDENCIES',input:'IMAGE',active:false},SYFT:{layer:'DEPENDENCIES',input:'IMAGE_OR_WORKSPACE',active:false},

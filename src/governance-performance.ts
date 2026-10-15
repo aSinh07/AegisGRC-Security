@@ -96,8 +96,9 @@ export function validateIso42001AiImpact(input:any){
  if(missing.length)throw err('ISO 42001 AI impact assessment incomplete: '+[...new Set(missing)].join(', '),409);
  return {...x,profile:ISO42001_AI_IMPACT_PROFILE,riskRating:risk,evidenceRefs:evidence};
 }
+async function requireCurrentEvidence(org:string,refs:string[]){if(refs.some(x=>!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(x)))throw err('Evidence references must be Evidence Vault version UUIDs',409);const q=(await pool.query(`SELECT count(*)::int n FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE r.organization_id=$1 AND v.id=ANY($2::uuid[]) AND r.status='VALID' AND v.integrity_status='SERVER_VERIFIED' AND v.validated_at IS NOT NULL AND v.valid_until>now()`,[org,refs])).rows[0];if(Number(q?.n)!==new Set(refs).size)throw err('Current independently validated Evidence Vault versions required',409)}
 export async function createIso42001AiImpactReview(user:string,org:string,input:any){
- const impact=validateIso42001AiImpact(input?.impact);
+ const impact=validateIso42001AiImpact(input?.impact);await requireCurrentEvidence(org,impact.evidenceRefs);
  const decisions=Array.isArray(input?.decisions)?input.decisions:[];
  const actions=Array.isArray(input?.actions)?input.actions:[];
  const rawKey=String(input?.reviewKey||'').trim().toUpperCase();if(!rawKey)throw err('AI impact assessment review key required');const reviewKey=rawKey.startsWith('AI-IMPACT-')?rawKey:'AI-IMPACT-'+rawKey;

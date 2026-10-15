@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {readinessPackCatalog,readinessPackDefinition} from '../src/readiness-pack-definitions.js';
 
 const server=fs.readFileSync('src/server.ts','utf8');
 
@@ -37,4 +38,18 @@ test('readiness adoption remains draft and cannot mutate compliance state',()=>{
  assert.match(route,/reviewRequired:true/);
  assert.match(route,/does not verify evidence, implement controls, change compliance scores, or establish conformity/);
  assert.doesNotMatch(route,/reviewKnowledgeSource|verifyKnowledgeItem|linkKnowledgeToControl|setScopeControl|approveScopeControl/);
+});
+
+
+test('ISO 42001 AIMS readiness pack is exposed through the generic catalog and adoption path',()=>{
+ const catalog=readinessPackCatalog();
+ const entry=catalog.find(x=>x.key==='ISO42001_AIMS_READINESS');
+ assert.ok(entry);
+ assert.equal(entry.framework,'ISO42001');
+ assert.equal(entry.frameworkVersion,'2023');
+ assert.equal(entry.itemCount,8);
+ const pack=readinessPackDefinition('iso42001_aims_readiness');
+ assert.equal(pack?.key,'ISO42001_AIMS_READINESS');
+ assert.match(server,/readinessPackDefinition\(req\.params\.key\)/);
+ assert.match(server,/adoptReadinessTemplate\(u\.userId,req\.params\.orgId,pack/);
 });

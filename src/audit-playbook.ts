@@ -52,3 +52,49 @@ export async function createCsaAicmAuditPlaybook(user:string,org:string,input:an
 
 export const NIST_800_53_AUDIT_FAMILIES=builtInFrameworkLibrary.requirements.filter(x=>x.framework==='NIST_800_53'&&x.version==='Rev5').map(x=>({key:x.key,title:x.title,procedure:'Assess the applicable NIST SP 800-53 Rev. 5 control family against the authorized scope, selected baseline, organization-tailored controls, tested samples, verified evidence, findings and independent review. This family-level aid is not the full control catalog or SP 800-53A assessment procedures.'}));
 export async function createNist80053AuditPlaybook(user:string,org:string,input:any){return createAuditTemplate(user,org,input,NIST_800_53_AUDIT_FAMILIES,{title:'NIST SP 800-53 Rev 5 Family Audit',objective:'Evaluate risk-based security and privacy controls across twenty NIST SP 800-53 control families.',criteria:'NIST SP 800-53 Rev. 5 family-level internal review; baseline and full control catalog require authorized tailoring.',profile:'NIST_800_53_REV5_FAMILY_AUDIT'})}
+
+export const ISO27001_AUDIT_ITEMS=[
+ {key:'ISMS-CONTEXT',title:'ISMS context, interested parties and scope',procedure:'Verify approved context, interested parties, interfaces, dependencies and ISMS scope against actual operations.'},
+ {key:'ISMS-LEADERSHIP',title:'Leadership, policy and responsibilities',procedure:'Verify approved information-security policy, accountable roles, communicated responsibilities and management support.'},
+ {key:'ISMS-RISK',title:'Risk assessment, treatment and SoA',procedure:'Sample current risks and verify methodology, treatment, residual-risk approval, SoA applicability decisions and linked evidence.'},
+ {key:'ISMS-ASSETS',title:'Asset ownership and classification',procedure:'Sample information and technology assets and verify inventory, ownership, classification, acceptable use and lifecycle records.'},
+ {key:'ISMS-ACCESS',title:'Identity and access governance',procedure:'Test joiner-mover-leaver, least privilege, privileged access, authentication and recurring access-review evidence.'},
+ {key:'ISMS-OPS',title:'Secure operations, vulnerability, logging and cryptography',procedure:'Sample configuration, vulnerability/retest, logging/monitoring and cryptographic evidence and trace exceptions to remediation.'},
+ {key:'ISMS-SUPPLIER',title:'Supplier and cloud assurance',procedure:'Sample critical suppliers and verify risk tier, due diligence, security obligations, monitoring and remediation.'},
+ {key:'ISMS-INCIDENT',title:'Incident response and continuity',procedure:'Sample incidents and resilience exercises; verify detection, response, recovery, lessons learned, RTO/RPO and corrective action.'},
+ {key:'ISMS-AUDIT',title:'Performance evaluation and internal audit',procedure:'Verify metrics, internal audit independence, workpapers, management review and follow-up actions.'},
+ {key:'ISMS-CAPA',title:'Nonconformity and continual improvement',procedure:'Sample nonconformities and verify root cause, CAPA ownership, retest/effectiveness evidence and independent closure.'}
+] as const;
+export const ISO27701_AUDIT_ITEMS=[
+ {key:'PIMS-GOV',title:'Privacy governance, scope and accountability',procedure:'Verify PIMS scope, privacy roles, policies, obligations and accountable management review.'},
+ {key:'PII-INVENTORY',title:'PII inventory, classification and ownership',procedure:'Trace sampled PII processing to inventory, data owners, classification, systems, recipients and lifecycle records.'},
+ {key:'PII-RISK',title:'Privacy risk and impact assessment',procedure:'Verify privacy risks and applicable impact assessments are approved, treated and linked to evidence.'},
+ {key:'PII-LIFECYCLE',title:'Collection, purpose, retention and deletion',procedure:'Sample PII records and verify collection purpose, minimization, retention criteria, disposal and deletion evidence.'},
+ {key:'PII-RIGHTS',title:'Privacy requests and communications',procedure:'Sample applicable individual requests and verify identity checks, routing, response, outcome and supporting evidence.'},
+ {key:'PII-SEC',title:'PII security and incident governance',procedure:'Verify access, cryptography, monitoring, incident handling and privacy-breach evidence for PII systems.'},
+ {key:'PII-PROCESSOR',title:'Processor and supplier governance',procedure:'Sample processors and verify instructions, shared responsibilities, security/privacy due diligence, subprocessors and contractual evidence.'},
+ {key:'PIMS-ASSURE',title:'Privacy audit and improvement',procedure:'Verify independent privacy-control testing, findings, corrective actions and evidence-backed closure.'}
+] as const;
+export const NIST_AI_RMF_AUDIT_ITEMS=[
+ {key:'GOVERN',title:'GOVERN - AI risk culture and accountability',procedure:'Verify AI policies, roles, risk appetite, governance decisions, supplier responsibilities and escalation are operating and evidenced.'},
+ {key:'MAP',title:'MAP - context, intended use and affected parties',procedure:'Trace sampled AI systems to inventory, intended use, context, affected parties, dependencies, data and impact/risk records.'},
+ {key:'MEASURE',title:'MEASURE - AI risk and trustworthiness evaluation',procedure:'Verify TEVV/evaluation criteria, quality and safety measures, uncertainty, monitoring, human review and current test evidence.'},
+ {key:'MANAGE',title:'MANAGE - prioritize and treat AI risk',procedure:'Sample material AI risks and verify treatment, accountable decisions, residual risk, incident response, CAPA, monitoring and reassessment.'}
+] as const;
+export const DPDP_AUDIT_ITEMS=[
+ {key:'DP-GOV',title:'Governance, applicability and legal register',procedure:'Verify role, scope, commencement/applicability analysis, legal register, accountable ownership and documented control responsibilities.'},
+ {key:'DP-INVENTORY',title:'Personal-data inventory and data-flow map',procedure:'Trace sampled processing activities through actual systems, vendors, recipients and data locations and reconcile them to the inventory and flow map.'},
+ {key:'DP-PURPOSE',title:'Purpose and processing-ground register',procedure:'Sample processing activities and verify purpose and applicable processing ground are documented with supporting records.'},
+ {key:'DP-NOTICE',title:'Notice and consent lifecycle',procedure:'Verify notices describe personal data and purposes; where consent is relied upon, sample proof of affirmative consent, notice version and withdrawal handling.'},
+ {key:'DP-VENDOR',title:'Processor and vendor governance',procedure:'Sample vendors and verify processing instructions, security/privacy assessment, responsibilities, access, onward processing and subprocessors.'},
+ {key:'DP-RETENTION',title:'Retention, erasure and deletion evidence',procedure:'Sample records due for deletion and trace required erasure through relevant systems and processors, preserving reliable completion evidence.'},
+ {key:'DP-RIGHTS',title:'Data Principal requests and grievances',procedure:'Sample applicable requests and verify identity checks, tracking, routing, response, outcome, processor coordination and supporting evidence.'},
+ {key:'DP-SECURITY',title:'Security safeguards',procedure:'Verify risk-appropriate access, cryptography, monitoring, backup/recovery and organizational safeguards with operating evidence.'},
+ {key:'DP-BREACH',title:'Personal-data breach readiness',procedure:'Verify breach detection, timestamped triage, impact assessment, evidence preservation, escalation, communication and applicable notification workflow.'},
+ {key:'DP-SPECIAL',title:'Children, SDF and transfer conditions',procedure:'Where applicable, verify child-data controls, Significant Data Fiduciary obligations and current transfer restrictions/sectoral requirements.'},
+ {key:'DP-EFFECTIVENESS',title:'Design and operating effectiveness',procedure:'For each sampled control distinguish design effectiveness from operating effectiveness; policy existence alone is not sufficient.'}
+] as const;
+export async function createIso27001AuditPlaybook(user:string,org:string,input:any){return createAuditTemplate(user,org,input,ISO27001_AUDIT_ITEMS,{title:'ISO 27001 ISMS Internal Audit',objective:'Evaluate evidence-backed operation of the scoped information security management system.',criteria:'ISO/IEC 27001:2022 scoped internal ISMS criteria and approved organizational controls; authoritative ISO wording requires licensed material.',profile:'ISO27001_2022_INTERNAL_AUDIT'})}
+export async function createIso27701AuditPlaybook(user:string,org:string,input:any){return createAuditTemplate(user,org,input,ISO27701_AUDIT_ITEMS,{title:'ISO 27701 PIMS Internal Audit',objective:'Evaluate evidence-backed privacy information management controls across the scoped processing environment.',criteria:'ISO/IEC 27701:2019 mapped PIMS criteria and approved privacy controls; authoritative ISO wording requires licensed material.',profile:'ISO27701_2019_INTERNAL_AUDIT'})}
+export async function createNistAiRmfAuditPlaybook(user:string,org:string,input:any){return createAuditTemplate(user,org,input,NIST_AI_RMF_AUDIT_ITEMS,{title:'NIST AI RMF 1.0 Internal Assessment',objective:'Evaluate evidence-backed AI risk governance across GOVERN, MAP, MEASURE and MANAGE.',criteria:'NIST AI RMF 1.0 internal risk-management assessment.',profile:'NIST_AI_RMF_1_0_AUDIT'})}
+export async function createDpdpAuditPlaybook(user:string,org:string,input:any){return createAuditTemplate(user,org,input,DPDP_AUDIT_ITEMS,{title:'DPDP Act 2023 Readiness Audit',objective:'Evaluate design and operating effectiveness of scoped personal-data governance controls.',criteria:'Digital Personal Data Protection Act 2023 and applicable Rules/notifications; legal applicability and commencement require current legal review.',profile:'DPDP_2023_READINESS_AUDIT'})}

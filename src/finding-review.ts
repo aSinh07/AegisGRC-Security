@@ -49,7 +49,7 @@ export async function reviewFinding(userId:string,assessmentId:string,findingId:
  const decision=String(input.decision||'').toUpperCase() as FindingDecision;
  const rationale=String(input.rationale||'').trim();
  if(!decisions.has(decision))throw new Error('Decision must be CONFIRMED, FALSE_POSITIVE, ACCEPTED or REMEDIATED');
- if(rationale.length<10||rationale.length>4000)throw new Error('Review rationale must be 10-4000 characters');
+ if(rationale.length<10||rationale.length>4000)throw new Error('Review rationale must be 10-4000 characters');if(decision==='ACCEPTED'){await requireOrgPermission(userId,access.organization_id,'manageRisk');if(rationale.length<30)throw Object.assign(new Error('Risk acceptance requires a substantive management rationale'),{statusCode:409})}
  const client=await pool.connect();
  try{
   await client.query('BEGIN');

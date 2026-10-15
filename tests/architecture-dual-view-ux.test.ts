@@ -6,3 +6,5 @@ test('profile account control is anchored at far right of title bar',()=>{assert
 test('dual workspace is responsive',()=>{assert.match(css,/architecture-dual\{display:grid/);assert.match(css,/@media\(max-width:1150px\)/)});
 
 test('CAD blueprint remains evidence-graph driven and synchronizes selection with 3D',()=>{assert.match(js,/cad-blueprint/);assert.match(js,/graph\.edges\.map/);assert.match(js,/data-node/);assert.match(js,/selected=Number/);assert.match(js,/renderCad\(\)/);assert.match(css,/\.cad-links/);assert.match(css,/\.cad-node\.selected/)});
+
+test('interactive 3D is an enterprise infrastructure flow map rather than a radial/house layout',()=>{for(const k of ['CLIENT','IDENTITY','NETWORK','FIREWALL','LOAD_BALANCER','APPLICATION','CLOUD','DATABASE','STORAGE'])assert.ok(js.includes(k));assert.match(js,/zoneOrder/);assert.match(js,/drawZones/);assert.doesNotMatch(js,/const ring=i%12/)});

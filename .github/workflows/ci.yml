@@ -45,3 +45,21 @@ jobs:
         run: npm run build
       - name: Test
         run: npm test
+      - name: Concurrent runtime and graceful-shutdown smoke
+        run: |
+          set -euo pipefail
+          node --import tsx src/server.ts >/tmp/aegis-runtime.log 2>&1 &
+          pid=$!
+          cleanup(){ kill -TERM "$pid" >/dev/null 2>&1 || true; wait "$pid" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          for i in $(seq 1 45); do
+            curl -fsS http://127.0.0.1:8080/api/ready >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/api/ready >/dev/null || { cat /tmp/aegis-runtime.log; exit 1; }
+          AEGIS_LOAD_URL=http://127.0.0.1:8080/api/ready AEGIS_LOAD_REQUESTS=500 AEGIS_LOAD_CONCURRENCY=25 AEGIS_LOAD_MAX_SECONDS=20 bash scripts/verify-load-smoke.sh
+          kill -TERM "$pid"
+          for i in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+          if kill -0 "$pid" 2>/dev/null; then cat /tmp/aegis-runtime.log; echo "Server did not drain after SIGTERM"; exit 1; fi
+          wait "$pid" || { cat /tmp/aegis-runtime.log; exit 1; }
+          trap - EXIT

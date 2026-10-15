@@ -1,7 +1,8 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 const id=(key:string)=>{const h=crypto.createHash('sha256').update('aegis-framework-library:'+key).digest('hex').slice(0,32).split('');h[12]='4';h[16]=((parseInt(h[16],16)&3)|8).toString(16);return h.slice(0,8).join('')+'-'+h.slice(8,12).join('')+'-'+h.slice(12,16).join('')+'-'+h.slice(16,20).join('')+'-'+h.slice(20).join('')};
 type Control={key:string;title:string;domain:string;description:string};
 type Requirement={framework:string;version:string;key:string;title:string;summary:string;controls:string[];source:string};

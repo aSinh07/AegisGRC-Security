@@ -1,5 +1,6 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';import pg from 'pg';import {requireOrgPermission} from './grc-organizations.js';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 const assetTypes=new Set(['FIREWALL','WAF','LOAD_BALANCER','ROUTER','SWITCH','VPN_GATEWAY','IDS_IPS','CDN','DNS','REVERSE_PROXY','SERVICE','DATA_FLOW','TRUST_BOUNDARY']);
 export async function initArchitectureAssurance(){await pool.query(`
 CREATE TABLE IF NOT EXISTS grc_architecture_components(

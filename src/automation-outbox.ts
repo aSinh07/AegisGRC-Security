@@ -1,9 +1,10 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {requireOrgPermission} from './grc-organizations.js';
 import {buildServiceNowWorkItem,type ServiceNowSyncRecord} from './tprm-engine.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 export type OutboxKind='SERVICENOW_WORK_ITEM'|'SCRIPT_TASK';
 export type ScriptTaskName='TPRM_REVIEW_DUE'|'TPRM_REMEDIATION_DUE'|'EVIDENCE_EXPIRY_CHECK';
 const scripts:ScriptTaskName[]=['TPRM_REVIEW_DUE','TPRM_REMEDIATION_DUE','EVIDENCE_EXPIRY_CHECK'];

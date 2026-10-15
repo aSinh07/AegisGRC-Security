@@ -60,8 +60,9 @@ export function validateIso42001AiSupplier(input:any){
  if(missing.length)throw Object.assign(new Error('ISO 42001 AI supplier assessment incomplete: '+[...new Set(missing)].join(', ')),{statusCode:409});
  return {...x,profile:ISO42001_AI_SUPPLIER_ASSESSMENT,evidenceRefs:evidence};
 }
+async function requireCurrentSupplierEvidence(org:string,refs:string[]){if(refs.some(x=>!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(x)))throw Object.assign(new Error('Evidence references must be Evidence Vault version UUIDs'),{statusCode:409});const q=(await pool.query(`SELECT count(*)::int n FROM grc_evidence_versions v JOIN grc_evidence_requests r ON r.id=v.evidence_request_id WHERE r.organization_id=$1 AND v.id=ANY($2::uuid[]) AND r.status='VALID' AND v.integrity_status='SERVER_VERIFIED' AND v.validated_at IS NOT NULL AND v.valid_until>now()`,[org,refs])).rows[0];if(Number(q?.n)!==new Set(refs).size)throw Object.assign(new Error('Current independently validated Evidence Vault versions required'),{statusCode:409})}
 export async function assessIso42001AiSupplier(user:string,org:string,vendorId:string,input:any){
- const supplier=validateIso42001AiSupplier(input?.supplier);
+ const supplier=validateIso42001AiSupplier(input?.supplier);await requireCurrentSupplierEvidence(org,supplier.evidenceRefs);
  const evidence=Array.from(new Set([...(Array.isArray(input?.evidence)?input.evidence:[]),...supplier.evidenceRefs]));
  return assessThirdParty(user,org,vendorId,{...input,assessmentType:ISO42001_AI_SUPPLIER_ASSESSMENT,findings:[...(Array.isArray(input?.findings)?input.findings:[]),{profile:ISO42001_AI_SUPPLIER_ASSESSMENT,supplier}],evidence});
 }

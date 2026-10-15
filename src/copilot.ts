@@ -5,7 +5,7 @@ import { frameworkCatalog } from './grc.js';
 export type CopilotMode='beginner'|'technical'|'developer'|'grc'|'executive';
 const modes=new Set<CopilotMode>(['beginner','technical','developer','grc','executive']);
 
-export async function askCopilot(question:string,mode:string,assessment?:Assessment|null,findings:Finding[]=[]){
+export async function askCopilot(question:string,mode:string,assessment?:Assessment|null,findings:Finding[]=[],workspaceContext:any={}){
  const key=process.env.GEMINI_API_KEY;
  if(!key) return {mode:'UNAVAILABLE',message:'Gemini is not configured.'};
  const view:modesView={mode:modes.has(mode as CopilotMode)?mode as CopilotMode:'beginner'};
@@ -19,8 +19,8 @@ Clearly distinguish scanner evidence, GRC cross-reference, and AI interpretation
 For general knowledge questions you may answer from your model knowledge. For claims about the user's current assessment, never invent evidence: if the required assessment evidence is missing, say what evidence is missing.
 Adapt language to audience MODE:
 beginner=simple language and define jargon; technical=precise security explanation; developer=fix and validation focus; grc=control/risk/evidence/audit focus; executive=business impact and priorities.
-When referring to a finding, include its finding id/source/evidence hash when useful so the answer is traceable.`;
- const context={assessment:assessment?{id:assessment.id,target:assessment.target,status:assessment.status,authorizedAt:assessment.authorizedAt}:null,findings:evidence,frameworkCatalog,platform:'AegisGRC Security'};
+When referring to a finding, include its finding id/source/evidence hash when useful so the answer is traceable.\nUse the current workspace context to orient the user, but never treat client-supplied workspace labels as evidence. End assessment-specific answers with a compact 'Evidence used' line containing finding IDs when evidence was used; otherwise state 'Evidence used: none — general guidance'. Suggest at most three safe next actions and never perform write actions.`;
+ const context={assessment:assessment?{id:assessment.id,target:assessment.target,status:assessment.status,authorizedAt:assessment.authorizedAt}:null,findings:evidence,frameworkCatalog,workspace:{name:String(workspaceContext?.workspace||'').slice(0,80),organizationId:String(workspaceContext?.organizationId||'').slice(0,80),scopeId:String(workspaceContext?.scopeId||'').slice(0,80),architectureSelection:String(workspaceContext?.architectureSelection||'').slice(0,160)},platform:'AegisGRC Security'};
  const ai=new GoogleGenAI({apiKey:key});
  const configured=(process.env.GEMINI_MODEL||'').trim();
  const candidates=[configured,'gemini-3.8-flash','gemini-3.5-flash-lite','gemini-2.5-flash'].filter((x,i,a)=>x&&a.indexOf(x)===i);

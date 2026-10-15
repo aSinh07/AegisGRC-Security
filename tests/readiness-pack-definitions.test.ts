@@ -5,8 +5,8 @@ import {SOURCE_GROUNDED_READINESS_PACKS,validateReadinessPackDefinitions} from '
 
 test('source-grounded readiness packs are bounded and traceable',()=>{
  const result=validateReadinessPackDefinitions();
- assert.equal(result.packs,4);
- assert.ok(result.items>=18);
+ assert.equal(result.packs,5);
+ assert.ok(result.items>=26);
  for(const pack of SOURCE_GROUNDED_READINESS_PACKS){
   assert.match(pack.disclaimer,/does not reproduce or replace an official standard/);
   assert.match(pack.disclaimer,/does not establish certification/);
@@ -16,7 +16,7 @@ test('source-grounded readiness packs are bounded and traceable',()=>{
 
 test('readiness catalog covers supplied ISO NIST AI-impact and LLM materials',()=>{
  assert.deepEqual(SOURCE_GROUNDED_READINESS_PACKS.map(x=>x.key),[
-  'ISO27001_ISMS_READINESS','NIST_EVIDENCE_READINESS','AI_IMPACT_READINESS','OWASP_LLM_2026_READINESS'
+  'ISO42001_AIMS_READINESS','ISO27001_ISMS_READINESS','NIST_EVIDENCE_READINESS','AI_IMPACT_READINESS','OWASP_LLM_2026_READINESS'
  ]);
 });
 
@@ -29,7 +29,7 @@ test('readiness content does not claim automatic pass or compliance',()=>{
 test('readiness catalog helpers return copies and reject unknown packs',async()=>{
  const mod=await import('../src/readiness-pack-definitions.js');
  const catalog=mod.readinessPackCatalog();
- assert.equal(catalog.length,4);
+ assert.equal(catalog.length,5);
  assert.equal(mod.readinessPackDefinition('missing'),null);
  const pack=mod.readinessPackDefinition('iso27001_isms_readiness');
  assert.equal(pack?.key,'ISO27001_ISMS_READINESS');
@@ -46,4 +46,14 @@ test('OWASP LLM 2026 readiness pack covers all ten risk categories in order',()=
   assert.equal(item.type,'RISK_PATTERN');
   assert.match(item.sourceLocator,new RegExp('^OWASP '+item.key+':2026 '));
  }
+});
+
+
+test('ISO 42001 AIMS readiness pack covers governance through continual improvement',()=>{
+ const pack=SOURCE_GROUNDED_READINESS_PACKS.find(x=>x.key==='ISO42001_AIMS_READINESS');
+ assert.ok(pack);
+ assert.equal(pack.framework,'ISO42001');
+ assert.equal(pack.frameworkVersion,'2023');
+ assert.deepEqual(pack.items.map(x=>x.key),['AIMS-SCOPE','AIMS-RISK-SOA','AIMS-IMPACT','AIMS-LIFECYCLE-DATA','AIMS-TRANSPARENCY-USE','AIMS-SUPPLIERS','AIMS-PERFORMANCE','AIMS-CAPA']);
+ assert.ok(pack.items.every(x=>x.sourceLocator.startsWith('Supplied ISO 42001')));
 });

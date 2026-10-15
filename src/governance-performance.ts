@@ -111,8 +111,8 @@ export async function createIso42001AiImpactReview(user:string,org:string,input:
  return persistManagementReview(user,org,{...input,reviewKey,title:String(input?.title||'ISO 42001 AI Impact Assessment').trim(),inputs:{profile:ISO42001_AI_IMPACT_PROFILE,impact},decisions,actions});
 }
 export async function listIso42001AiImpactReviews(user:string,org:string,scopeId?:string){
- await requireOrgPermission(user,org,'read');await validateScope(org,scopeId);const args=scopeId?[org,scopeId]:[org],scope=scopeId?' AND (scope_id=$2 OR scope_id IS NULL)':'';
- return (await pool.query("SELECT * FROM grc_management_reviews WHERE organization_id=$1 AND inputs->>'profile'=$3"+scope+" ORDER BY created_at DESC LIMIT 100",scopeId?[org,scopeId,ISO42001_AI_IMPACT_PROFILE]:[org,ISO42001_AI_IMPACT_PROFILE])).rows
+ await requireOrgPermission(user,org,'read');await validateScope(org,scopeId);const scope=scopeId?' AND (scope_id=$3 OR scope_id IS NULL)':'',args=scopeId?[org,ISO42001_AI_IMPACT_PROFILE,scopeId]:[org,ISO42001_AI_IMPACT_PROFILE];
+ return (await pool.query("SELECT * FROM grc_management_reviews WHERE organization_id=$1 AND inputs->>'profile'=$2"+scope+" ORDER BY created_at DESC LIMIT 100",args)).rows
 }
 export async function createManagementReview(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'manageRisk');const key=String(input.reviewKey||'').trim().toUpperCase();if(key.startsWith('AI-IMPACT-')||input?.inputs?.profile===ISO42001_AI_IMPACT_PROFILE)throw err('Use the ISO 42001 AI impact assessment workflow for reserved AI impact records',409);

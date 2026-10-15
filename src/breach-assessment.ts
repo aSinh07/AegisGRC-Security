@@ -1,9 +1,10 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {requireAssessmentAccess,requireOrgPermission} from './grc-organizations.js';
 import {assessBreachImpact,type BreachSignal} from './breach-impact.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false}});
+
 export async function initBreachAssessment(){await pool.query(`
 CREATE TABLE IF NOT EXISTS breach_assessments(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,

@@ -53,7 +53,7 @@ export async function ingestIdentitySignal(user:string,org:string,input:Identity
  return (await pool.query(`INSERT INTO security_identity_signals(id,organization_id,incident_id,kind,principal_id,source,observed_at,evidence_refs,risk_score,risk_level,correlation_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),org,input.incidentId||null,x.kind,x.principalId,x.source,x.observedAt,JSON.stringify(x.evidenceRefs),risk.riskScore,risk.riskLevel,correlationKey])).rows[0];
 }
 export async function reviewIdentitySignal(user:string,org:string,id:string,input:any){
- await requireOrgPermission(user,org,'manageRisk');
+ await requireOrgPermission(user,org,'review');
  const disposition=String(input.disposition||'').toUpperCase(),reason=String(input.reason||'').trim();
  if(!['BENIGN','INVESTIGATED','ESCALATED_TO_INCIDENT'].includes(disposition))throw new Error('Recognized identity signal disposition required');
  if(reason.length<5)throw new Error('Identity signal review reason required');

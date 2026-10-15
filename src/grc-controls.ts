@@ -121,13 +121,15 @@ export async function statementOfApplicability(userId:string,orgId:string,scopeI
 }
 
 
-export async function listCanonicalControls(userId:string,orgId:string){
- await requireOrgPermission(userId,orgId,'read');
- return (await pool.query(`SELECT id,control_key,title,description,domain,version,active,created_at,updated_at
- FROM grc_canonical_controls WHERE active=true ORDER BY domain,control_key`)).rows;
+export async function listCanonicalControls(userId:string,orgId:string,framework?:string){
+ await requireOrgPermission(userId,orgId,'read');const f=String(framework||'').trim().toUpperCase();
+ if(!f)return (await pool.query(`SELECT id,control_key,title,description,domain,version,active,created_at,updated_at FROM grc_canonical_controls WHERE active=true ORDER BY domain,control_key`)).rows;
+ return (await pool.query(`SELECT DISTINCT c.id,c.control_key,c.title,c.description,c.domain,c.version,c.active,c.created_at,c.updated_at
+ FROM grc_canonical_controls c JOIN grc_control_framework_mappings m ON m.control_id=c.id JOIN grc_framework_requirements r ON r.id=m.requirement_id
+ WHERE c.active=true AND r.active=true AND upper(r.framework)=$1 ORDER BY c.domain,c.control_key`,[f])).rows;
 }
-export async function listFrameworkRequirements(userId:string,orgId:string){
- await requireOrgPermission(userId,orgId,'read');
+export async function listFrameworkRequirements(userId:string,orgId:string,framework?:string){
+ await requireOrgPermission(userId,orgId,'read');const f=String(framework||'').trim().toUpperCase();
  return (await pool.query(`SELECT id,framework,framework_version,requirement_key,title,summary,effective_from,effective_to,source_url,active
- FROM grc_framework_requirements WHERE active=true ORDER BY framework,framework_version,requirement_key`)).rows;
+ FROM grc_framework_requirements WHERE active=true AND ($1='' OR upper(framework)=$1) ORDER BY framework,framework_version,requirement_key`,[f])).rows;
 }

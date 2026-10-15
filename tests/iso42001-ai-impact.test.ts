@@ -22,3 +22,5 @@ test('AI impact review reuses independent management-review approval rather than
 });
 
 test('AI impact records use a reserved key namespace to avoid generic review collisions',()=>{const source=fs.readFileSync('src/governance-performance.ts','utf8');assert.match(source,/rawKey\.startsWith\('AI-IMPACT-'\)/);assert.match(source,/AI impact assessment review key required/)});
+
+test('AI impact persistence resolves current independently validated Evidence Vault versions',()=>{const s=fs.readFileSync('src/governance-performance.ts','utf8');assert.match(s,/grc_evidence_versions v JOIN grc_evidence_requests r/);assert.match(s,/integrity_status='SERVER_VERIFIED'/);assert.match(s,/v\.valid_until>now\(\)/)});

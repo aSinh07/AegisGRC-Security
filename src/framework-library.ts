@@ -25,7 +25,11 @@ const controls:Control[]=[
  {key:'AUD-01',title:'Internal audit and independent review',domain:'ASSURANCE',description:'Plan risk-based independent assurance, record findings and track closure.'},
  {key:'CAPA-01',title:'Corrective action and continual improvement',domain:'ASSURANCE',description:'Root-cause issues, assign corrective actions, verify retest evidence and close independently.'},
  {key:'AI-01',title:'AI lifecycle, impact and human oversight',domain:'AI_GOVERNANCE',description:'Govern AI intended use, impact, data, lifecycle validation, human oversight and change.'},
- {key:'AI-02',title:'AI transparency, quality and monitoring',domain:'AI_GOVERNANCE',description:'Monitor AI quality, provenance, limitations, misuse, transparency and operational behavior.'}
+ {key:'AI-02',title:'AI transparency, quality and monitoring',domain:'AI_GOVERNANCE',description:'Monitor AI quality, provenance, limitations, misuse, transparency and operational behavior.'},
+ {key:'APP-01',title:'Application and software security',domain:'APPLICATION_SECURITY',description:'Govern secure design, development, testing, deployment and application-layer protection.'},
+ {key:'PRI-01',title:'Privacy rights and accountable processing',domain:'PRIVACY',description:'Govern lawful processing, notices, data-subject rights, accountability and privacy requests.'},
+ {key:'PAY-01',title:'Payment-data environment protection',domain:'PAYMENT_SECURITY',description:'Scope and protect payment-account data environments with access, monitoring, testing and secure configuration.'},
+ {key:'PEO-01',title:'People security and awareness',domain:'PEOPLE',description:'Govern workforce security responsibilities, awareness, training and lifecycle access obligations.'}
 ];
 
 const R=(framework:string,version:string,key:string,title:string,summary:string,controls:string[],source:string):Requirement=>({framework,version,key,title,summary,controls,source});
@@ -83,7 +87,35 @@ const requirements:Requirement[]=[
  R('CIS','8.1','CIS-08','Audit log management','Collect, retain and review audit logs.',['LOG-01'],'https://www.cisecurity.org/controls/v8-1'),
  R('CIS','8.1','CIS-15','Service provider management','Inventory and govern service-provider risk.',['TPRM-01'],'https://www.cisecurity.org/controls/v8-1'),
  R('CIS','8.1','CIS-17','Incident response management','Maintain and exercise incident response capabilities.',['IR-01'],'https://www.cisecurity.org/controls/v8-1'),
- R('CIS','8.1','CIS-18','Penetration testing','Validate security through authorized testing and remediation.',['VUL-01','EVD-01'],'https://www.cisecurity.org/controls/v8-1')
+ R('CIS','8.1','CIS-18','Penetration testing','Validate security through authorized testing and remediation.',['VUL-01','EVD-01'],'https://www.cisecurity.org/controls/v8-1'),
+
+ R('OWASP','2025','A01-A02','Access control and security configuration','Assess application authorization boundaries and security configuration weaknesses.',['APP-01','IAM-01','CFG-01'],'https://owasp.org/Top10/2025/'),
+ R('OWASP','2025','A03-A05','Supply chain, cryptography and injection','Govern software supply-chain risk, cryptographic protection and injection resistance.',['APP-01','TPRM-01','CRY-01','VUL-01'],'https://owasp.org/Top10/2025/'),
+ R('OWASP','2025','A06-A08','Design, authentication and integrity','Apply secure design, strong authentication and software/data integrity controls.',['APP-01','IAM-01','VUL-01'],'https://owasp.org/Top10/2025/'),
+ R('OWASP','2025','A09-A10','Logging and exceptional-condition handling','Monitor security events and handle exceptional conditions without unsafe failure.',['LOG-01','APP-01','IR-01'],'https://owasp.org/Top10/2025/'),
+
+ R('SOC2','TSC','CC','Common Criteria governance and security','Govern the control environment, risk assessment, access, operations, change and monitoring supporting trust-services commitments.',['GOV-01','RSK-01','IAM-01','CFG-01','LOG-01','VUL-01','EVD-01'],'https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services'),
+ R('SOC2','TSC','A','Availability','Govern availability commitments, resilience, recovery and operational monitoring where in scope.',['BCM-01','LOG-01','IR-01'],'https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services'),
+ R('SOC2','TSC','C-P','Confidentiality and privacy','Protect confidential information and govern privacy commitments where those criteria are in scope.',['DAT-01','PRI-01','CRY-01','IAM-01'],'https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services'),
+
+ R('PCI','4.0.1','R1-2','Network and secure configuration','Protect the cardholder-data environment with network security and secure configurations.',['CFG-01','PAY-01'],'https://www.pcisecuritystandards.org/document_library/'),
+ R('PCI','4.0.1','R3-4','Protect account data','Protect stored account data and transmissions using governed data and cryptographic controls.',['PAY-01','DAT-01','CRY-01'],'https://www.pcisecuritystandards.org/document_library/'),
+ R('PCI','4.0.1','R5-8','Malware, software and access security','Protect systems from malicious software, develop securely, and enforce identity and access controls.',['APP-01','VUL-01','IAM-01','PAY-01'],'https://www.pcisecuritystandards.org/document_library/'),
+ R('PCI','4.0.1','R9-12','Physical, logging, testing and governance','Restrict physical access, monitor access, test security and maintain an information-security program.',['LOG-01','VUL-01','GOV-01','EVD-01','PAY-01'],'https://www.pcisecuritystandards.org/document_library/'),
+
+ R('GDPR','2016/679','PRINCIPLES','Processing principles and accountability','Govern lawful, fair, transparent and accountable processing with appropriate lifecycle controls.',['PRI-01','DAT-01','GOV-01'],'https://eur-lex.europa.eu/eli/reg/2016/679/oj'),
+ R('GDPR','2016/679','RIGHTS','Data-subject rights','Operate accountable workflows for applicable individual rights and communications.',['PRI-01','EVD-01'],'https://eur-lex.europa.eu/eli/reg/2016/679/oj'),
+ R('GDPR','2016/679','SECURITY','Security and breach governance','Apply risk-appropriate security and govern personal-data incident assessment and notification.',['RSK-01','IAM-01','CRY-01','IR-01','DAT-01'],'https://eur-lex.europa.eu/eli/reg/2016/679/oj'),
+ R('GDPR','2016/679','DPIA','Privacy impact and processor governance','Assess high-risk processing and govern processor/supplier relationships and evidence.',['PRI-01','RSK-01','TPRM-01'],'https://eur-lex.europa.eu/eli/reg/2016/679/oj'),
+
+ R('DPDP','2023','NOTICE-CONSENT','Notice, consent and accountable processing','Govern notices, consent or other applicable processing grounds and maintain accountable records.',['PRI-01','DAT-01','EVD-01'],'https://www.meity.gov.in/data-protection-framework'),
+ R('DPDP','2023','RIGHTS','Data-principal rights and grievance handling','Operate applicable rights, correction, erasure and grievance workflows.',['PRI-01','EVD-01'],'https://www.meity.gov.in/data-protection-framework'),
+ R('DPDP','2023','SAFEGUARDS','Reasonable security safeguards and breach response','Apply reasonable safeguards and govern personal-data breach response and evidence.',['IAM-01','CRY-01','VUL-01','IR-01','DAT-01'],'https://www.meity.gov.in/data-protection-framework'),
+ R('DPDP','2023','PROCESSORS','Processor and retention governance','Govern processors, retention/deletion and accountable data lifecycle obligations.',['TPRM-01','DAT-01','PRI-01'],'https://www.meity.gov.in/data-protection-framework'),
+
+ R('HIPAA','Security Rule','ADMIN','Administrative safeguards','Govern security management, workforce access, awareness, incidents, contingency planning and evaluations.',['GOV-01','RSK-01','PEO-01','IAM-01','IR-01','BCM-01'],'https://www.hhs.gov/hipaa/for-professionals/security/index.html'),
+ R('HIPAA','Security Rule','TECH','Technical safeguards','Protect electronic protected health information through access, integrity and transmission controls.',['IAM-01','DAT-01','CRY-01','LOG-01'],'https://www.hhs.gov/hipaa/for-professionals/security/index.html'),
+ R('HIPAA','Security Rule','ASSURE','Risk analysis and assurance','Maintain evidence-backed risk analysis, control review and corrective action.',['RSK-01','EVD-01','AUD-01','CAPA-01'],'https://www.hhs.gov/hipaa/for-professionals/security/index.html')
 ];
 
 export const builtInFrameworkLibrary={controls,requirements};

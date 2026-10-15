@@ -1,8 +1,9 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {requireOrgPermission} from './grc-organizations.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 
 export type KnowledgeAuthority='AUTHORITATIVE'|'IMPLEMENTATION_AID'|'EDUCATIONAL'|'INTERNAL';
 export type KnowledgeItemType='GUIDANCE'|'ASSESSMENT_QUESTION'|'EVIDENCE_EXPECTATION'|'CONTROL_CANDIDATE'|'TERM'|'RISK_PATTERN';

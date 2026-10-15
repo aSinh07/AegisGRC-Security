@@ -1,8 +1,9 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {signApprovedReport,verifyApprovedReportSignature} from './report-auth.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 export type ReviewStatus='SUBMITTED'|'IN_REVIEW'|'CHANGES_REQUESTED'|'APPROVED'|'REJECTED';
 
 export async function initGrcReviews(){

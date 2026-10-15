@@ -861,7 +861,7 @@ app.post('/api/copilot',async(req,res)=>{try{
  const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
  const requestedId=String(req.body?.assessmentId||''),u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=requestedId?await db.assessmentForUser(u.userId,requestedId):null;
  if(requestedId&&!a)return res.status(404).json({error:'Assessment not found'});const fs=a?await db.findingsForAssessment(a.id):[];
- const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs);
+ const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs,req.body?.workspaceContext||{});
  if(a)await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_CHAT_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
  res.json(answer);
 }catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});
@@ -869,7 +869,7 @@ app.post('/api/assessments/:id/copilot',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
  const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
  const fs=await db.findingsForAssessment(req.params.id);
- const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs);
+ const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs,req.body?.workspaceContext||{});
  await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_EXPLANATION_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
  res.json(answer);
 }catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});

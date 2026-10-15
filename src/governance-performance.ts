@@ -100,7 +100,8 @@ export async function createIso42001AiImpactReview(user:string,org:string,input:
  const impact=validateIso42001AiImpact(input?.impact);
  const decisions=Array.isArray(input?.decisions)?input.decisions:[];
  const actions=Array.isArray(input?.actions)?input.actions:[];
- return createManagementReview(user,org,{...input,reviewKey:String(input?.reviewKey||'').trim(),title:String(input?.title||'ISO 42001 AI Impact Assessment').trim(),inputs:{profile:ISO42001_AI_IMPACT_PROFILE,impact},decisions,actions});
+ const rawKey=String(input?.reviewKey||'').trim().toUpperCase();if(!rawKey)throw err('AI impact assessment review key required');const reviewKey=rawKey.startsWith('AI-IMPACT-')?rawKey:'AI-IMPACT-'+rawKey;
+ return createManagementReview(user,org,{...input,reviewKey,title:String(input?.title||'ISO 42001 AI Impact Assessment').trim(),inputs:{profile:ISO42001_AI_IMPACT_PROFILE,impact},decisions,actions});
 }
 
 export async function createManagementReview(user:string,org:string,input:any){

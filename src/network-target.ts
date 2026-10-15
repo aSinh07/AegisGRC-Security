@@ -2,7 +2,7 @@ import dns from 'node:dns/promises';
 import net from 'node:net';
 
 export const blockedNetworkAddress=(ip:string)=>{
- if(net.isIP(ip)===4){const p=ip.split('.').map(Number);return p[0]===10||p[0]===127||p[0]===0||(p[0]===169&&p[1]===254)||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===168)||(p[0]>=224)}
+ if(net.isIP(ip)===4){const p=ip.split('.').map(Number);return p[0]===0||p[0]===10||p[0]===127||(p[0]===100&&p[1]>=64&&p[1]<=127)||(p[0]===169&&p[1]===254)||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===0&&p[2]===0)||(p[0]===192&&p[1]===0&&p[2]===2)||(p[0]===192&&p[1]===88&&p[2]===99)||(p[0]===192&&p[1]===168)||(p[0]===198&&p[1]>=18&&p[1]<=19)||(p[0]===198&&p[1]===51&&p[2]===100)||(p[0]===203&&p[1]===0&&p[2]===113)||(p[0]>=224)}
  const x=ip.toLowerCase();return x==='::1'||x==='::'||x.startsWith('fc')||x.startsWith('fd')||x.startsWith('fe8')||x.startsWith('fe9')||x.startsWith('fea')||x.startsWith('feb')||x.startsWith('ff');
 };
 export async function validatePublicHttpTarget(raw:string){

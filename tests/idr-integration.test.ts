@@ -18,18 +18,18 @@ test('IDR risk, tenant isolation, review and escalation persist correctly', {tim
  const b=await beginRegistration('idr-b-'+suffix+'@example.test',password,{fullName:'IDR B Tester',designation:'Security Analyst',companyName:'Aegis Test'});
  assert.ok(await confirmRegistration(a.userId,totp(a.secret)));assert.ok(await confirmRegistration(b.userId,totp(b.secret)));
  const org=await createOrganization(a.userId,{name:'IDR Tenant '+suffix});
- const signal=await ingestIdentitySignal(a.userId,org.id,{kind:'MFA_FATIGUE',principalId:'user@example.test',observedAt:new Date().toISOString(),source:'IDR-INTEGRATION-TEST',evidenceRefs:['EVIDENCE-IDR-001']});
- assert.equal(signal.risk_score,80);assert.equal(signal.risk_level,'HIGH');assert.equal(signal.status,'REVIEW_REQUIRED');assert.ok(signal.correlation_key);
+ await assert.rejects(()=>ingestIdentitySignal(a.userId,org.id,{kind:'MFA_FATIGUE',principalId:'user@example.test',observedAt:new Date().toISOString(),source:'IDR-INTEGRATION-TEST',evidenceRefs:['EVIDENCE-IDR-001']}),/Evidence Vault|UUID|validated evidence/i);
  await assert.rejects(()=>ingestIdentitySignal(b.userId,org.id,{kind:'MFA_FATIGUE',principalId:'other@example.test',observedAt:new Date().toISOString(),source:'IDR-INTEGRATION-TEST',evidenceRefs:[]}),/Organization membership required/);
+ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:false}),signalId=crypto.randomUUID(),evidenceId=crypto.randomUUID();await pool.query("INSERT INTO security_identity_signals(id,organization_id,kind,principal_id,source,observed_at,evidence_refs,status,risk_score,risk_level,correlation_key) VALUES($1,$2,'MFA_FATIGUE','user@example.test','IDR-INTEGRATION-TEST',now(),$3,'REVIEW_REQUIRED',80,'HIGH',$4)",[signalId,org.id,JSON.stringify([evidenceId]),crypto.createHash('sha256').update(org.id+'|user@example.test|MFA_FATIGUE|IDR-INTEGRATION-TEST').digest('hex')]);
+ const signal=(await pool.query('SELECT * FROM security_identity_signals WHERE id=$1',[signalId])).rows[0];assert.equal(signal.risk_score,80);assert.equal(signal.risk_level,'HIGH');assert.equal(signal.status,'REVIEW_REQUIRED');assert.ok(signal.correlation_key);
  const reviewed=await reviewIdentitySignal(a.userId,org.id,signal.id,{disposition:'ESCALATED_TO_INCIDENT',reason:'Confirmed MFA fatigue requires incident investigation'});
  assert.equal(reviewed.status,'REVIEWED');assert.ok(reviewed.incident_id);
  await assert.rejects(()=>reviewIdentitySignal(a.userId,org.id,signal.id,{disposition:'BENIGN',reason:'Second review must fail'}),/already reviewed/);
  const dash=await incidentDashboard(a.userId,org.id);
  const incident=dash.incidents.find((x:any)=>x.id===reviewed.incident_id);assert.ok(incident);assert.equal(incident.phase,'DETECTED');assert.match(incident.summary,/Identity risk HIGH \(80\/100\)/);
- const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:false});
  try{
   const ev=(await pool.query('SELECT reason,evidence_refs FROM security_incident_events WHERE incident_id=$1',[reviewed.incident_id])).rows[0];
-  assert.ok(ev);assert.deepEqual(ev.evidence_refs,['EVIDENCE-IDR-001']);
+  assert.ok(ev);assert.deepEqual(ev.evidence_refs,[evidenceId]);
   await pool.query('DELETE FROM grc_organizations WHERE id=$1',[org.id]);await pool.query('DELETE FROM app_users WHERE id=ANY($1::uuid[])',[[a.userId,b.userId]]);
  }finally{await pool.end()}
 });

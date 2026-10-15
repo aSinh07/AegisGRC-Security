@@ -115,7 +115,7 @@ const requirements:Requirement[]=[
 
  R('HIPAA','Security Rule','ADMIN','Administrative safeguards','Govern security management, workforce access, awareness, incidents, contingency planning and evaluations.',['GOV-01','RSK-01','PEO-01','IAM-01','IR-01','BCM-01'],'https://www.hhs.gov/hipaa/for-professionals/security/index.html'),
  R('HIPAA','Security Rule','TECH','Technical safeguards','Protect electronic protected health information through access, integrity and transmission controls.',['IAM-01','DAT-01','CRY-01','LOG-01'],'https://www.hhs.gov/hipaa/for-professionals/security/index.html'),
- R('HIPAA','Security Rule','ASSURE','Risk analysis and assurance','Maintain evidence-backed risk analysis, control review and corrective action.',['RSK-01','EVD-01','AUD-01','CAPA-01'],'https://www.hhs.gov/hipaa/for-professionals/security/index.html')
+ R('HIPAA','Security Rule','ASSURE','Risk analysis and assurance','Maintain evidence-backed risk analysis, control review and corrective action.',['RSK-01','EVD-01','AUD-01','CAPA-01'],'https://www.hhs.gov/hipaa/for-professionals/security/index.html'),
 
  R('NIST_800_53','Rev5','AC','Access Control','Family-level implementation-aid mapping only; does not represent the full SP 800-53 control catalog or assessment procedures.',["IAM-01"],'https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final'),
  R('NIST_800_53','Rev5','AT','Awareness and Training','Family-level implementation-aid mapping only; does not represent the full SP 800-53 control catalog or assessment procedures.',["PEO-01"],'https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final'),

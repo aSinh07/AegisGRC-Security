@@ -11,3 +11,5 @@ test('AI supplier API is authenticated and tenant/vendor scoped',()=>{const s=fs
 test('AI supplier workflow retains existing independent reviewer and evidence approval gate',()=>{const s=fs.readFileSync('src/third-party-risk.ts','utf8');assert.match(s,/row\.assessor_user_id===user/);assert.match(s,/Independent reviewer required for third-party approval/);assert.match(s,/Approval requires residual risk and supporting evidence/)});
 
 test('AI supplier assessments flow into tenant-scoped third-party reporting',()=>{const s=fs.readFileSync('src/third-party-risk.ts','utf8');assert.match(s,/SELECT \* FROM grc_third_party_assessments WHERE organization_id=\$1 ORDER BY created_at DESC LIMIT 100/);assert.match(s,/aiSupplierAssessments:assessments\.filter/)});
+
+test('AI supplier persistence resolves current independently validated Evidence Vault versions',()=>{const s=fs.readFileSync('src/third-party-risk.ts','utf8');assert.match(s,/grc_evidence_versions v JOIN grc_evidence_requests r/);assert.match(s,/integrity_status='SERVER_VERIFIED'/);assert.match(s,/v\.valid_until>now\(\)/)});

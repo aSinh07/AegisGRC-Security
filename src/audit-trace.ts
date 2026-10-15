@@ -1,10 +1,8 @@
+import {pool} from './db-pool.js';
 import pg from 'pg';
 import { requireAssessmentAccess } from './grc-organizations.js';
 
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.PGSSL === 'disable' ? false : { rejectUnauthorized: false }
-});
+
 
 export async function assessmentTrace(userId:string, assessmentId:string) {
   const access = await requireAssessmentAccess(userId, assessmentId);

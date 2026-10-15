@@ -866,19 +866,21 @@ app.get('/api/integrations',async(req,res)=>{
   {id:'metasploit',kind:'exploit-framework',status:'DISABLED'}
  ]});
 });
+const aiRequestWindows=new Map<string,{started:number,count:number}>();
+function aiRequestAllowed(userId:string){const now=Date.now(),windowMs=60_000,limit=Math.max(5,Math.min(120,Number(process.env.AI_REQUESTS_PER_MINUTE||30)));let x=aiRequestWindows.get(userId);if(!x||now-x.started>=windowMs){x={started:now,count:0};aiRequestWindows.set(userId,x)}x.count++;if(aiRequestWindows.size>5000)for(const [k,v] of aiRequestWindows)if(now-v.started>windowMs*2)aiRequestWindows.delete(k);return x.count<=limit}
 app.post('/api/copilot',async(req,res)=>{try{
  const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
- const requestedId=String(req.body?.assessmentId||''),u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=requestedId?await db.assessmentForUser(u.userId,requestedId):null;
+ const requestedId=String(req.body?.assessmentId||''),u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});if(!aiRequestAllowed(u.userId))return res.status(429).json({error:'AI request limit reached. Try again shortly.'});const a=requestedId?await db.assessmentForUser(u.userId,requestedId):null;
  if(requestedId&&!a)return res.status(404).json({error:'Assessment not found'});const fs=a?await db.findingsForAssessment(a.id):[];
- const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs,req.body?.workspaceContext||{});
+ const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs,req.body?.workspaceContext||{},req.body?.history||[]);
  if(a)await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_CHAT_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
  res.json(answer);
 }catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});
 app.post('/api/assessments/:id/copilot',async(req,res)=>{try{
  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const a=await db.assessmentForUser(u.userId,req.params.id);if(!a)return res.status(404).json({error:'Assessment not found'});
- const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});
+ const question=String(req.body?.question||'').trim();if(!question||question.length>2000)return res.status(400).json({error:'Question must be between 1 and 2000 characters'});if(!aiRequestAllowed(u.userId))return res.status(429).json({error:'AI request limit reached. Try again shortly.'});
  const fs=await db.findingsForAssessment(req.params.id);
- const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs,req.body?.workspaceContext||{});
+ const answer=await askCopilot(question,String(req.body?.mode||'beginner'),a,fs,req.body?.workspaceContext||{},req.body?.history||[]);
  await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'AI_EXPLANATION_REQUESTED',actor:'operator',createdAt:new Date().toISOString(),metadata:{mode:String(req.body?.mode||'beginner'),findingCount:fs.length}});
  res.json(answer);
 }catch(e:any){res.status(502).json({mode:'UNAVAILABLE',error:e.message})}});

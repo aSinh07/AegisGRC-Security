@@ -4,3 +4,8 @@ test('authenticated workspace document is not pre-auth allowlisted',async()=>{co
 test('public surface ships privacy terms and explicit assurance boundary',async()=>{const privacy=await readFile('public/privacy.html','utf8');const terms=await readFile('public/terms.html','utf8');assert.match(privacy,/Privacy Notice/);assert.match(privacy,/tenant-aware/);assert.match(terms,/Terms of Use/);assert.match(terms,/explicitly authorized/);assert.match(terms,/do not constitute certification/);});
 test('successful MFA authentication routes to protected workspace',async()=>{const auth=await readFile('public/auth.js','utf8');assert.match(auth,/location\.assign\('\/index\.html'\)/);});
 test('public release pages are no-store and legal routes are explicit',async()=>{const server=await readFile('src/server.ts','utf8');assert.match(server,/privacy\.html/);assert.match(server,/terms\.html/);assert.match(server,/app\.get\('\/privacy'/);assert.match(server,/app\.get\('\/terms'/);assert.match(server,/no-store, max-age=0, must-revalidate/);});
+
+test('public auth shell includes reset password visibility control',()=>{
+ const html=readFileSync('public/landing.html','utf8');
+ assert.match(html,/data-aegis-click="togglePassword\('resetPw',this\)"/);
+});

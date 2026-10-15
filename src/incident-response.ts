@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import pg from 'pg';
-import {requireOrgPermission} from './grc-organizations.js';
+import {requireOrgPermission} from './grc-organizations.js';import {requireValidatedEvidenceVersions} from './validated-evidence.js';
 import {validateIncidentTransition,normalizeIdentitySignal,type IncidentPhase,type IdentitySignal} from './cyber-operations-handoff.js';
 
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
@@ -35,7 +35,7 @@ ALTER TABLE security_identity_signals ADD COLUMN IF NOT EXISTS correlation_key t
 export async function createIncident(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'manageRisk');const title=String(input.title||'').trim(),sev=String(input.severity||'').toUpperCase(),source=String(input.source||'').trim();
  if(title.length<3||!severity.has(sev)||source.length<2)throw new Error('Incident title, recognized severity and source required');
- const key=String(input.incidentKey||('INC-'+Date.now())).toUpperCase().replace(/[^A-Z0-9._-]/g,'-').slice(0,80);
+ if(input.ownerUserId)await requireOrgPermission(input.ownerUserId,org,'read');const key=String(input.incidentKey||('INC-'+Date.now())).toUpperCase().replace(/[^A-Z0-9._-]/g,'-').slice(0,80);
  const assets=Array.isArray(input.affectedAssets)?input.affectedAssets.slice(0,200).map((x:any)=>String(x).slice(0,200)):[];
  return (await pool.query(`INSERT INTO security_incidents(id,organization_id,incident_key,title,severity,phase,owner_user_id,source,affected_assets,summary,created_by)
  VALUES($1,$2,$3,$4,$5,'DETECTED',$6,$7,$8,$9,$10) RETURNING *`,[crypto.randomUUID(),org,key,title,sev,input.ownerUserId||user,source,JSON.stringify(assets),String(input.summary||'').slice(0,5000),user])).rows[0];
@@ -43,7 +43,7 @@ export async function createIncident(user:string,org:string,input:any){
 export async function transitionIncident(user:string,org:string,id:string,next:IncidentPhase,input:any){
  await requireOrgPermission(user,org,'manageRisk');
  const event={phase:next,actorId:user,reason:String(input.reason||''),occurredAt:String(input.occurredAt||new Date().toISOString()),evidenceRefs:Array.isArray(input.evidenceRefs)?input.evidenceRefs:[]};
- const client=await pool.connect();try{await client.query('BEGIN');const row=(await client.query('SELECT * FROM security_incidents WHERE id=$1 AND organization_id=$2 FOR UPDATE',[id,org])).rows[0];if(!row)throw Object.assign(new Error('Incident not found'),{statusCode:404});validateIncidentTransition(row.phase,next,event);await client.query(`INSERT INTO security_incident_events(id,organization_id,incident_id,phase,actor_user_id,reason,evidence_refs,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[crypto.randomUUID(),org,id,next,user,event.reason,JSON.stringify(event.evidenceRefs),event.occurredAt]);const updated=(await client.query(`UPDATE security_incidents SET phase=$3,updated_at=now(),closed_at=CASE WHEN $3='CLOSED' THEN now() ELSE closed_at END WHERE id=$1 AND organization_id=$2 RETURNING *`,[id,org,next])).rows[0];await client.query('COMMIT');return updated}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+ const client=await pool.connect();try{await client.query('BEGIN');const row=(await client.query('SELECT * FROM security_incidents WHERE id=$1 AND organization_id=$2 FOR UPDATE',[id,org])).rows[0];if(!row)throw Object.assign(new Error('Incident not found'),{statusCode:404});validateIncidentTransition(row.phase,next,event);event.evidenceRefs=await requireValidatedEvidenceVersions(client,org,event.evidenceRefs);if(next==='CLOSED'){const reviewer=await requireOrgPermission(user,org,'review');if(row.created_by===user)throw Object.assign(new Error('Incident closure requires independent reviewer'),{statusCode:409});}await client.query(`INSERT INTO security_incident_events(id,organization_id,incident_id,phase,actor_user_id,reason,evidence_refs,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[crypto.randomUUID(),org,id,next,user,event.reason,JSON.stringify(event.evidenceRefs),event.occurredAt]);const updated=(await client.query(`UPDATE security_incidents SET phase=$3,updated_at=now(),closed_at=CASE WHEN $3='CLOSED' THEN now() ELSE closed_at END WHERE id=$1 AND organization_id=$2 RETURNING *`,[id,org,next])).rows[0];await client.query('COMMIT');return updated}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
 function identityRisk(kind:string){const score:Record<string,number>={IMPOSSIBLE_TRAVEL:70,MFA_FATIGUE:80,PRIVILEGE_ESCALATION:90,SUSPICIOUS_LOGIN:65,DORMANT_ACCOUNT:55};const riskScore=score[kind]||50;return {riskScore,riskLevel:riskScore>=85?'CRITICAL':riskScore>=70?'HIGH':riskScore>=50?'MEDIUM':'LOW'}}
 export async function ingestIdentitySignal(user:string,org:string,input:IdentitySignal&{incidentId?:string}){

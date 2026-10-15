@@ -1,8 +1,8 @@
-import pg from 'pg';import {requireOrgPermission} from './grc-organizations.js';import {organizationAuditReadiness} from './grc-readiness.js';import {thirdPartyDashboard} from './third-party-risk.js';import {architectureAssurance} from './architecture-assurance.js';import {continuousComplianceDashboard} from './continuous-compliance.js';import {resilienceDashboard} from './business-continuity.js';import {policyDashboard} from './policy-governance.js';import {auditDashboard} from './audit-management.js';
+import pg from 'pg';import {requireOrgPermission} from './grc-organizations.js';import {organizationAuditReadiness} from './grc-readiness.js';import {thirdPartyDashboard} from './third-party-risk.js';import {architectureAssurance} from './architecture-assurance.js';import {continuousComplianceDashboard} from './continuous-compliance.js';import {resilienceDashboard} from './business-continuity.js';import {policyDashboard} from './policy-governance.js';import {auditDashboard} from './audit-management.js';import {iso42001AuditEvidenceReadiness} from './audit-playbook.js';
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
 export async function enterpriseAcceptance(user:string,org:string,scopeId:string){
  await requireOrgPermission(user,org,'read');
- const [readiness,vendors,architecture,continuous,resilience,policies,audits]=await Promise.all([organizationAuditReadiness(user,org,scopeId),thirdPartyDashboard(user,org),architectureAssurance(user,org,scopeId),continuousComplianceDashboard(user,org,scopeId),resilienceDashboard(user,org,scopeId),policyDashboard(user,org,scopeId),auditDashboard(user,org,scopeId)]);
+ const [readiness,vendors,architecture,continuous,resilience,policies,audits,auditEvidence]=await Promise.all([organizationAuditReadiness(user,org,scopeId),thirdPartyDashboard(user,org),architectureAssurance(user,org,scopeId),continuousComplianceDashboard(user,org,scopeId),resilienceDashboard(user,org,scopeId),policyDashboard(user,org,scopeId),auditDashboard(user,org,scopeId),iso42001AuditEvidenceReadiness(user,org,scopeId)]);
  const q=async(sql:string,args:any[]=[org])=>Number((await pool.query(sql,args)).rows[0]?.c||0);
  const [openCriticalRisks,openP0Issues,overdueCapa,pendingEvidence,failedTests,activeAssessments,assessmentCoverageRows]=await Promise.all([
   q("SELECT count(*) c FROM grc_enterprise_risks WHERE organization_id=$1 AND status<>'CLOSED' AND inherent_rating='CRITICAL'"),
@@ -26,6 +26,7 @@ export async function enterpriseAcceptance(user:string,org:string,scopeId:string
   {id:'BUSINESS_CONTINUITY',pass:resilience.summary.services>0&&resilience.summary.gaps===0,detail:resilience.summary},
   {id:'POLICY_GOVERNANCE',pass:policies.summary.approved>0&&policies.summary.overdueReview===0&&policies.summary.unmapped===0,detail:policies.summary},
   {id:'AUDIT_ASSURANCE',pass:audits.summary.complete>0&&audits.summary.unreviewed===0&&audits.summary.active===0,detail:audits.summary},
+  {id:'ISO42001_AUDIT_EVIDENCE',pass:auditEvidence.summary.actionRequired===0,detail:auditEvidence.summary},
   {id:'ASSESSMENT_INVENTORY',pass:activeAssessments>0&&(assessmentCoverageRows as any).rows.length>0&&!(assessmentCoverageRows as any).rows.some((x:any)=>['NOT_STARTED','RUNNING','PARTIAL','FAILED'].includes(x.status)),detail:{assessments:activeAssessments,layerStatuses:(assessmentCoverageRows as any).rows}}
  ];
  const passed=checks.filter(x=>x.pass).length;

@@ -80,6 +80,29 @@ export async function recordMetricMeasurement(user:string,org:string,id:string,i
  const value=Number(input.value),evidence=String(input.evidenceRef||'').trim();if(!Number.isFinite(value)||!evidence)throw err('Numeric value and evidence reference required');
  return (await pool.query('INSERT INTO grc_metric_measurements(id,organization_id,metric_id,value,measured_at,evidence_ref,notes,recorded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[crypto.randomUUID(),org,id,value,input.measuredAt||new Date(),evidence,String(input.notes||''),user])).rows[0]
 }
+export const ISO42001_AI_IMPACT_PROFILE='ISO42001_AI_IMPACT';
+const meaningful=(v:any,min=10)=>String(v||'').trim().length>=min;
+export function validateIso42001AiImpact(input:any){
+ const x=input&&typeof input==='object'?input:{};
+ const required:[string,any][]=[
+  ['aiSystem',x.aiSystem],['intendedUse',x.intendedUse],['foreseeableMisuse',x.foreseeableMisuse],
+  ['affectedParties',x.affectedParties],['dataExposureImpact',x.dataExposureImpact],
+  ['erroneousOutputImpact',x.erroneousOutputImpact],['downstreamImpact',x.downstreamImpact],
+  ['humanOversight',x.humanOversight],['reviewTriggers',x.reviewTriggers]
+ ];
+ const missing=required.filter(([,v])=>!meaningful(v)).map(([k])=>k);
+ const risk=String(x.riskRating||'').toUpperCase();if(!['LOW','MEDIUM','HIGH','CRITICAL'].includes(risk))missing.push('riskRating');
+ const evidence=Array.isArray(x.evidenceRefs)?x.evidenceRefs.map((v:any)=>String(v||'').trim()).filter(Boolean):[];if(evidence.length===0)missing.push('evidenceRefs');
+ if(missing.length)throw err('ISO 42001 AI impact assessment incomplete: '+[...new Set(missing)].join(', '),409);
+ return {...x,profile:ISO42001_AI_IMPACT_PROFILE,riskRating:risk,evidenceRefs:evidence};
+}
+export async function createIso42001AiImpactReview(user:string,org:string,input:any){
+ const impact=validateIso42001AiImpact(input?.impact);
+ const decisions=Array.isArray(input?.decisions)?input.decisions:[];
+ const actions=Array.isArray(input?.actions)?input.actions:[];
+ return createManagementReview(user,org,{...input,reviewKey:String(input?.reviewKey||'').trim(),title:String(input?.title||'ISO 42001 AI Impact Assessment').trim(),inputs:{profile:ISO42001_AI_IMPACT_PROFILE,impact},decisions,actions});
+}
+
 export async function createManagementReview(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'manageRisk');await validateScope(org,input.scopeId);
  const key=String(input.reviewKey||'').trim().toUpperCase(),title=String(input.title||'').trim(),period=String(input.reviewPeriod||'').trim();

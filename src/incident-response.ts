@@ -35,7 +35,7 @@ ALTER TABLE security_identity_signals ADD COLUMN IF NOT EXISTS correlation_key t
 export async function createIncident(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'manageRisk');const title=String(input.title||'').trim(),sev=String(input.severity||'').toUpperCase(),source=String(input.source||'').trim();
  if(title.length<3||!severity.has(sev)||source.length<2)throw new Error('Incident title, recognized severity and source required');
- if(input.ownerUserId)await requireOrgPermission(input.ownerUserId,org,'read');const key=String(input.incidentKey||('INC-'+Date.now())).toUpperCase().replace(/[^A-Z0-9._-]/g,'-').slice(0,80);
+ if(input.ownerUserId)await requireOrgPermission(input.ownerUserId,org,'read');const key=String(input.incidentKey||('INC-'+Date.now()+'-'+crypto.randomBytes(3).toString('hex').toUpperCase())).toUpperCase().replace(/[^A-Z0-9._-]/g,'-').slice(0,80);
  const assets=Array.isArray(input.affectedAssets)?input.affectedAssets.slice(0,200).map((x:any)=>String(x).slice(0,200)):[];
  return (await pool.query(`INSERT INTO security_incidents(id,organization_id,incident_key,title,severity,phase,owner_user_id,source,affected_assets,summary,created_by)
  VALUES($1,$2,$3,$4,$5,'DETECTED',$6,$7,$8,$9,$10) RETURNING *`,[crypto.randomUUID(),org,key,title,sev,input.ownerUserId||user,source,JSON.stringify(assets),String(input.summary||'').slice(0,5000),user])).rows[0];

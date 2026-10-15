@@ -1,5 +1,6 @@
+import {pool} from './db-pool.js';
 import pg from 'pg';import {requireOrgPermission} from './grc-organizations.js';import {organizationAuditReadiness} from './grc-readiness.js';import {thirdPartyDashboard} from './third-party-risk.js';import {architectureAssurance} from './architecture-assurance.js';import {continuousComplianceDashboard} from './continuous-compliance.js';import {resilienceDashboard} from './business-continuity.js';import {policyDashboard} from './policy-governance.js';import {auditDashboard} from './audit-management.js';import {iso42001AuditEvidenceReadiness} from './audit-playbook.js';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 export async function enterpriseAcceptance(user:string,org:string,scopeId:string){
  await requireOrgPermission(user,org,'read');
  const [readiness,vendors,architecture,continuous,resilience,policies,audits,auditEvidence]=await Promise.all([organizationAuditReadiness(user,org,scopeId),thirdPartyDashboard(user,org),architectureAssurance(user,org,scopeId),continuousComplianceDashboard(user,org,scopeId),resilienceDashboard(user,org,scopeId),policyDashboard(user,org,scopeId),auditDashboard(user,org,scopeId),iso42001AuditEvidenceReadiness(user,org,scopeId)]);

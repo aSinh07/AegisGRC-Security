@@ -148,17 +148,20 @@ app.use('/api',(req,res,next)=>{
 });
 // The HTML shell must never be served stale after a UI release. Static assets can be revalidated.
 app.use((req,res,next)=>{
- if(req.path==='/'||req.path==='/index.html'){
+ if(req.path==='/'||req.path==='/index.html'||req.path==='/privacy.html'||req.path==='/terms.html'){
   res.setHeader('Cache-Control','no-store, max-age=0, must-revalidate');
   res.setHeader('Pragma','no-cache');
   res.setHeader('Expires','0');
  }
  next();
 });
-const PUBLIC_PREAUTH_ASSETS=new Set(['/aegis-logo.svg','/dashboard.css','/enhancements.css','/style.css','/dashboard.js','/manifest.webmanifest']);
+const PUBLIC_PREAUTH_ASSETS=new Set(['/aegis-logo.svg','/landing.css','/auth.js','/manifest.webmanifest','/privacy.html','/terms.html']);
+app.get('/',(_req,res)=>res.sendFile(process.cwd()+'/public/landing.html'));
+app.get('/privacy',(_req,res)=>res.sendFile(process.cwd()+'/public/privacy.html'));
+app.get('/terms',(_req,res)=>res.sendFile(process.cwd()+'/public/terms.html'));
 app.use(async(req,res,next)=>{
  if(req.path.startsWith('/api/'))return next();
- if(req.path==='/'||req.path==='/index.html'||PUBLIC_PREAUTH_ASSETS.has(req.path))return next();
+ if(req.path==='/'||PUBLIC_PREAUTH_ASSETS.has(req.path))return next();
  const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';
  if(!await userSession(ut))return res.status(401).type('text/plain').send('Authentication required');
  next();

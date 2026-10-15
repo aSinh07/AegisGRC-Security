@@ -60,7 +60,7 @@ async function loadEnterprisePhase3(){
    jf('/api/grc/organizations/'+activeGrcOrg+'/privacy-assessments')
   ]);
   riskMethodologies.innerHTML=grcTable(m.methodologies||[],[['Method','name'],['Likelihood max','likelihood_max'],['Impact max','impact_max'],['Default','is_default']]);
-  phase3Soa.innerHTML=grcTable(s.soa||[],[['Control','control_key'],['Applicability','applicability'],['Implementation','implementation_state'],['Approval','approval_status']]);
+  phase3Soa.innerHTML=grcTable(s.controls||[],[['Control','control_key'],['Applicability','applicability'],['Implementation','implementation'],['Approved','approved_at']]);
   aiImpactAssessments.innerHTML=grcTable(a.assessments||[],[['AI system','system_name'],['EU risk class','eu_risk_class'],['Status','status'],['Approval','approval_status']]);
   privacyAssessments.innerHTML=grcTable(p.assessments||[],[['Processing activity','processing_activity'],['PII','pii_categories'],['Retention','retention'],['Approval','approval_status']]);
   if(typeof grcControls!=='undefined'){const d=await jf('/api/grc/organizations/'+activeGrcOrg+'/controls');phase3SoaControl.innerHTML='<option value="">Select control</option>'+(d.controls||[]).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.control_key)+' · '+esc(x.title)+'</option>').join('')}

@@ -137,6 +137,15 @@ app.use((req,res,next)=>{
  next();
 });
 app.use(express.json({limit:'1mb'}));
+app.use('/api',(req,res,next)=>{
+ const supplied=String(req.headers['x-request-id']||'').trim();
+ const requestId=/^[A-Za-z0-9._:-]{8,128}$/.test(supplied)?supplied:crypto.randomUUID();
+ res.setHeader('X-Request-Id',requestId);
+ res.setHeader('Cache-Control','no-store, max-age=0');
+ res.setHeader('Pragma','no-cache');
+ res.setHeader('Vary','Cookie');
+ next();
+});
 // The HTML shell must never be served stale after a UI release. Static assets can be revalidated.
 app.use((req,res,next)=>{
  if(req.path==='/'||req.path==='/index.html'){
@@ -921,10 +930,33 @@ app.get('/api/grc/assessments/:assessmentId/scanner-jobs',async(req,res)=>{try{c
 async function scannerWorkerTick(){const job=await claimScannerJob();if(!job)return;try{await executeClaimedScannerJob(job,async x=>{await db.saveEvidence(x)},async x=>{await db.saveAudit(x)})}catch(e){console.error('scanner job failed',job.id,e)}}
 setInterval(()=>{void scannerWorkerTick()},Number(process.env.SCANNER_WORKER_POLL_MS||2000)).unref();
 
-app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));app.post('/api/grc/assessments/:assessmentId/trivy-image',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');const assetId=String(req.body?.assetId||''),imageRef=String(req.body?.imageRef||'');const asset=await activeContainerAsset(u.userId,access.organization_id,assetId);if(!asset)return res.status(400).json({error:'Active container asset required'});const out=await scanContainerImageWithTrivy(imageRef);const evidenceHash=out.evidence.sha256;const findings=trivyJsonFindings(req.params.assessmentId,asset.asset_key,evidenceHash,out.stdout);const evidence:Evidence={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,source:'trivy',sha256:evidenceHash,exitCode:out.exitCode,stdout:out.stdout,stderr:out.stderr,metadata:{scanType:'IMAGE',assetId,imageRef,timedOut:out.timedOut,truncated:out.truncated,durationMs:out.durationMs},createdAt:new Date().toISOString()};await db.saveFindingImport(evidence,findings,{id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'TRIVY_CONTAINER_EVIDENCE_INGESTED',actor:u.userId,createdAt:new Date().toISOString(),metadata:{assetId,imageRef,evidenceHash,findingCount:findings.length}});res.status(out.exitCode===0&&!out.timedOut&&!out.truncated?201:422).json({evidenceHash,findings:findings.length,exitCode:out.exitCode,timedOut:out.timedOut,truncated:out.truncated})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/assessments/:assessmentId/trivy-image',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const access=await requireAssessmentAccess(u.userId,req.params.assessmentId);await requireOrgPermission(u.userId,access.organization_id,'manageAssessment');const assetId=String(req.body?.assetId||''),imageRef=String(req.body?.imageRef||'');const asset=await activeContainerAsset(u.userId,access.organization_id,assetId);if(!asset)return res.status(400).json({error:'Active container asset required'});const out=await scanContainerImageWithTrivy(imageRef);const evidenceHash=out.evidence.sha256;const findings=trivyJsonFindings(req.params.assessmentId,asset.asset_key,evidenceHash,out.stdout);const evidence:Evidence={id:crypto.randomUUID(),assessmentId:req.params.assessmentId,source:'trivy',sha256:evidenceHash,exitCode:out.exitCode,stdout:out.stdout,stderr:out.stderr,metadata:{scanType:'IMAGE',assetId,imageRef,timedOut:out.timedOut,truncated:out.truncated,durationMs:out.durationMs},createdAt:new Date().toISOString()};await db.saveFindingImport(evidence,findings,{id:crypto.randomUUID(),assessmentId:req.params.assessmentId,action:'TRIVY_CONTAINER_EVIDENCE_INGESTED',actor:u.userId,createdAt:new Date().toISOString(),metadata:{assetId,imageRef,evidenceHash,findingCount:findings.length}});res.status(out.exitCode===0&&!out.timedOut&&!out.truncated?201:422).json({evidenceHash,findings:findings.length,exitCode:out.exitCode,timedOut:out.timedOut,truncated:out.truncated})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 if(automationWorkerEnabled()){
  const timer=setInterval(()=>{runAutomationOutboxBatch(10,'server:'+process.pid).catch(e=>console.error('automation worker error',String(e?.message||e)))},60000);timer.unref();
  console.log('Controlled automation worker enabled');
 }
 
+
+
+// Final HTTP reliability boundary: routes are registered before the socket starts accepting traffic.
+app.use((err:any,_req:any,res:any,next:any)=>{
+ if(res.headersSent)return next(err);
+ const status=err?.type==='entity.too.large'?413:err instanceof SyntaxError&&'body' in err?400:Number(err?.status||err?.statusCode||500);
+ if(status>=500)console.error('Unhandled request error',String(err?.message||err));
+ res.status(status>=400&&status<600?status:500).json({error:status===413?'Request body exceeds the allowed limit':status===400?'Malformed request body':'Request could not be completed'});
+});
+const httpServer=app.listen(PORT,()=>console.log(`AegisGRC Security listening on :${PORT}`));
+httpServer.requestTimeout=120_000;
+httpServer.headersTimeout=15_000;
+httpServer.keepAliveTimeout=5_000;
+httpServer.maxRequestsPerSocket=1_000;
+httpServer.on('clientError',(err,socket)=>{console.warn('HTTP client error',String(err?.message||err));if(socket.writable)socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n')});
+let shuttingDown=false;
+function gracefulShutdown(signal:string){
+ if(shuttingDown)return;shuttingDown=true;console.log(signal+' received; draining HTTP connections');
+ const force=setTimeout(()=>process.exit(1),15_000);force.unref();
+ httpServer.close(()=>{clearTimeout(force);process.exit(0)});
+}
+process.once('SIGTERM',()=>gracefulShutdown('SIGTERM'));
+process.once('SIGINT',()=>gracefulShutdown('SIGINT'));

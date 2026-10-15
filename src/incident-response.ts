@@ -67,7 +67,7 @@ export async function reviewIdentitySignal(user:string,org:string,id:string,inpu
   let incidentId=row.incident_id;
   if(disposition==='ESCALATED_TO_INCIDENT'&&!incidentId){
    incidentId=crypto.randomUUID();const incidentKey='INC-IDR-'+Date.now()+'-'+crypto.randomBytes(2).toString('hex').toUpperCase();
-   await client.query(`INSERT INTO security_incidents(id,organization_id,incident_key,title,severity,phase,owner_user_id,source,affected_assets,summary,created_by) VALUES($1,$2,$3,$4,'HIGH','DETECTED',$5,$6,'[]'::jsonb,$7,$5)`,[incidentId,org,incidentKey,'Identity escalation: '+row.kind,user,row.source,'Identity risk '+row.risk_level+' ('+row.risk_score+'/100). '+reason.slice(0,4500)]);
+   await client.query(`INSERT INTO security_incidents(id,organization_id,incident_key,title,severity,phase,owner_user_id,source,affected_assets,summary,created_by) VALUES($1,$2,$3,$4,$8,'DETECTED',$5,$6,'[]'::jsonb,$7,$5)`,[incidentId,org,incidentKey,'Identity escalation: '+row.kind,user,row.source,'Identity risk '+row.risk_level+' ('+row.risk_score+'/100). '+reason.slice(0,4500),row.risk_level]);
    await client.query(`INSERT INTO security_incident_events(id,organization_id,incident_id,phase,actor_user_id,reason,evidence_refs,occurred_at) VALUES($1,$2,$3,'DETECTED',$4,$5,$6,now())`,[crypto.randomUUID(),org,incidentId,user,'Escalated from identity signal: '+reason,JSON.stringify(row.evidence_refs)]);
   }
   const out=(await client.query(`UPDATE security_identity_signals SET status='REVIEWED',incident_id=$5,reviewed_by=$3,reviewed_at=now(),disposition=$4 WHERE id=$1 AND organization_id=$2 AND status='REVIEW_REQUIRED' RETURNING *`,[id,org,user,disposition+': '+reason.slice(0,1000),incidentId])).rows[0];

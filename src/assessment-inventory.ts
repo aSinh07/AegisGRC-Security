@@ -1,9 +1,10 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {ASSESSMENT_LAYERS,assessmentCoverage,type AssessmentLayer,type LayerStatus} from './assessment-coverage.js';
 import {requireOrgPermission,requireAssessmentAccess} from './grc-organizations.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 const assetTypes=['DOMAIN','IP','HOST','SERVER','WORKSTATION','MOBILE','WEB_APP','API','CLOUD_ACCOUNT','CONTAINER','REPOSITORY','DATABASE','STORAGE','IDENTITY_PROVIDER','NETWORK_DEVICE'] as const;
 export type AssetType=typeof assetTypes[number];
 

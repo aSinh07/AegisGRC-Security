@@ -23,7 +23,7 @@ test('enterprise GRC phase 3 APIs are permission gated',async()=>{
 test('phase 3 enterprise workspace exposes risk SoA AI impact and privacy records',async()=>{
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
  const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');
- for(const label of ['Risk · SoA · AI Impact · ISO 27701 Privacy','Configurable scoring','EU AI risk context','ISO 27701 evidence'])assert.ok(html.includes(label));
+ for(const label of ['Risk · SoA · AI Impact · ISO 27701 Privacy','Configurable scoring','ISO 42001 governed assessment','ISO 27701 evidence'])assert.ok(html.includes(label));
  for(const fn of ['loadEnterprisePhase3','createEnterpriseRiskMethod','saveEnterpriseSoa','createEnterpriseAiImpact','createEnterprisePrivacyAssessment'])assert.match(js,new RegExp(fn));
 });
 
@@ -34,3 +34,5 @@ test('SoA approval enforces accountable segregation and resolved applicability',
  assert.match(core,/Pending applicability cannot be approved/);
  assert.match(server,/actorUserId:u\.userId/);
 });
+
+test('visible AI impact workspace uses the governed ISO 42001 route and legacy creation fails closed',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');for(const id of ['aiImpactMisuse','aiImpactParties','aiImpactData','aiImpactError','aiImpactDownstream','aiImpactOversight','aiImpactTriggers','aiImpactEvidence'])assert.ok(html.includes(id));assert.match(js,/\/ai-impact-assessments/);assert.match(js,/approveEnterpriseAiImpact/);assert.match(server,/Legacy AI impact creation is retired/);assert.match(server,/ai-impact-assessments\/:id\/approve/)});

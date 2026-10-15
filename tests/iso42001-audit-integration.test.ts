@@ -1,0 +1,21 @@
+import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';import pg from 'pg';import {initUsers,beginRegistration,confirmRegistration} from '../src/user-auth.js';import {initOrganizations,createOrganization,addMember,createScope} from '../src/grc-organizations.js';import {initAuditManagement,updateAuditWorkpaper,reviewWorkpaper,setAuditStatus,listAuditWorkpapers} from '../src/audit-management.js';import {createIso42001AuditPlaybook,createCsaAicmAuditPlaybook} from '../src/audit-playbook.js';
+function b32(s:string){const a='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const c of s){const n=a.indexOf(c);if(n>=0)bits+=n.toString(2).padStart(5,'0')}const out:number[]=[];for(let i=0;i+8<=bits.length;i+=8)out.push(parseInt(bits.slice(i,i+8),2));return Buffer.from(out)}
+function totp(secret:string){const b=Buffer.alloc(8);b.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));const h=crypto.createHmac('sha1',b32(secret)).update(b).digest();const o=h[h.length-1]&15;return String((h.readUInt32BE(o)&0x7fffffff)%1e6).padStart(6,'0')}
+test('ISO 42001 and CSA AICM audit playbooks persist, isolate tenants and fail closed before evidence review',{timeout:60000},async()=>{
+ if(!process.env.DATABASE_URL)return;process.env.TOTP_ENCRYPTION_KEY ||=crypto.randomBytes(32).toString('base64');await initUsers();await initOrganizations();await initAuditManagement();
+ const suffix=crypto.randomUUID(),password='Aegis-Audit-'+crypto.randomBytes(10).toString('hex');const a=await beginRegistration('audit-a-'+suffix+'@example.test',password,{fullName:'Audit Owner',designation:'Auditor',companyName:'Aegis Test'});const b=await beginRegistration('audit-b-'+suffix+'@example.test',password,{fullName:'Audit Reviewer',designation:'Reviewer',companyName:'Aegis Test'});const outsider=await beginRegistration('audit-c-'+suffix+'@example.test',password,{fullName:'Audit Outsider',designation:'Analyst',companyName:'Other'});
+ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:false});let orgId='';
+ try{
+  for(const x of [a,b,outsider])assert.ok(await confirmRegistration(x.userId,totp(x.secret)));
+  const org=await createOrganization(a.userId,{name:'Audit Test '+suffix});orgId=org.id;await addMember(a.userId,org.id,b.userId,'REVIEWER');const scope=await createScope(a.userId,org.id,{name:'Audit Scope '+suffix});
+  const aims=await createIso42001AuditPlaybook(a.userId,org.id,{auditKey:'AIMS-'+suffix,scopeId:scope.id});assert.equal(aims.workpapersCreated,14);const papers=await listAuditWorkpapers(a.userId,org.id,aims.id);assert.equal(papers.length,14);assert.ok(papers.every(x=>x.result==='NOT_TESTED'&&x.reviewed_at===null));
+  await assert.rejects(()=>listAuditWorkpapers(outsider.userId,org.id,aims.id),/Organization membership required/);
+  await assert.rejects(()=>createIso42001AuditPlaybook(a.userId,org.id,{auditKey:'AIMS-'+suffix,scopeId:scope.id}),/duplicate key|unique constraint/i);
+  await assert.rejects(()=>updateAuditWorkpaper(b.userId,org.id,papers[0].id,{result:'PASS',conclusion:'Unauthorized preparer change',evidenceRefs:[]}),/Only the preparer/);
+  await assert.rejects(()=>updateAuditWorkpaper(a.userId,org.id,papers[0].id,{result:'PASS',conclusion:'No validated evidence attached',evidenceRefs:[]}),/Evidence Vault version UUIDs required/);
+  await assert.rejects(()=>reviewWorkpaper(a.userId,org.id,papers[0].id),/Independent workpaper reviewer/);
+  await assert.rejects(()=>reviewWorkpaper(b.userId,org.id,papers[0].id),/Tested result, conclusion and evidence required/);
+  await setAuditStatus(a.userId,org.id,aims.id,'FIELDWORK');await setAuditStatus(a.userId,org.id,aims.id,'REVIEW');await assert.rejects(()=>setAuditStatus(a.userId,org.id,aims.id,'COMPLETE'),/independent review/);
+  const csa=await createCsaAicmAuditPlaybook(a.userId,org.id,{auditKey:'CSA-'+suffix,scopeId:scope.id});assert.equal(csa.workpapersCreated,18);assert.equal((await listAuditWorkpapers(b.userId,org.id,csa.id)).length,18);
+ }finally{if(orgId)await pool.query('DELETE FROM grc_organizations WHERE id=$1',[orgId]);await pool.query('DELETE FROM app_users WHERE id=ANY($1::uuid[])',[[a.userId,b.userId,outsider.userId]]);await pool.end()}
+});

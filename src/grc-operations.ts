@@ -1,5 +1,6 @@
+import {pool} from './db-pool.js';
 import pg from 'pg';import {requireOrgPermission} from './grc-organizations.js';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 export async function initGrcOperations(){await pool.query(`
 CREATE INDEX IF NOT EXISTS grc_record_events_lookup_idx ON grc_record_events(organization_id,record_type,record_id,created_at DESC);
 CREATE TABLE IF NOT EXISTS grc_notifications(

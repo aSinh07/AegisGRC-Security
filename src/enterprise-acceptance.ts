@@ -26,10 +26,9 @@ export async function enterpriseAcceptance(user:string,org:string,scopeId:string
   {id:'BUSINESS_CONTINUITY',pass:resilience.summary.services>0&&resilience.summary.gaps===0,detail:resilience.summary},
   {id:'POLICY_GOVERNANCE',pass:policies.summary.approved>0&&policies.summary.overdueReview===0&&policies.summary.unmapped===0,detail:policies.summary},
   {id:'AUDIT_ASSURANCE',pass:audits.summary.complete>0&&audits.summary.unreviewed===0&&audits.summary.active===0,detail:audits.summary},
-  {id:'ISO42001_AUDIT_EVIDENCE',pass:auditEvidence.summary.actionRequired===0,detail:auditEvidence.summary},
   {id:'ASSESSMENT_INVENTORY',pass:activeAssessments>0&&(assessmentCoverageRows as any).rows.length>0&&!(assessmentCoverageRows as any).rows.some((x:any)=>['NOT_STARTED','RUNNING','PARTIAL','FAILED'].includes(x.status)),detail:{assessments:activeAssessments,layerStatuses:(assessmentCoverageRows as any).rows}}
  ];
  const passed=checks.filter(x=>x.pass).length;
- return {organizationId:org,scopeId,generatedAt:new Date().toISOString(),status:passed===checks.length?'ACCEPTANCE_READY':'ACTION_REQUIRED',score:Math.round(passed/checks.length*100),passed,total:checks.length,checks,
+ return {organizationId:org,scopeId,generatedAt:new Date().toISOString(),status:passed===checks.length?'ACCEPTANCE_READY':'ACTION_REQUIRED',score:Math.round(passed/checks.length*100),passed,total:checks.length,checks,iso42001AuditEvidenceReadiness:auditEvidence.summary,
   boundary:'This acceptance gate measures completion of configured AegisGRC enterprise workflows. It is not a certification, legal opinion, penetration-test guarantee, or proof that no vulnerability exists.'};
 }

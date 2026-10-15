@@ -20,3 +20,5 @@ test('AI impact API uses dedicated authenticated organization-scoped workflow',(
 test('AI impact review reuses independent management-review approval rather than self-certifying',()=>{
  const source=fs.readFileSync('src/governance-performance.ts','utf8');assert.match(source,/if\(row\.created_by===user\)throw err\('Independent approver required for management review'/);const start=source.indexOf('export async function createIso42001AiImpactReview');const end=source.indexOf('export async function createManagementReview',start);const profileFlow=source.slice(start,end);assert.ok(start>=0&&end>start);assert.doesNotMatch(profileFlow,/APPROVED|approved_by|approved_at/);
 });
+
+test('AI impact records use a reserved key namespace to avoid generic review collisions',()=>{const source=fs.readFileSync('src/governance-performance.ts','utf8');assert.match(source,/rawKey\.startsWith\('AI-IMPACT-'\)/);assert.match(source,/AI impact assessment review key required/)});

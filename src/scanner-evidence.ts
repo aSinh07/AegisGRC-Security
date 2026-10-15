@@ -5,7 +5,7 @@ export function scannerEvidenceRecord(x:ScannerExecution){
  const raw=String(x.rawEvidence||'');const stderr=String(x.stderr||'');
  return {engine:x.engine,assetId:x.assetId,assessmentId:x.assessmentId,startedAt:x.startedAt,finishedAt:x.finishedAt,state:x.state,exitCode:x.exitCode,
   rawSha256:crypto.createHash('sha256').update(raw).digest('hex'),rawBytes:Buffer.byteLength(raw),stderrSha256:stderr?crypto.createHash('sha256').update(stderr).digest('hex'):null,
-  successful:x.state==='SUCCESS'&&x.exitCode===0};
+  successful:x.state==='SUCCESS'&&x.exitCode===0&&raw.length>0&&Number.isFinite(Date.parse(x.startedAt))&&Number.isFinite(Date.parse(x.finishedAt))&&Date.parse(x.finishedAt)>=Date.parse(x.startedAt)};
 }
 export function coverageStateForExecutions(xs:ScannerExecution[],requiredEngines:string[]){
  const by=new Map<string,ScannerExecution[]>();for(const x of xs){const a=by.get(x.engine)||[];a.push(x);by.set(x.engine,a)}const missing=requiredEngines.filter(e=>!by.has(e));const failed=requiredEngines.filter(e=>by.has(e)&&!by.get(e)!.some(x=>x.state==='SUCCESS'&&x.exitCode===0&&String(x.rawEvidence||'').length>0));

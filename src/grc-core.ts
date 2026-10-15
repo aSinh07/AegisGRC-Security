@@ -214,7 +214,7 @@ export async function upsertStatementOfApplicability(input:{organizationId:strin
  return (await pool.query(`INSERT INTO grc_statements_of_applicability(id,organization_id,scope_id,control_id,applicability,justification,implementation_state,related_risk_ids,evidence_refs,owner_user_id,reviewer_user_id,approval_status,approved_at)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,CASE WHEN $12='APPROVED' THEN now() ELSE NULL END)
  ON CONFLICT(scope_id,control_id) DO UPDATE SET applicability=EXCLUDED.applicability,justification=EXCLUDED.justification,implementation_state=EXCLUDED.implementation_state,related_risk_ids=EXCLUDED.related_risk_ids,evidence_refs=EXCLUDED.evidence_refs,owner_user_id=EXCLUDED.owner_user_id,reviewer_user_id=EXCLUDED.reviewer_user_id,approval_status=EXCLUDED.approval_status,approved_at=EXCLUDED.approved_at,updated_at=now() RETURNING *`,
- [crypto.randomUUID(),input.organizationId,input.scopeId,input.controlId,input.applicability,input.justification.trim(),input.implementationState,input.relatedRiskIds||[],input.evidenceRefs||[],input.ownerUserId||null,input.reviewerUserId||null,input.approvalStatus||'PENDING'])).rows[0];
+ [crypto.randomUUID(),input.organizationId,input.scopeId,input.controlId,input.applicability,input.justification.trim(),input.implementationState,JSON.stringify(input.relatedRiskIds||[]),JSON.stringify(input.evidenceRefs||[]),input.ownerUserId||null,input.reviewerUserId||null,input.approvalStatus||'PENDING'])).rows[0];
 }
 export async function listStatementsOfApplicability(organizationId:string,scopeId?:string){const v:any[]=[organizationId];let f='';if(scopeId){v.push(scopeId);f=' AND s.scope_id=$2'}return (await pool.query(`SELECT s.*,c.control_key,c.title AS control_title FROM grc_statements_of_applicability s JOIN grc_controls c ON c.id=s.control_id WHERE s.organization_id=$1${f} ORDER BY c.control_key`,v)).rows}
 
@@ -222,7 +222,7 @@ export async function createAiImpactAssessment(input:{organizationId:string;scop
  if(!input.organizationId||!input.systemName?.trim()||!input.intendedUse?.trim())throw new Error('Organization, AI system name and intended use are required');
  if(input.scopeId){const x=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];if(!x)throw new Error('Scope not found in organization')}
  return (await pool.query(`INSERT INTO grc_ai_impact_assessments(id,organization_id,scope_id,system_name,intended_use,affected_parties,data_categories,human_oversight,potential_impacts,mitigations,evidence_refs,eu_risk_class)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.scopeId||null,input.systemName.trim(),input.intendedUse.trim(),input.affectedParties||null,input.dataCategories||null,input.humanOversight||null,input.potentialImpacts||null,input.mitigations||null,input.evidenceRefs||[],input.euRiskClass||'UNDETERMINED'])).rows[0];
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.scopeId||null,input.systemName.trim(),input.intendedUse.trim(),input.affectedParties||null,input.dataCategories||null,input.humanOversight||null,input.potentialImpacts||null,input.mitigations||null,JSON.stringify(input.evidenceRefs||[]),input.euRiskClass||'UNDETERMINED'])).rows[0];
 }
 export async function listAiImpactAssessments(organizationId:string){return (await pool.query('SELECT * FROM grc_ai_impact_assessments WHERE organization_id=$1 ORDER BY created_at DESC',[organizationId])).rows}
 export async function listPrivacyAssessments(organizationId:string){return (await pool.query('SELECT * FROM grc_privacy_assessments WHERE organization_id=$1 ORDER BY created_at DESC',[organizationId])).rows}
@@ -231,7 +231,7 @@ export async function createPrivacyAssessment(input:{organizationId:string;scope
  if(!input.organizationId||!input.processingActivity?.trim())throw new Error('Organization and processing activity are required');
  if(input.scopeId){const x=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];if(!x)throw new Error('Scope not found in organization')}
  return (await pool.query(`INSERT INTO grc_privacy_assessments(id,organization_id,scope_id,processing_activity,pii_categories,purposes,data_subjects,retention,recipients,safeguards,evidence_refs)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.scopeId||null,input.processingActivity.trim(),input.piiCategories||null,input.purposes||null,input.dataSubjects||null,input.retention||null,input.recipients||null,input.safeguards||null,input.evidenceRefs||[]])).rows[0];
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[crypto.randomUUID(),input.organizationId,input.scopeId||null,input.processingActivity.trim(),input.piiCategories||null,input.purposes||null,input.dataSubjects||null,input.retention||null,input.recipients||null,input.safeguards||null,JSON.stringify(input.evidenceRefs||[])])).rows[0];
 }
 
 export async function createRisk(input:{

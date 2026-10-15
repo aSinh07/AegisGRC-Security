@@ -7,3 +7,5 @@ test('NIST SP 800-53 Rev 5 family-level crosswalk contains all twenty official f
 test('Enterprise acceptance and report disclose audit evidence request readiness',()=>{const a=fs.readFileSync('src/enterprise-acceptance.ts','utf8'),r=fs.readFileSync('src/enterprise-grc-report.ts','utf8'),e=fs.readFileSync('src/enterprise-grc-exporters.ts','utf8');assert.match(a,/iso42001AuditEvidenceReadiness:auditEvidence.summary/);assert.match(r,/iso42001AuditEvidenceReadiness/);assert.match(e,/ISO42001 Audit Evidence/)});
 
 test('supplied CSA AICM v1.0 eighteen domains are mapped without claiming 243 controls',()=>{const r=builtInFrameworkLibrary.requirements.filter(x=>x.framework==='CSA_AICM');assert.equal(r.length,18);assert.equal(new Set(r.map(x=>x.key)).size,18);assert.ok(r.some(x=>x.key==='MDS'));assert.ok(r.every(x=>x.summary.includes('not the complete 243-control catalog'))) });
+
+test('audit workpaper Evidence Vault validation is scoped to the audited scope',()=>{const s=fs.readFileSync('src/audit-management.ts','utf8');assert.match(s,/sc.scope_id=\$3/);assert.match(s,/audit_scope_id/);assert.match(s,/verifyAuditEvidence\(org,w.evidence_refs,w.audit_scope_id/)});

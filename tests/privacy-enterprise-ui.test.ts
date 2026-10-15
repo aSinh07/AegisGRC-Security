@@ -3,4 +3,4 @@ const html=fs.readFileSync('public/index.html','utf8');const js=fs.readFileSync(
 test('privacy operations live inside Enterprise GRC',()=>{const g=ui.indexOf('id="grcops"'),p=ui.indexOf('DPDPA Privacy Operations'),end=ui.indexOf('</section>',g);assert.ok(g>=0&&p>g&&p<end)});
 test('privacy UI covers inventory rights consent and breach register',()=>{for(const x of ['Processing Inventory','Data Principal Requests','Consent Lifecycle','Personal Data Breach Register','processingGround','retentionRule','noticeVersion','/privacy/breaches'])assert.ok(ui.includes(x),x)});
 test('privacy UI avoids automated legal conclusions',()=>{assert.match(ui,/not legal advice or a certification claim/);assert.match(ui,/tool does not infer legal notification automatically/);});
-test('tenant selection loads privacy and TPRM together',()=>{assert.match(ui,/Promise\.all\(\[loadTprm\(\),loadPrivacyOps\(\)\]\)/)});
+test('tenant selection loads privacy and TPRM together',()=>{assert.match(ui,/Promise\.all\(\[loadTprm\(\),loadPrivacyOps\(\),loadGovernancePerformance\(\)\]\)/)});

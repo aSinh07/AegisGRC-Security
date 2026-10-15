@@ -76,45 +76,64 @@ export function enterpriseGrcXlsx(m:any){
 }
 
 export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reject)=>{
- const d=new PDFDocument({margin:44,bufferPages:true}),chunks:Buffer[]=[];
+ const d=new PDFDocument({size:'A4',margin:42,bufferPages:true,info:{Title:s(m.documentControl?.title),Author:'AegisGRC Security',Subject:'Enterprise GRC internal assurance report'}}),chunks:Buffer[]=[];
  d.on('data',x=>chunks.push(x));d.on('end',()=>resolve(Buffer.concat(chunks)));d.on('error',reject);
- const h=(n:string,t:string)=>{d.moveDown().fontSize(15).text(n+' '+t).moveDown(.25)};
- d.fontSize(8).text('AEGISGRC | ENTERPRISE ASSURANCE | CONFIDENTIAL',{align:'right'});
- d.moveDown(2).fontSize(21).text('Enterprise Governance, Risk & Compliance Assurance Report');
- d.fontSize(10).text('Organization: '+s(m.organization?.name)).text('Scope: '+s(m.scope?.name))
-  .text('Document ID: '+s(m.documentControl?.documentId)+' | Version: '+s(m.documentControl?.version))
-  .text('Generated: '+s(m.documentControl?.generatedAt));
- h('1.','Management Assurance Conclusion');
- d.fontSize(12).text(s(m.managementOpinion?.conclusion)).fontSize(9).text(s(m.managementOpinion?.statement))
-  .text('Internal evidence-readiness: '+s(m.managementOpinion?.evidenceReadinessPercent)+'% — not a certification score.');
- h('2.','Executive Summary');Object.entries(m.executiveSummary||{}).forEach(([k,v])=>d.fontSize(9).text(k+': '+s(v)));
- h('3.','Scope, Frameworks & Methodology');d.fontSize(9).text('Frameworks: '+((m.frameworks||[]).join(', ')||'No mapped framework recorded'));
- for(const x of m.methodology||[])d.text('• '+x);
- d.addPage();h('4.','Control Assurance & Gap Register');
- for(const c of m.controlAssurance||[]){d.fontSize(10).text(s(c.controlKey)+' · '+s(c.title)).fontSize(8)
-  .text('Applicability: '+s(c.applicability)+' | Implementation: '+s(c.implementation)+' | Readiness: '+s(c.readiness))
-  .text('Evidence: '+s(c.validEvidence)+' | Latest passing tests: '+s(c.passedLatestTests)+' | Open issues: '+s(c.openIssues))
-  .text('Auditor action / gap: '+((c.gaps||[]).join(' ')||'No automated readiness gap recorded.')).moveDown(.5)}
- d.addPage();h('5.','Enterprise Risk Register');
- for(const r of m.riskRegister||[])d.fontSize(9).text(s(r.risk_key)+' | '+s(r.inherent_rating)+' | '+s(r.status)+' | '+s(r.title)).fontSize(8).text('Treatment: '+s(r.treatment)+' | Acceptance expiry: '+s(r.acceptance_expires_at||'N/A'));
- h('6.','Issues & CAPA');
- for(const i of m.issueRegister||[])d.fontSize(9).text(s(i.issue_key)+' | '+s(i.priority)+' | '+s(i.status)+' | '+s(i.title));
- for(const c of m.correctivePreventiveActions||[])d.fontSize(8).text('CAPA '+s(c.capa_key)+' | '+s(c.status)+' | Due '+s(c.due_at)+' | '+s(c.corrective_action));
- d.addPage();h('7.','Technical & Firewall/Security Evidence Coverage');
- if(!(m.technicalAssuranceCoverage||[]).length)d.fontSize(9).text('No linked assessment trace was supplied for this scope.');
- for(const x of m.technicalAssuranceCoverage||[])d.fontSize(8).text('Assessment '+s(x.assessmentId)+' | INFRA '+s(x.infrastructure)+' | WEB '+s(x.web)+' | API '+s(x.api)+' | CLOUD '+s(x.cloud)+' | ENDPOINT '+s(x.endpoint)+' | IDENTITY '+s(x.identity)+' | DATA '+s(x.dataSecurity)+' | PRIVACY '+s(x.privacy)+' | CODE '+s(x.sourceCode)+' | DEP '+s(x.dependencies)+' | CONTAINER '+s(x.container)+' | ATTACK SURFACE '+s(x.attackSurface)+' | BREACH TELEMETRY '+s(x.breachTelemetry));
- h('8.','Third-Party / Vendor Risk');
- d.fontSize(9).text('Vendors: '+s(m.thirdPartyRisk?.summary?.vendors||0)+' | Tier 1: '+s(m.thirdPartyRisk?.summary?.tier1||0)+' | Due review: '+s(m.thirdPartyRisk?.summary?.dueReview||0)+' | Open incidents: '+s(m.thirdPartyRisk?.summary?.openIncidents||0));
- for(const v of m.thirdPartyRisk?.vendors||[])d.fontSize(8).text(s(v.vendor_key)+' | '+s(v.tier)+' | '+s(v.criticality)+' | '+s(v.status)+' | '+s(v.name)+' | '+s(v.service));
- h('9.','Architecture & Firewall Assurance');
- d.fontSize(9).text('Components: '+s(m.architectureAssurance?.summary?.components||0)+' | Flows: '+s(m.architectureAssurance?.summary?.flows||0)+' | Security gateways: '+s(m.architectureAssurance?.summary?.securityGateways||0)+' | Reviewed gateways: '+s(m.architectureAssurance?.summary?.reviewedGateways||0));
- for(const g of m.architectureAssurance?.gaps||[])d.fontSize(8).text('• '+s(g.severity)+' '+s(g.type)+' '+s(g.component||g.componentId||g.edgeId||''));
- h('10.','Continuous Compliance, Obligations & Exceptions');
- d.fontSize(9).text('Obligations: '+s(m.continuousCompliance?.summary?.obligations||0)+' | Overdue: '+s(m.continuousCompliance?.summary?.overdueObligations||0)+' | Open exceptions: '+s(m.continuousCompliance?.summary?.openExceptions||0)+' | Expired exceptions: '+s(m.continuousCompliance?.summary?.expiredExceptions||0));
- h('11.','Operational Resilience');d.fontSize(9).text('Business services: '+s(m.operationalResilience?.summary?.services||0)+' | Tested: '+s(m.operationalResilience?.summary?.tested||0)+' | Gaps: '+s(m.operationalResilience?.summary?.gaps||0));for(const g of m.operationalResilience?.gaps||[])d.fontSize(8).text('• '+s(g.severity)+' '+s(g.service)+' '+s(g.type));
- h('12.','Policy Governance');d.fontSize(9).text('Policies: '+s(m.policyGovernance?.summary?.total||0)+' | Approved: '+s(m.policyGovernance?.summary?.approved||0)+' | Overdue review: '+s(m.policyGovernance?.summary?.overdueReview||0)+' | Unmapped: '+s(m.policyGovernance?.summary?.unmapped||0));
- h('13.','Audit Management');d.fontSize(9).text('Audits: '+s(m.auditManagement?.summary?.total||0)+' | Active: '+s(m.auditManagement?.summary?.active||0)+' | Complete: '+s(m.auditManagement?.summary?.complete||0)+' | Unreviewed workpapers: '+s(m.auditManagement?.summary?.unreviewed||0));
- h('14.','Priority Management Actions');for(const x of m.priorityActions||[])d.fontSize(9).text('• ['+s(x.priority)+'] '+s(x.type)+' '+s(x.key)+': '+s(x.action));
- h('15.','Assurance Boundary & Limitations');for(const x of m.assuranceBoundary||[])d.fontSize(9).text('• '+x);
+ const navy='#17365D',blue='#2F75B5',pale='#D9EAF7',ink='#202833',muted='#5B6573',line='#AAB7C4',good='#2E7D32',warn='#9A6700',bad='#B42318';
+ const pageW=595.28,left=42,right=42,width=pageW-left-right;
+ const ensure=(h=70)=>{if(d.y+h>790)d.addPage()};
+ const rule=()=>{d.strokeColor(blue).lineWidth(1).moveTo(left,d.y).lineTo(pageW-right,d.y).stroke();d.moveDown(.45)};
+ const h1=(n:string,t:string)=>{ensure(55);d.moveDown(.55).fillColor(navy).font('Helvetica-Bold').fontSize(15).text(n+' '+t);d.moveDown(.15);rule()};
+ const h2=(t:string)=>{ensure(38);d.moveDown(.35).fillColor(blue).font('Helvetica-Bold').fontSize(10).text(t);d.moveDown(.2)};
+ const p=(t:any,size=8.5)=>{ensure(28);d.fillColor(ink).font('Helvetica').fontSize(size).text(s(t),{lineGap:2});d.moveDown(.35)};
+ const kv=(k:string,v:any)=>{ensure(22);d.fillColor(muted).font('Helvetica-Bold').fontSize(7.5).text(k.toUpperCase(),{continued:true});d.fillColor(ink).font('Helvetica').text('  '+s(v));};
+ const badge=(label:string,value:any)=>{const x=d.x,y=d.y;d.roundedRect(x,y,118,38,4).fillAndStroke('#F5F8FB',line);d.fillColor(navy).font('Helvetica-Bold').fontSize(14).text(s(value),x+8,y+7,{width:102});d.fillColor(muted).font('Helvetica').fontSize(6.7).text(label.toUpperCase(),x+8,y+24,{width:102});d.x=x+126;d.y=y};
+ const table=(headers:string[],data:any[][],widths:number[])=>{
+  const draw=(vals:any[],header=false)=>{const fs=header?7:6.8,pad=4;const heights=vals.map((v,i)=>d.heightOfString(s(v),{width:widths[i]-pad*2,lineGap:1}));const rh=Math.max(header?20:18,...heights.map(x=>x+pad*2));ensure(rh+8);let x=left,y=d.y;for(let i=0;i<vals.length;i++){d.rect(x,y,widths[i],rh).fillAndStroke(header?pale:'#FFFFFF',line);d.fillColor(header?navy:ink).font(header?'Helvetica-Bold':'Helvetica').fontSize(fs).text(s(vals[i]),x+pad,y+pad,{width:widths[i]-pad*2,height:rh-pad*2,lineGap:1});x+=widths[i]}d.y=y+rh;d.x=left;};
+  draw(headers,true);for(const row of data)draw(row,false);d.moveDown(.45);
+ };
+ const conclusion=s(m.managementOpinion?.conclusion),statusColor=conclusion==='AUDIT_READY'?good:conclusion==='INSUFFICIENT_EVIDENCE'?warn:bad;
+ d.fillColor(navy).font('Helvetica-Bold').fontSize(8).text('AEGISGRC  |  ENTERPRISE ASSURANCE  |  CONFIDENTIAL',{align:'right'});
+ d.moveDown(3).fillColor(navy).font('Helvetica-Bold').fontSize(25).text('Enterprise Governance, Risk &\nCompliance Assurance Report',{lineGap:4});
+ d.moveDown(.45).fillColor(blue).font('Helvetica').fontSize(11).text('Evidence-led readiness, risk, control assurance and management action');
+ d.moveDown(1.2);rule();
+ kv('Organization',m.organization?.name||'Not recorded');kv('Scope',m.scope?.name||'Not recorded');kv('Frameworks',(m.frameworks||[]).join(', ')||'No mapped framework recorded');kv('Document ID',m.documentControl?.documentId);kv('Version / status',s(m.documentControl?.version)+' / '+s(m.documentControl?.status));kv('Generated',m.documentControl?.generatedAt);
+ d.moveDown(1.2).fillColor(statusColor).font('Helvetica-Bold').fontSize(16).text(conclusion||'INTERNAL ASSESSMENT');
+ d.fillColor(ink).font('Helvetica').fontSize(9).text(s(m.managementOpinion?.statement),{lineGap:2});
+ d.moveDown(.8).fillColor(muted).fontSize(8).text('This package is an internal readiness and control-assurance artifact. It is not certification, accreditation, legal advice or an external audit opinion.');
+ d.addPage();
+ h1('1.','Executive GRC Summary');
+ const e=m.executiveSummary||{};badge('Evidence readiness',s(m.managementOpinion?.evidenceReadinessPercent)+'%');badge('Applicable controls',e.controlsApplicable||0);badge('High/Critical risks',e.highCriticalRisks||0);badge('Open CAPA',e.openCapa||0);d.x=left;d.y+=48;
+ table(['Indicator','Current position','Management interpretation'],[
+  ['Control assurance',s(e.controlsEvidenceReady||0)+' evidence-ready / '+s(e.controlsTotal||0)+' total','Missing, stale or unapproved evidence remains action-required.'],
+  ['Risk posture',s(e.openRisks||0)+' open; '+s(e.highCriticalRisks||0)+' high/critical','Residual risk requires accountable treatment or acceptance.'],
+  ['Issues & CAPA',s(e.openIssues||0)+' issues; '+s(e.openCapa||0)+' CAPA','Closure requires evidence and governed retest/review.'],
+  ['Enterprise workflows',s(e.enterpriseWorkflowGaps||0)+' disclosed gaps','Includes architecture, resilience, policy, obligations, audit and supplier signals.']
+ ],[112,118,281]);
+ h1('2.','Scope, Frameworks & Assessment Methodology');p('Frameworks: '+((m.frameworks||[]).join(', ')||'No framework mappings recorded for the scoped controls.'));
+ for(const x of m.methodology||[])p('• '+x,8);
+ h1('3.','Statement of Applicability / Applicability Record');
+ const soa=(m.statementOfApplicability||[]).slice(0,80);
+ if(!soa.length)p('No approved applicability records were supplied for this scope.');
+ else table(['Control','Applicability','Implementation','Approval'],soa.map((x:any)=>[x.control_key||x.controlKey,x.applicability,x.implementation,x.approved_at?'APPROVED':'PENDING']),[126,110,135,140]);
+ h1('4.','Control Assurance & Framework Traceability');
+ for(const c of m.controlAssurance||[]){ensure(78);h2(s(c.controlKey)+' · '+s(c.title));p('Domain: '+s(c.domain)+'   |   Applicability: '+s(c.applicability)+'   |   Implementation: '+s(c.implementation)+'   |   Readiness: '+s(c.readiness),7.8);p('Validated evidence: '+s(c.validEvidence)+'   |   Latest passing tests: '+s(c.passedLatestTests)+'   |   Open issues: '+s(c.openIssues),7.8);const maps=(c.frameworkMappings||[]).map((x:any)=>s(x.framework)+' '+s(x.requirementKey||x.requirement_key)).join('; ');if(maps)p('Framework linkage: '+maps,7.6);if((c.gaps||[]).length)p('Required action: '+c.gaps.join(' '),7.8)}
+ h1('5.','Enterprise Risk Register');
+ const risks=(m.riskRegister||[]).slice(0,80);if(!risks.length)p('No enterprise risks recorded in the selected scope.');
+ else table(['Risk','Scenario / title','Rating','Treatment','Status'],risks.map((x:any)=>[x.risk_key,x.title,x.inherent_rating,x.treatment,x.status]),[72,205,70,95,69]);
+ h1('6.','Issues, Corrective Action & Retest');
+ const actions=(m.correctivePreventiveActions||[]).slice(0,80);if(!actions.length)p('No CAPA records supplied.');
+ else table(['CAPA','Corrective action','Priority','Due','Status'],actions.map((x:any)=>[x.capa_key,x.corrective_action||x.title,x.priority,x.due_at,x.status]),[70,220,70,82,69]);
+ h1('7.','Evidence Register & Technical Assurance');
+ const ev=(m.evidenceRegister||[]).slice(0,100);if(!ev.length)p('No linked technical evidence provenance was supplied for this scope.');
+ else table(['Evidence','Source','Recorded','Integrity / trust'],ev.map((x:any)=>[x.id,x.source,x.createdAt,x.integrityVerifiedAt?'VERIFIED':x.trust||'UNVERIFIED']),[100,120,145,146]);
+ h1('8.','Third-Party Risk & Supply Chain');p('Vendors: '+s(m.thirdPartyRisk?.summary?.vendors||0)+' | Tier 1: '+s(m.thirdPartyRisk?.summary?.tier1||0)+' | Reviews due: '+s(m.thirdPartyRisk?.summary?.dueReview||0)+' | Open incidents: '+s(m.thirdPartyRisk?.summary?.openIncidents||0));
+ h1('9.','Architecture, Continuous Compliance & Resilience');p('Architecture components: '+s(m.architectureAssurance?.summary?.components||0)+' | Architecture gaps: '+s(m.architectureAssurance?.summary?.gaps||0));p('Overdue obligations: '+s(m.continuousCompliance?.summary?.overdueObligations||0)+' | Open exceptions: '+s(m.continuousCompliance?.summary?.openExceptions||0));p('Business services: '+s(m.operationalResilience?.summary?.services||0)+' | Resilience gaps: '+s(m.operationalResilience?.summary?.gaps||0));
+ h1('10.','Policy Governance, Audit & Management Review');p('Policies: '+s(m.policyGovernance?.summary?.total||0)+' | Approved: '+s(m.policyGovernance?.summary?.approved||0)+' | Overdue review: '+s(m.policyGovernance?.summary?.overdueReview||0));p('Audits: '+s(m.auditManagement?.summary?.total||0)+' | Active: '+s(m.auditManagement?.summary?.active||0)+' | Complete: '+s(m.auditManagement?.summary?.complete||0)+' | Unreviewed workpapers: '+s(m.auditManagement?.summary?.unreviewed||0));
+ h1('11.','Priority Management Action Plan');
+ const pa=(m.priorityActions||[]).slice(0,100);if(!pa.length)p('No priority management actions were generated from the recorded evidence state.');
+ else table(['Priority','Type / key','Required management action'],pa.map((x:any)=>[x.priority,s(x.type)+' '+s(x.key),x.action]),[72,105,334]);
+ h1('12.','Assurance Boundary & Final Conclusion');for(const x of m.assuranceBoundary||[])p('• '+x,8);p('Final internal conclusion: '+conclusion+'. '+s(m.managementOpinion?.statement),9);
+ const pages=d.bufferedPageRange();for(let i=0;i<pages.count;i++){d.switchToPage(pages.start+i);d.fillColor(muted).font('Helvetica').fontSize(7).text('AegisGRC Security  |  '+s(m.documentControl?.classification)+'  |  '+s(m.documentControl?.documentId),left,806,{width:380});d.text('Page '+(i+1)+' of '+pages.count,440,806,{width:110,align:'right'})}
  d.end();
 })}
+

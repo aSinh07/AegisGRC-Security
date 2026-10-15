@@ -1,11 +1,8 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.PGSSL === 'disable' ? false : { rejectUnauthorized: false },
-  max: Number(process.env.DB_POOL_MAX || 30)
-});
+
 
 export type Applicability = 'APPLICABLE'|'NOT_APPLICABLE'|'PENDING';
 export type Implementation = 'NOT_IMPLEMENTED'|'PARTIAL'|'IMPLEMENTED';

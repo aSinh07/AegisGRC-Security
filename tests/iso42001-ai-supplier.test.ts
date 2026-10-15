@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {ISO42001_AI_SUPPLIER_ASSESSMENT,validateIso42001AiSupplier} from '../src/third-party-risk.js';
+
+const complete={aiService:'Hosted AI model and inference API used by the governed AI system.',responsibilityAllocation:'Contract and RACI allocate provider and customer AI governance responsibilities.',securityReview:'Security due diligence covers access control, vulnerabilities, incidents and service protection.',privacyReview:'Privacy review covers personal data roles, processing, retention and subprocessors.',contractualObligations:'Contract records governance, security, privacy, assurance and incident obligations.',changeNotification:'Supplier must notify material model, service, data-processing or control changes.',exitArrangement:'Exit plan covers data return or deletion, portability, transition and access revocation.',evidenceRefs:['evidence://supplier/contract-1','evidence://supplier/security-review-1']};
+
+test('ISO 42001 AI supplier profile requires Annex A.10 readiness dimensions',()=>{const x=validateIso42001AiSupplier(complete);assert.equal(x.profile,ISO42001_AI_SUPPLIER_ASSESSMENT);assert.equal(x.evidenceRefs.length,2)});
+test('AI supplier profile rejects missing change, exit or evidence controls',()=>{assert.throws(()=>validateIso42001AiSupplier({...complete,changeNotification:'',exitArrangement:'',evidenceRefs:[]}),/changeNotification, exitArrangement, evidenceRefs/)});
+test('AI supplier API is authenticated and tenant/vendor scoped',()=>{const s=fs.readFileSync('src/server.ts','utf8');const start=s.indexOf("app.post('/api/grc/organizations/:orgId/third-parties/:vendorId/ai-supplier-assessments'");assert.ok(start>=0);const route=s.slice(start,s.indexOf('\n',start));assert.match(route,/currentUser\(req\)/);assert.match(route,/assessIso42001AiSupplier\(u\.userId,req\.params\.orgId,req\.params\.vendorId/)});
+test('AI supplier workflow retains existing independent reviewer and evidence approval gate',()=>{const s=fs.readFileSync('src/third-party-risk.ts','utf8');assert.match(s,/row\.assessor_user_id===user/);assert.match(s,/Independent reviewer required for third-party approval/);assert.match(s,/Approval requires residual risk and supporting evidence/)});

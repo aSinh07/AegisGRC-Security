@@ -1,9 +1,10 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {requireOrgPermission} from './grc-organizations.js';import {requireValidatedEvidenceVersions} from './validated-evidence.js';
 import {validateIncidentTransition,normalizeIdentitySignal,type IncidentPhase,type IdentitySignal} from './cyber-operations-handoff.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 const severity=new Set(['LOW','MEDIUM','HIGH','CRITICAL']);
 
 export async function initIncidentResponse(){await pool.query(`

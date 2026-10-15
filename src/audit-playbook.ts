@@ -1,5 +1,6 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';import pg from 'pg';import {builtInFrameworkLibrary} from './framework-library.js';import {requireOrgPermission} from './grc-organizations.js';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 export const ISO42001_AUDIT_EVIDENCE_REQUESTS=[
  {key:'AIMS-GOV',title:'Approved AIMS scope, AI policy and objectives',procedure:'Verify approved AIMS scope, policy, objectives and accountable approval records.'},
  {key:'AIMS-RACI',title:'AIMS RACI and role descriptions',procedure:'Verify named AIMS accountability, role descriptions, ownership and escalation responsibilities.'},

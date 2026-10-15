@@ -1,5 +1,6 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';import pg from 'pg';import {requireOrgPermission} from './grc-organizations.js';import {requireValidatedEvidenceVersions} from './validated-evidence.js';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 const criticality=new Set(['LOW','MEDIUM','HIGH','CRITICAL']);
 const tier=new Set(['TIER_1','TIER_2','TIER_3','TIER_4']);
 const status=new Set(['PROSPECT','DUE_DILIGENCE','APPROVED','ACTIVE','RESTRICTED','SUSPENDED','TERMINATED']);

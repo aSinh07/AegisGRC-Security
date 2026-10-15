@@ -1,5 +1,6 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';import pg from 'pg';import {requireOrgPermission} from './grc-organizations.js';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 export async function initPrivacyOperations(){await pool.query(`
 CREATE TABLE IF NOT EXISTS grc_privacy_notices(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,

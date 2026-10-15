@@ -1,8 +1,9 @@
+import {pool} from './db-pool.js';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import {requireOrgPermission} from './grc-organizations.js';
 
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.DB_POOL_MAX||30)});
+
 const kinds=['EVIDENCE_EXPIRY','CONTROL_TEST_DUE','CAPA_SLA','RISK_ACCEPTANCE_EXPIRY','OBLIGATION_DUE','EXCEPTION_EXPIRY','THIRD_PARTY_REVIEW_DUE','BIA_DUE','POLICY_REVIEW_DUE','SECURITY_REPORT_HANDOFF'] as const;
 type Kind=typeof kinds[number];
 

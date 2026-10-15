@@ -643,6 +643,7 @@ app.post('/api/scans/trivy',async(req,res)=>{try{
 // Document-to-3D architecture: authenticated, bounded, in-memory only; never scan supplied URLs.
 app.post('/api/architecture/document-model',upload.single('file'),async(req,res)=>{
  try{
+  const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
   const file=req.file;
   if(!file)return res.status(400).json({error:'Upload an architecture PDF, DOCX, TXT, Markdown, CSV, JSON, or XLSX file.'});
   if(!/\.(pdf|docx|txt|md|csv|json|xlsx|xls)$/i.test(file.originalname))return res.status(415).json({error:'Unsupported document type. Legacy DOC must be converted to DOCX.'});
@@ -652,7 +653,7 @@ app.post('/api/architecture/document-model',upload.single('file'),async(req,res)
   res.json({filename:file.originalname,sha256:crypto.createHash('sha256').update(file.buffer).digest('hex'),pages:'pages' in extracted?extracted.pages:null,...graph});
  }catch(e:any){res.status(400).json({error:e.message})}
 });
-app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
+app.post('/api/documents/security-scan',upload.single('file'),async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const file=req.file;if(!file)return res.status(400).json({error:'Choose a document'});if(file.size>20*1024*1024)return res.status(413).json({error:'20 MB maximum'});res.json(documentSecurityScan(file))}catch(e:any){res.status(400).json({error:e.message})}});
 async function executeRealTool(tool:'nmap'|'wapiti'|'sqlmap'|'zap'|'nuclei',assessmentId:string,t:{url:URL,addresses:string[]}){
  t=await revalidateTarget(t);
  const startedAt=new Date().toISOString();let result:{stdout:string;stderr:string;exitCode:number|null;durationMs:number;timedOut:boolean;stdoutTruncated:boolean;stderrTruncated:boolean};let zapAlerts:any[]=[];

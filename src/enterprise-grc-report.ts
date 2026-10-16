@@ -10,11 +10,14 @@ const rows=(v:any)=>Array.isArray(v)?v:[];
 
 export function buildEnterpriseGrcReport(input:{
  organization:any;scope:any;readiness:any;soa:any;risks:any[];issues:any[];capa:any[];
- dashboard?:any;sla?:any;assessmentTraces?:any[];securityHandoffs?:any[];automationRuns?:any[];incidents?:any[];identitySignals?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;auditEvidenceReadiness?:any;governancePerformance?:any;generatedAt?:string;
+ dashboard?:any;sla?:any;assessmentTraces?:any[];securityHandoffs?:any[];automationRuns?:any[];incidents?:any[];identitySignals?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;auditEvidenceReadiness?:any;governancePerformance?:any;selectedFramework?:string;generatedAt?:string;
 }){
  const generatedAt=input.generatedAt||new Date().toISOString();
- const controls=rows(input.readiness?.controls);
- const soaControls=rows(input.soa?.controls);
+ const selectedFramework=s(input.selectedFramework).trim().toUpperCase();
+ const allControls=rows(input.readiness?.controls);
+ const controls=selectedFramework?allControls.filter((c:any)=>rows(c.mappings).some((m:any)=>s(m.framework).trim().toUpperCase()===selectedFramework)):allControls;
+ const controlKeys=new Set(controls.map((c:any)=>s(c.control_key||c.controlKey)));
+ const soaControls=rows(input.soa?.controls).filter((c:any)=>!selectedFramework||controlKeys.has(s(c.control_key||c.controlKey)));
  const risks=rows(input.risks),issues=rows(input.issues),capa=rows(input.capa),traces=rows(input.assessmentTraces),securityHandoffs=rows(input.securityHandoffs),automationRuns=rows(input.automationRuns),incidents=rows(input.incidents),identitySignals=rows(input.identitySignals);
  const applicable=controls.filter((x:any)=>x.applicability==='APPLICABLE');
  const ready=controls.filter((x:any)=>x.readiness==='EVIDENCE_READY');
@@ -28,7 +31,7 @@ export function buildEnterpriseGrcReport(input:{
  const openCapa=capa.filter((x:any)=>x.status!=='CLOSED');
  const overdueCapa=openCapa.filter((x:any)=>x.due_at&&new Date(x.due_at).getTime()<Date.now());
  const frameworkSet=new Set<string>();
- for(const c of controls)for(const m of rows(c.mappings))if(m.framework)frameworkSet.add(s(m.framework)+' '+s(m.version||'').trim());
+ for(const c of controls)for(const m of rows(c.mappings))if(m.framework&&(!selectedFramework||s(m.framework).trim().toUpperCase()===selectedFramework))frameworkSet.add((s(m.framework)+' '+s(m.version||'').trim()).trim());
  const total=controls.length,coverage=total?Math.round(ready.length*100/total):0;
  const acceptedSecurityHandoffs=securityHandoffs.filter((x:any)=>x.status==='EVIDENCE_ACCEPTED');
  const pendingSecurityHandoffs=securityHandoffs.filter((x:any)=>x.status==='REVIEW_REQUIRED');
@@ -64,6 +67,7 @@ export function buildEnterpriseGrcReport(input:{
   organization:{id:input.organization?.id,name:input.organization?.name,industry:input.organization?.industry},
   scope:input.scope,
   frameworks:[...frameworkSet].sort(),
+  reportContext:{selectedFramework:selectedFramework||null,scopeMode:selectedFramework?'FRAMEWORK_FILTERED':'MULTI_FRAMEWORK'},
   managementOpinion:{
    conclusion:opinion,
    statement:opinion==='AUDIT_READY'
@@ -92,7 +96,7 @@ export function buildEnterpriseGrcReport(input:{
    controlKey:c.control_key,title:c.title,domain:c.domain,applicability:c.applicability,
    justification:c.applicability_justification,implementation:c.implementation,approvedAt:c.approved_at,
    validEvidence:n(c.valid_evidence),passedLatestTests:n(c.passed_tests),openIssues:n(c.open_issues),
-   readiness:c.readiness,gaps:rows(c.gaps),frameworkMappings:rows(c.mappings)
+   readiness:c.readiness,gaps:rows(c.gaps),frameworkMappings:[...new Map(rows(c.mappings).filter((m:any)=>!selectedFramework||s(m.framework).trim().toUpperCase()===selectedFramework).map((m:any)=>[s(m.framework).trim().toUpperCase()+'|'+s(m.requirementKey||m.requirement_key).trim().toUpperCase(),m])).values()]
   })),
   riskRegister:risks,
   issueRegister:issues,

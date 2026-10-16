@@ -23,3 +23,6 @@ test('scanner evidence is persisted while exact lease generation still owns the 
 test('locally executed scanner evidence carries explicit provenance',async()=>{const src=await readFile(new URL('../src/scanner-jobs.ts',import.meta.url),'utf8');const fn=src.slice(src.indexOf('export async function executeClaimedScannerJob'));assert.match(fn,/verified:true/);assert.match(fn,/verificationMethod:'LOCAL_EXECUTION'/);assert.match(fn,/sha256:out\.evidence\.sha256/);});
 
 
+
+
+test('network target guard rejects IPv4-mapped IPv6 and documentation IPv6 ranges',async()=>{const {blockedNetworkAddress}=await import('../src/network-target.js');assert.equal(blockedNetworkAddress('::ffff:127.0.0.1'),true);assert.equal(blockedNetworkAddress('::ffff:169.254.169.254'),true);assert.equal(blockedNetworkAddress('2001:db8::1'),true);assert.equal(blockedNetworkAddress('2606:4700:4700::1111'),false);});

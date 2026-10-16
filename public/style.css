@@ -159,3 +159,10 @@
 #cpmode {
   display: none !important;
 }
+
+/* Enterprise GRC hero report action: mirror Offensive top-level export placement */
+.grc-workspace-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+.grc-hero-actions{display:flex;flex-direction:column;align-items:flex-end;gap:14px;flex:0 0 auto}
+.grc-hero-actions>.btn{white-space:nowrap}
+.grc-hero-chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:800px){.grc-workspace-hero{flex-direction:column}.grc-hero-actions{align-items:flex-start;width:100%}.grc-hero-chain{justify-content:flex-start}}

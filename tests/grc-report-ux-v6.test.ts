@@ -40,3 +40,6 @@ test('enterprise GRC cover mirrors Offensive report geometry and branding',async
 
 
 test('enterprise GRC repeats table headers, uses portable traceability, and discloses security evidence handoffs',async()=>{const pdf=await readFile(new URL('../src/enterprise-grc-exporters.ts',import.meta.url),'utf8');assert.match(pdf,/addContentPage\(\);draw\(headers,true,true\)/);assert.match(pdf,/Framework traceability:.*-> Evidence:.*-> Test:.*-> Readiness:/);assert.doesNotMatch(pdf,/Framework traceability:.*→/);assert.match(pdf,/Offensive \/ Defensive Security Evidence Handoff/);assert.match(pdf,/Accepted technical reports:/);assert.match(pdf,/Pending GRC review:/);assert.match(pdf,/do not automatically establish control conformity/);});
+
+
+test('SoA decision save validates input and exposes deterministic success or failure feedback',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/async function saveSoaDecision\(\)/);assert.match(js,/Not-applicable controls require a meaningful justification/);assert.match(js,/Saving SoA decision\.\.\./);assert.match(js,/SoA decision saved and workspace refreshed\./);assert.match(js,/SoA save failed:/);assert.match(js,/controlId,applicability,justification,implementation/);});

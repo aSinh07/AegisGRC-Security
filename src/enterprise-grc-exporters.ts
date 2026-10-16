@@ -82,9 +82,12 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
  d.on('data',x=>chunks.push(x));d.on('end',()=>resolve(Buffer.concat(chunks)));d.on('error',reject);
  const navy='#17365D',blue='#2F75B5',pale='#D9EAF7',ink='#202833',muted='#5B6573',line='#AAB7C4',good='#2E7D32',warn='#9A6700',bad='#B42318';
  const pageW=595.28,left=42,right=42,width=pageW-left-right;
- const ensure=(h=70)=>{if(d.y+h>755)d.addPage()};
+ let sectionNo=0;
+ const pageChrome=()=>{d.rect(0,0,pageW,12).fill(navy);d.rect(left,28,30,4).fill(blue);d.fillColor(navy).font('Helvetica-Bold').fontSize(9).text('AEGISGRC',left,38,{width:150,lineBreak:false});d.fillColor(muted).font('Helvetica').fontSize(6).text('SECURITY ASSURANCE PLATFORM',left,51,{width:180,lineBreak:false});d.fillColor(muted).font('Helvetica').fontSize(7).text('CONFIDENTIAL',pageW-right-120,40,{width:120,align:'right',lineBreak:false});d.y=78;d.x=left};
+ const addContentPage=()=>{d.addPage({size:'A4',margin:42});pageChrome()};
+ const ensure=(h=70)=>{if(d.y+h>755)addContentPage()};
  const rule=()=>{d.strokeColor(blue).lineWidth(1).moveTo(left,d.y).lineTo(pageW-right,d.y).stroke();d.moveDown(.45)};
- const h1=(n:string,t:string)=>{ensure(55);d.moveDown(.55).fillColor(navy).font('Helvetica-Bold').fontSize(15).text(n+' '+t);d.moveDown(.15);rule()};
+ const h1=(n:string,t:string)=>{ensure(55);sectionNo++;const num=String(Number(n.replace('.',''))||sectionNo).padStart(2,'0');const y=d.y+4;d.roundedRect(left,y,width,34,4).fill(navy);d.fillColor('#18B6C9').font('Helvetica-Bold').fontSize(10).text(num,left+12,y+11,{width:28,lineBreak:false});d.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(13).text(t,left+54,y+9,{width:width-66,lineBreak:false});d.y=y+43;d.x=left};
  const h2=(t:string)=>{ensure(38);d.moveDown(.35).fillColor(blue).font('Helvetica-Bold').fontSize(10).text(t);d.moveDown(.2)};
  const p=(t:any,size=8.5)=>{ensure(28);d.fillColor(ink).font('Helvetica').fontSize(size).text(s(t),{lineGap:2});d.moveDown(.35)};
  const kv=(k:string,v:any)=>{ensure(22);d.fillColor(muted).font('Helvetica-Bold').fontSize(7.5).text(k.toUpperCase(),{continued:true});d.fillColor(ink).font('Helvetica').text('  '+s(v));};
@@ -94,15 +97,16 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
   draw(headers,true);for(const row of data)draw(row,false);d.moveDown(.45);
  };
  const conclusion=s(m.managementOpinion?.conclusion),statusColor=conclusion==='AUDIT_READY'?good:conclusion==='INSUFFICIENT_EVIDENCE'?warn:bad;
- d.fillColor(navy).font('Helvetica-Bold').fontSize(8).text('AEGISGRC  |  ENTERPRISE ASSURANCE  |  CONFIDENTIAL',{align:'right'});
- d.moveDown(3).fillColor(navy).font('Helvetica-Bold').fontSize(25).text('Enterprise Governance, Risk &\nCompliance Assurance Report',{lineGap:4});
- d.moveDown(.45).fillColor(blue).font('Helvetica').fontSize(11).text('Evidence-led readiness, risk, control assurance and management action');
+ d.rect(0,0,pageW,12).fill(navy);d.rect(left,30,34,4).fill(blue);d.fillColor(navy).font('Helvetica-Bold').fontSize(10).text('AEGISGRC',left,42,{width:160,lineBreak:false});d.fillColor(muted).font('Helvetica').fontSize(6.5).text('SECURITY ASSURANCE PLATFORM',left,56,{width:190,lineBreak:false});d.fillColor(muted).font('Helvetica').fontSize(7).text('CONFIDENTIAL',pageW-right-120,44,{width:120,align:'right',lineBreak:false});
+ d.y=142;d.fillColor(blue).font('Helvetica-Bold').fontSize(11).text('AEGIS GRC',{characterSpacing:1.2});d.moveDown(.35).fillColor(navy).font('Helvetica-Bold').fontSize(26).text('ENTERPRISE GRC\nASSURANCE REPORT',{lineGap:5});
+ d.moveDown(.55).fillColor(blue).font('Helvetica').fontSize(11).text('Governance · Risk · Compliance · Evidence Assurance');
+ d.moveDown(.4).fillColor(muted).fontSize(9).text('Evidence-led readiness, risk, control assurance and accountable management action');
  d.moveDown(1.2);rule();
  kv('Organization',m.organization?.name||'Not recorded');kv('Scope',m.scope?.name||'Not recorded');kv('Frameworks',(m.frameworks||[]).join(', ')||'No mapped framework recorded');kv('Document ID',m.documentControl?.documentId);kv('Version / status',s(m.documentControl?.version)+' / '+s(m.documentControl?.status));kv('Generated',m.documentControl?.generatedAt);
  d.moveDown(1.2).fillColor(statusColor).font('Helvetica-Bold').fontSize(16).text(conclusion||'INTERNAL ASSESSMENT');
  d.fillColor(ink).font('Helvetica').fontSize(9).text(s(m.managementOpinion?.statement),{lineGap:2});
  d.moveDown(.8).fillColor(muted).fontSize(8).text('This package is an internal readiness and control-assurance artifact. It is not certification, accreditation, legal advice or an external audit opinion.');
- d.addPage();
+ addContentPage();
  h1('1.','Executive GRC Summary');
  const e=m.executiveSummary||{};badge('Evidence readiness',s(m.managementOpinion?.evidenceReadinessPercent)+'%');badge('Applicable controls',e.controlsApplicable||0);badge('High/Critical risks',e.highCriticalRisks||0);badge('Open CAPA',e.openCapa||0);d.x=left;d.y+=48;
  table(['Indicator','Current position','Management interpretation'],[

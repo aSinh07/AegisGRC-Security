@@ -624,6 +624,7 @@ app.get('/api/health',async(_req,res)=>{
  const tools={nmap,zap,wapiti,semgrep,sqlmap,tshark,nuclei,trivy,testssl,lynis,grype,syft,kubescape,checkov,gitleaks};const coreReady=nmap.available&&zap.available&&wapiti.available&&sqlmap.available&&nuclei.available;
  res.status(coreReady?200:503).json({ok:coreReady,service:'AegisGRC Security',coreUrlAssessmentReady:coreReady,tools,note:'Availability confirms executable/service readiness only; finding correctness depends on scanner evidence and parser interpretation.'});
 });
+app.get('/api/operations/health',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const role=await userRole(u.userId);if(!['grc_reviewer','admin'].includes(String(role)))return res.status(403).json({error:'Reviewer role required'});res.json(await operationalSnapshot())}catch{res.status(503).json({ok:false,error:'Operational telemetry unavailable'})}});
 async function assessmentAuthorizationAllowed(userId:string,ip:string){
  const key=crypto.createHash('sha256').update('assessment-authorize:'+userId+':'+ip).digest('hex');
  return authAttemptAllowed(key,Math.max(1,Number(process.env.ASSESSMENT_AUTHORIZATIONS_PER_HOUR||20)),60);

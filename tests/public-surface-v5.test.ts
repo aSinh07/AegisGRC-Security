@@ -5,7 +5,7 @@ test('public surface ships privacy terms and explicit assurance boundary',async(
 test('successful MFA authentication routes to protected workspace',async()=>{const auth=await readFile('public/auth.js','utf8');assert.match(auth,/location\.assign\('\/index\.html'\)/);});
 test('public release pages are no-store and legal routes are explicit',async()=>{const server=await readFile('src/server.ts','utf8');assert.match(server,/privacy\.html/);assert.match(server,/terms\.html/);assert.match(server,/app\.get\('\/privacy'/);assert.match(server,/app\.get\('\/terms'/);assert.match(server,/no-store, max-age=0, must-revalidate/);});
 
-test('public auth shell includes reset password visibility control',()=>{
- const html=readFileSync('public/landing.html','utf8');
+test('public auth shell includes reset password visibility control',async()=>{
+ const html=await readFile('public/landing.html','utf8');
  assert.match(html,/data-aegis-click="togglePassword\('resetPw',this\)"/);
 });

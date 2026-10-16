@@ -166,3 +166,5 @@
 .grc-hero-actions>.btn{white-space:nowrap}
 .grc-hero-chain{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:800px){.grc-workspace-hero{flex-direction:column}.grc-hero-actions{align-items:flex-start;width:100%}.grc-hero-chain{justify-content:flex-start}}
+
+.grc-report-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.grc-report-controls select{min-width:170px}.grc-report-controls #grcHeroFormat{min-width:92px}@media(max-width:800px){.grc-report-controls{justify-content:flex-start;width:100%}}

@@ -82,7 +82,7 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
  d.on('data',x=>chunks.push(x));d.on('end',()=>resolve(Buffer.concat(chunks)));d.on('error',reject);
  const navy='#17365D',blue='#2F75B5',pale='#D9EAF7',ink='#202833',muted='#5B6573',line='#AAB7C4',good='#2E7D32',warn='#9A6700',bad='#B42318';
  const pageW=595.28,left=42,right=42,width=pageW-left-right;
- const ensure=(h=70)=>{if(d.y+h>790)d.addPage()};
+ const ensure=(h=70)=>{if(d.y+h>755)d.addPage()};
  const rule=()=>{d.strokeColor(blue).lineWidth(1).moveTo(left,d.y).lineTo(pageW-right,d.y).stroke();d.moveDown(.45)};
  const h1=(n:string,t:string)=>{ensure(55);d.moveDown(.55).fillColor(navy).font('Helvetica-Bold').fontSize(15).text(n+' '+t);d.moveDown(.15);rule()};
  const h2=(t:string)=>{ensure(38);d.moveDown(.35).fillColor(blue).font('Helvetica-Bold').fontSize(10).text(t);d.moveDown(.2)};
@@ -118,7 +118,7 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
  if(!soa.length)p('No approved applicability records were supplied for this scope.');
  else table(['Control','Applicability','Implementation','Approval'],soa.map((x:any)=>[x.control_key||x.controlKey,x.applicability,x.implementation,x.approved_at?'APPROVED':'PENDING']),[126,110,135,140]);
  h1('4.','Control Assurance & Framework Traceability');
- for(const c of m.controlAssurance||[]){ensure(78);h2(s(c.controlKey)+' · '+s(c.title));p('Domain: '+s(c.domain)+'   |   Applicability: '+s(c.applicability)+'   |   Implementation: '+s(c.implementation)+'   |   Readiness: '+s(c.readiness),7.8);p('Validated evidence: '+s(c.validEvidence)+'   |   Latest passing tests: '+s(c.passedLatestTests)+'   |   Open issues: '+s(c.openIssues),7.8);const maps=(c.frameworkMappings||[]).map((x:any)=>s(x.framework)+' '+s(x.requirementKey||x.requirement_key)).join('; ');if(maps)p('Framework linkage: '+maps,7.6);if((c.gaps||[]).length)p('Required action: '+c.gaps.join(' '),7.8)}
+ for(const c of m.controlAssurance||[]){ensure(78);h2(s(c.controlKey)+' · '+s(c.title));p('Domain: '+s(c.domain)+'   |   Applicability: '+s(c.applicability)+'   |   Implementation: '+s(c.implementation)+'   |   Readiness: '+s(c.readiness),7.8);p('Validated evidence: '+s(c.validEvidence)+'   |   Latest passing tests: '+s(c.passedLatestTests)+'   |   Open issues: '+s(c.openIssues),7.8);const maps=[...new Map((c.frameworkMappings||[]).map((x:any)=>[s(x.framework).trim().toUpperCase()+'|'+s(x.requirementKey||x.requirement_key).trim().toUpperCase(),x])).values()].map((x:any)=>s(x.framework)+(s(x.requirementKey||x.requirement_key)?' → '+s(x.requirementKey||x.requirement_key):'')).join('; ');if(maps)p('Framework traceability: '+maps+' → Evidence '+s(c.validEvidence)+' → Test '+(Number(c.passedLatestTests)>0?'PASS':'NOT_TESTED/ACTION_REQUIRED')+' → '+s(c.readiness),7.6);if((c.gaps||[]).length)p('Required action: '+c.gaps.join(' '),7.8)}
  h1('5.','Enterprise Risk Register');
  const risks=(m.riskRegister||[]).slice(0,80);if(!risks.length)p('No enterprise risks recorded in the selected scope.');
  else table(['Risk','Scenario / title','Rating','Treatment','Status'],risks.map((x:any)=>[x.risk_key,x.title,x.inherent_rating,x.treatment,x.status]),[72,205,70,95,69]);
@@ -135,7 +135,7 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
  const pa=(m.priorityActions||[]).slice(0,100);if(!pa.length)p('No priority management actions were generated from the recorded evidence state.');
  else table(['Priority','Type / key','Required management action'],pa.map((x:any)=>[x.priority,s(x.type)+' '+s(x.key),x.action]),[72,105,334]);
  h1('13.','Assurance Boundary & Final Conclusion');for(const x of m.assuranceBoundary||[])p('• '+x,8);p('Final internal conclusion: '+conclusion+'. '+s(m.managementOpinion?.statement),9);
- const pages=d.bufferedPageRange();for(let i=0;i<pages.count;i++){d.switchToPage(pages.start+i);d.fillColor(muted).font('Helvetica').fontSize(7).text('AegisGRC Security  |  '+s(m.documentControl?.classification)+'  |  '+s(m.documentControl?.documentId),left,806,{width:380});d.text('Page '+(i+1)+' of '+pages.count,440,806,{width:110,align:'right'})}
+ const pages=d.bufferedPageRange();for(let i=0;i<pages.count;i++){d.switchToPage(pages.start+i);d.fillColor(muted).font('Helvetica').fontSize(7).text('AegisGRC Security  |  '+s(m.documentControl?.classification)+'  |  '+s(m.documentControl?.documentId),left,780,{width:380,lineBreak:false});d.text('Page '+(i+1)+' of '+pages.count,440,780,{width:110,align:'right',lineBreak:false})}
  d.end();
 })}
 

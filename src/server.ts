@@ -623,17 +623,14 @@ app.get('/api/health',async(_req,res)=>{
  const tools={nmap,zap,wapiti,semgrep,sqlmap,tshark,nuclei,trivy,testssl,lynis,grype,syft,kubescape,checkov,gitleaks};const coreReady=nmap.available&&zap.available&&wapiti.available&&sqlmap.available&&nuclei.available;
  res.status(coreReady?200:503).json({ok:coreReady,service:'AegisGRC Security',coreUrlAssessmentReady:coreReady,tools,note:'Availability confirms executable/service readiness only; finding correctness depends on scanner evidence and parser interpretation.'});
 });
-const assessmentAuthorizationAttempts=new Map<string,{windowStarted:number,count:number}>();
-function assessmentAuthorizationAllowed(userId:string,ip:string){
- const key=userId+':'+ip,now=Date.now(),windowMs=60*60*1000,limit=Math.max(1,Number(process.env.ASSESSMENT_AUTHORIZATIONS_PER_HOUR||20));
- const prior=assessmentAuthorizationAttempts.get(key);
- if(!prior||now-prior.windowStarted>=windowMs){assessmentAuthorizationAttempts.set(key,{windowStarted:now,count:1});return true}
- if(prior.count>=limit)return false;prior.count++;return true;
+async function assessmentAuthorizationAllowed(userId:string,ip:string){
+ const key=crypto.createHash('sha256').update('assessment-authorize:'+userId+':'+ip).digest('hex');
+ return authAttemptAllowed(key,Math.max(1,Number(process.env.ASSESSMENT_AUTHORIZATIONS_PER_HOUR||20)),60);
 }
 app.post('/api/assessment/authorize',async(req,res)=>{
   try{
     const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});
-    if(!assessmentAuthorizationAllowed(u.userId,String(req.ip||req.socket?.remoteAddress||'unknown')))return res.status(429).json({error:'Assessment authorization quota exceeded. Try again later.'});
+    if(!await assessmentAuthorizationAllowed(u.userId,String(req.ip||req.socket?.remoteAddress||'unknown')))return res.status(429).json({error:'Assessment authorization quota exceeded. Try again later.'});
     if(req.body?.authorized!==true) return res.status(403).json({error:'Explicit authorization confirmation is required'});
     const t=await validateTarget(String(req.body.targetUrl||''));
     let orgs=await memberships(u.userId);

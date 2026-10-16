@@ -27,3 +27,5 @@ test('framework PDF follows governed professional report structure',async()=>{
  assert.match(pdf,/not ISO certification or third-party attestation/);
  assert.match(pdf,/NOT_TESTED/);
 });
+
+test('Enterprise GRC export is exposed in workspace hero like Offensive report export',async()=>{const html=await readFile('public/index.html','utf8');const off=html.indexOf('Export Offensive Technical Report');const grc=html.indexOf('Export Enterprise GRC Report');const hero=html.indexOf('Enterprise GRC Command Center');assert.ok(off>0);assert.ok(grc>hero&&grc-hero<1200);assert.match(html,/data-aegis-click="downloadEnterpriseGrc\(\)"/);});

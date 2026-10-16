@@ -29,3 +29,5 @@ test('framework PDF follows governed professional report structure',async()=>{
 });
 
 test('Enterprise GRC export is exposed in workspace hero like Offensive report export',async()=>{const html=await readFile('public/index.html','utf8');const off=html.indexOf('Export Offensive Technical Report');const grc=html.indexOf('Export Enterprise GRC Report');const hero=html.indexOf('Enterprise GRC Command Center');assert.ok(off>0);assert.ok(grc>hero&&grc-hero<1200);assert.match(html,/data-aegis-click="downloadEnterpriseGrc\(\)"/);});
+
+test('top GRC export requires explicit framework format and step-up authentication',async()=>{const html=await readFile('public/index.html','utf8'),js=await readFile('public/dashboard.js','utf8');assert.match(html,/id="grcHeroFramework"/);assert.match(html,/id="grcHeroFormat"/);assert.match(html,/Export Enterprise GRC Report/);assert.match(js,/Select the framework for this GRC report first/);assert.match(js,/pendingExport=\{kind:'enterprise',enterprise:true,framework:fw,format\}/);assert.match(js,/x-report-password/);assert.match(js,/x-report-totp/);});

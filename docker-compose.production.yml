@@ -30,6 +30,8 @@ services:
       - ALL
     pids_limit: 256
     mem_limit: 1g
+    cpus: 2.0
+    stop_grace_period: 30s
 
 volumes:
   aegis-db:

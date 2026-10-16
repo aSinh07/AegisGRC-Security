@@ -43,3 +43,6 @@ test('enterprise GRC repeats table headers, uses portable traceability, and disc
 
 
 test('SoA decision save validates input and exposes deterministic success or failure feedback',async()=>{const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(js,/async function saveSoaDecision\(\)/);assert.match(js,/Not-applicable controls require a meaningful justification/);assert.match(js,/Saving SoA decision\.\.\./);assert.match(js,/SoA decision saved and workspace refreshed\./);assert.match(js,/SoA save failed:/);assert.match(js,/controlId,applicability,justification,implementation/);});
+
+
+test('SoA save uses explicit DOM bindings and local visible status',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(html,/id="saveSoaDecisionBtn"[^>]*type="button"/);assert.match(html,/id="soaDecisionMsg"[^>]*role="status"/);assert.match(js,/document\.getElementById\('soaControl'\)/);assert.match(js,/document\.getElementById\('soaDecisionMsg'\)/);assert.match(js,/btn\.disabled=true/);assert.match(js,/SoA decision saved successfully\./);assert.match(js,/encodeURIComponent\(scopeId\)/);});

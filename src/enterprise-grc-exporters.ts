@@ -97,15 +97,26 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
   draw(headers,true);for(const row of data)draw(row,false);d.moveDown(.45);
  };
  const conclusion=s(m.managementOpinion?.conclusion),statusColor=conclusion==='AUDIT_READY'?good:conclusion==='INSUFFICIENT_EVIDENCE'?warn:bad;
- d.rect(0,0,pageW,12).fill(navy);d.rect(left,30,34,4).fill(blue);d.fillColor(navy).font('Helvetica-Bold').fontSize(10).text('AEGISGRC',left,42,{width:160,lineBreak:false});d.fillColor(muted).font('Helvetica').fontSize(6.5).text('SECURITY ASSURANCE PLATFORM',left,56,{width:190,lineBreak:false});d.fillColor(muted).font('Helvetica').fontSize(7).text('CONFIDENTIAL',pageW-right-120,44,{width:120,align:'right',lineBreak:false});
- d.y=142;d.fillColor(blue).font('Helvetica-Bold').fontSize(11).text('AEGIS GRC',{characterSpacing:1.2});d.moveDown(.35).fillColor(navy).font('Helvetica-Bold').fontSize(26).text('ENTERPRISE GRC\nASSURANCE REPORT',{lineGap:5});
- d.moveDown(.55);d.x=left;d.fillColor(blue).font('Helvetica').fontSize(11).text('Governance · Risk · Compliance · Evidence Assurance',left,d.y,{width:width});
- d.moveDown(.4);d.x=left;d.fillColor(muted).fontSize(9).text('Evidence-led readiness, risk, control assurance and accountable management action',left,d.y,{width:width});
- d.moveDown(1.2);rule();
- kv('Organization',m.organization?.name||'Not recorded');kv('Scope',m.scope?.name||'Not recorded');kv('Frameworks',(m.frameworks||[]).join(', ')||'No mapped framework recorded');kv('Document ID',m.documentControl?.documentId);kv('Version / status',s(m.documentControl?.version)+' / '+s(m.documentControl?.status));kv('Generated',m.documentControl?.generatedAt);
- d.moveDown(1.2).fillColor(statusColor).font('Helvetica-Bold').fontSize(16).text(conclusion||'INTERNAL ASSESSMENT');
- d.fillColor(ink).font('Helvetica').fontSize(9).text(s(m.managementOpinion?.statement),{lineGap:2});
- d.moveDown(.8).fillColor(muted).fontSize(8).text('This package is an internal readiness and control-assurance artifact. It is not certification, accreditation, legal advice or an external audit opinion.');
+ // Cover intentionally mirrors the Offensive Security report geometry and palette.
+ const H=841.89,CW=width,coverNavy='#0B1830',coverBlue='#155EEF',coverCyan='#16B8C7',coverMuted='#667085',coverSoft='#F5F8FC',coverWhite='#FFFFFF';
+ d.rect(0,0,pageW,12).fill(coverNavy);d.rect(left,28,30,4).fill(coverCyan);
+ d.fillColor(coverNavy).font('Helvetica-Bold').fontSize(10).text('AEGISGRC',left,38,{width:160,lineBreak:false});
+ d.fillColor(coverMuted).font('Helvetica').fontSize(6).text('SECURITY ASSURANCE PLATFORM',left,51,{width:200,lineBreak:false});
+ d.fillColor(coverMuted).font('Helvetica').fontSize(7).text('CONFIDENTIAL',pageW-right-120,40,{width:120,align:'right',lineBreak:false});
+ d.rect(0,100,pageW,230).fill(coverNavy);d.rect(left,126,52,5).fill(coverCyan);
+ d.fillColor(coverWhite).font('Helvetica-Bold').fontSize(30).text('AEGIS',left,150,{width:CW,lineBreak:false});
+ d.fillColor(coverCyan).font('Helvetica-Bold').fontSize(30).text('GRC',left+108,150,{width:CW-108,lineBreak:false});
+ d.fillColor('#B9C7DD').font('Helvetica').fontSize(9).text('GRC ASSURANCE REPORT',left,194,{width:CW,lineBreak:false});
+ d.fillColor(coverWhite).font('Helvetica-Bold').fontSize(22).text('Enterprise Governance, Risk & Compliance Assurance',left,225,{width:CW,lineGap:3});
+ d.fillColor('#D7E3F4').font('Helvetica').fontSize(10).text('Evidence-led readiness, control assurance, risk and accountable management action',left,278,{width:CW});
+ const coverBadge=(label:string,x:number,w=96,color=coverBlue)=>{d.roundedRect(x,354,w,18,9).fill(color);d.fillColor(coverWhite).font('Helvetica-Bold').fontSize(7).text(label,x,359,{width:w,align:'center',lineBreak:false})};
+ coverBadge('GRC ASSURANCE',left,96,coverBlue);coverBadge(conclusion||'INTERNAL',left+106,118,statusColor);
+ let cy=405;const coverMeta=[['Organization',m.organization?.name||'Not recorded'],['Scope',m.scope?.name||'Not recorded'],['Frameworks',(m.frameworks||[]).join(', ')||'No mapped framework recorded'],['Document ID',m.documentControl?.documentId],['Version / Status',s(m.documentControl?.version)+' / '+s(m.documentControl?.status)],['Generated',m.documentControl?.generatedAt]];
+ for(const [k,v] of coverMeta){d.fillColor(coverMuted).font('Helvetica').fontSize(7).text(String(k),left,cy,{width:112,lineBreak:false});d.fillColor(ink).font('Helvetica-Bold').fontSize(8).text(s(v),left+120,cy,{width:CW-120});cy=Math.max(cy+25,d.y+8)}
+ const assuranceY=Math.max(570,cy+12);d.roundedRect(left,assuranceY,CW,92,6).fill(coverSoft);d.rect(left,assuranceY,4,92).fill(statusColor);
+ d.fillColor(coverBlue).font('Helvetica-Bold').fontSize(8).text('EVIDENCE ASSURANCE STATEMENT',left+16,assuranceY+17,{width:CW-32,lineBreak:false});
+ d.fillColor(ink).font('Helvetica').fontSize(9).text('Conclusion: '+(conclusion||'INTERNAL ASSESSMENT')+'. '+s(m.managementOpinion?.statement)+' This is an internal readiness and control-assurance artifact, not certification, accreditation, legal advice or an external audit opinion.',left+16,assuranceY+36,{width:CW-32,lineGap:2});
+ d.x=left;d.y=assuranceY+102;
  addContentPage();
  h1('1.','Executive GRC Summary');
  const e=m.executiveSummary||{};badge('Evidence readiness',s(m.managementOpinion?.evidenceReadinessPercent)+'%');badge('Applicable controls',e.controlsApplicable||0);badge('High/Critical risks',e.highCriticalRisks||0);badge('Open CAPA',e.openCapa||0);d.x=left;d.y+=48;

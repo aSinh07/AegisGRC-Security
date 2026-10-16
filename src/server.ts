@@ -85,6 +85,7 @@ import {initBreachAssessment,deriveBreachAssessment,listBreachAssessments} from 
 import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,recoverStaleScannerJobs,executeClaimedScannerJob,scannerRegistry} from './scanner-jobs.js';
 import { analyzeIntel } from './intel-ai.js';
 import {offensiveCapabilityCatalog,defensiveAssessment,securityWorkspaceSummary} from './security-operations.js';
+import {operationalSnapshot} from './operational-health.js';
 import {capabilitiesFor,capabilitySummary} from './security-capabilities.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 

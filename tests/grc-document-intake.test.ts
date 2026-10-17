@@ -12,7 +12,7 @@ test('deterministic GRC intake extracts labelled governance facts without AI',()
 test('intake engine does not invent facts from unlabelled prose',()=>{assert.deepEqual(parseGrcDocumentDeterministically('This document discusses governance generally without structured labelled records.'),[])});
 test('Document-to-GRC UI requires staged human review and discloses no AI',()=>{
  const ui=fs.readFileSync('public/index.html','utf8'),js=fs.readFileSync('public/dashboard.js','utf8'),engine=fs.readFileSync('src/grc-document-intake.ts','utf8');
- assert.match(ui,/Document-to-GRC Intake/);assert.match(ui,/AI\/LLM/);assert.match(ui,/Independent Approval/);
+ assert.match(ui,/Document-to-GRC Intake/);assert.match(ui,/No parsing result declares compliance/);assert.match(ui,/Independent Approval/);
  for(const fn of ['parseGrcIntake','saveGrcIntakeReview','approveGrcIntake','importGrcIntake'])assert.match(js,new RegExp('function '+fn+'\\('));
  assert.match(engine,/automaticComplianceDecision:false/);assert.match(engine,/Independent reviewer required/);assert.doesNotMatch(engine,/gemini|openai|anthropic|llm/i);
 });
@@ -66,12 +66,12 @@ test('intake can stage before scope but governed import binds an explicit organi
 test('Document-to-GRC supports multi-file staging and responsive async review actions',()=>{
  const ui=fs.readFileSync('public/index.html','utf8'),js=fs.readFileSync('public/dashboard.js','utf8');
  assert.match(ui,/id="grcIntakeFile" type="file" multiple/);
- assert.match(ui,/Upload & Parse Documents/);
+ assert.match(ui,/Upload & Autofill Documents/);
  assert.match(js,/async function parseGrcIntake\(\)/);
  assert.match(js,/files=\[\.\.\.\(input\?\.files\|\|\[\]\)\]/);
  assert.match(js,/for\(let i=0;i<files\.length;i\+\+\)/);
  assert.match(js,/results\.push\(\{ok:true,file:file\.name,id:created\.id/);
- assert.match(js,/each document remains separately governed/);
+ assert.match(js,/Existing GRC fields were populated where deterministic document facts were available/);
  assert.match(js,/async function saveGrcIntakeReview\(\)/);
  assert.match(js,/Saving '\+decisions\.length\+' review decision\(s\)/);
  assert.match(js,/This intake is REVIEWED; an independent reviewer may now approve it/);

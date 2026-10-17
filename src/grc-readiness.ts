@@ -36,6 +36,9 @@ export async function organizationAuditReadiness(userId:string,orgId:string,scop
  FROM grc_control_framework_mappings m JOIN grc_framework_requirements fr ON fr.id=m.requirement_id WHERE m.control_id=sc.control_id AND fr.active=true),'[]'::json) mappings,
  (SELECT count(*)::int FROM grc_evidence_requests er JOIN grc_evidence_versions ev ON ev.evidence_request_id=er.id
   WHERE er.organization_id=sc.organization_id AND er.scope_control_id=sc.id AND er.status='VALID' AND ev.validated_at IS NOT NULL AND ev.valid_until>now()) valid_evidence,
+ COALESCE((SELECT json_agg(jsonb_build_object('requestId',er.id,'title',er.title,'status',er.status,'version',ev.version,'sha256',ev.sha256,'verifiedAt',ev.verified_at,'validatedAt',ev.validated_at,'validUntil',ev.valid_until) ORDER BY er.created_at,ev.version)
+  FROM grc_evidence_requests er JOIN grc_evidence_versions ev ON ev.evidence_request_id=er.id
+  WHERE er.organization_id=sc.organization_id AND er.scope_control_id=sc.id),'[]'::json) evidence_records,
  (SELECT count(*)::int FROM grc_control_test_definitions td
   WHERE td.organization_id=sc.organization_id AND td.scope_control_id=sc.id AND td.active=true AND EXISTS(
    SELECT 1 FROM grc_control_test_runs tr WHERE tr.test_definition_id=td.id AND tr.organization_id=sc.organization_id AND tr.result='PASS'

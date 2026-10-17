@@ -15,9 +15,16 @@ export function buildEnterpriseGrcReport(input:{
  const generatedAt=input.generatedAt||new Date().toISOString();
  const selectedFramework=s(input.selectedFramework).trim().toUpperCase();
  const allControls=rows(input.readiness?.controls);
- const controls=selectedFramework?allControls.filter((c:any)=>rows(c.mappings).some((m:any)=>s(m.framework).trim().toUpperCase()===selectedFramework)):allControls;
+ const frameworkMatchedControls=selectedFramework?allControls.filter((c:any)=>rows(c.mappings).some((m:any)=>s(m.framework).trim().toUpperCase()===selectedFramework)):allControls;
+ // Never erase persisted scope records merely because framework mapping metadata is incomplete.
+ // The selected framework narrows mapped controls when mappings exist; otherwise the report
+ // preserves the selected scope's real controls/SoA and marks the mapping gap explicitly.
+ const frameworkFilterFallback=Boolean(selectedFramework&&allControls.length&&frameworkMatchedControls.length===0);
+ const controls=frameworkFilterFallback?allControls:frameworkMatchedControls;
  const controlKeys=new Set(controls.map((c:any)=>s(c.control_key||c.controlKey)));
- const soaControls=rows(input.soa?.controls).filter((c:any)=>!selectedFramework||controlKeys.has(s(c.control_key||c.controlKey)));
+ const allSoaControls=rows(input.soa?.controls);
+ const matchedSoaControls=allSoaControls.filter((c:any)=>!selectedFramework||controlKeys.has(s(c.control_key||c.controlKey)));
+ const soaControls=frameworkFilterFallback?allSoaControls:matchedSoaControls;
  const risks=rows(input.risks),issues=rows(input.issues),capa=rows(input.capa),traces=rows(input.assessmentTraces),securityHandoffs=rows(input.securityHandoffs),automationRuns=rows(input.automationRuns),incidents=rows(input.incidents),identitySignals=rows(input.identitySignals);
  const applicable=controls.filter((x:any)=>x.applicability==='APPLICABLE');
  const ready=controls.filter((x:any)=>x.readiness==='EVIDENCE_READY');
@@ -67,7 +74,7 @@ export function buildEnterpriseGrcReport(input:{
   organization:{id:input.organization?.id,name:input.organization?.name,industry:input.organization?.industry},
   scope:input.scope,
   frameworks:[...frameworkSet].sort(),
-  reportContext:{selectedFramework:selectedFramework||null,scopeMode:selectedFramework?'FRAMEWORK_FILTERED':'MULTI_FRAMEWORK'},
+  reportContext:{selectedFramework:selectedFramework||null,scopeMode:selectedFramework?'FRAMEWORK_FILTERED':'MULTI_FRAMEWORK',frameworkFilterFallback,frameworkMappingWarning:frameworkFilterFallback?'No controls in this populated scope are mapped to the selected framework. Persisted scope controls and SoA decisions are retained in this report so entered governance data is not silently hidden. Add governed framework mappings to obtain framework-specific filtering.':null},
   managementOpinion:{
    conclusion:opinion,
    statement:opinion==='AUDIT_READY'

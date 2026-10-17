@@ -22,7 +22,7 @@ import { renderPdf,renderFrameworkPdf } from './pdf.js';
 import {renderDefensiveSecurityPdf} from './defensive-report.js';
 import {assessmentTrace} from './audit-trace.js';
 import { authConfigured, login, logout } from './auth.js';
-import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,userLogout,userRole,verifyUserStepUp,resetPasswordWithTotp,authAttemptAllowed,recordAuthFailure,clearAuthFailures } from './user-auth.js';
+import { initUsers,beginRegistration,confirmRegistration,userLogin,userSession,userLogout,userRole,verifyUserStepUp,resetPasswordWithTotp,authAttemptAllowed,recordAuthFailure,clearAuthFailures,consumeRateLimit } from './user-auth.js';
 import { initGrcReviews,submitGrcReview,listGrcReviews,reviewGrcReport,verifyGrcReview } from './grc-review.js';
 import { initGrcCore,createControlAssessment,updateControlAssessment,reviewControlAssessment,controlAssessmentHistory,listControlAssessments,createRiskMethodology,listRiskMethodologies,createAiImpactAssessment,listAiImpactAssessments,createPrivacyAssessment,listPrivacyAssessments } from './grc-core.js';
 import { initOrganizations,createOrganization,memberships,createScope,listScopes,addMember,setMemberStatus,listMembers,assignAssessmentToOrganization,requireAssessmentAccess,requireOrgPermission } from './grc-organizations.js';
@@ -629,7 +629,7 @@ app.get('/api/health',async(_req,res)=>{
 app.get('/api/operations/health',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const role=await userRole(u.userId);if(!['grc_reviewer','admin'].includes(String(role)))return res.status(403).json({error:'Reviewer role required'});res.json(await operationalSnapshot())}catch{res.status(503).json({ok:false,error:'Operational telemetry unavailable'})}});
 async function assessmentAuthorizationAllowed(userId:string,ip:string){
  const key=crypto.createHash('sha256').update('assessment-authorize:'+userId+':'+ip).digest('hex');
- return authAttemptAllowed(key,Math.max(1,Number(process.env.ASSESSMENT_AUTHORIZATIONS_PER_HOUR||20)),60);
+ return consumeRateLimit(key,Math.max(1,Number(process.env.ASSESSMENT_AUTHORIZATIONS_PER_HOUR||20)),60);
 }
 app.post('/api/assessment/authorize',async(req,res)=>{
   try{

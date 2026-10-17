@@ -23,7 +23,7 @@ test('intake persists staging separately and never directly writes compliance st
 test('governed import targets live enterprise modules and requires an explicit scope',()=>{
  const s=fs.readFileSync('src/grc-document-intake.ts','utf8');
  assert.match(s,/A governed scope is required before importing document proposals/);
- for(const table of ['grc_scope_controls','grc_risks','grc_third_parties','grc_policies','grc_audits','grc_document_governed_records'])assert.match(s,new RegExp(table));
+ for(const table of ['grc_scope_controls','grc_enterprise_risks','grc_third_parties','grc_policies','grc_audits','grc_document_governed_records'])assert.match(s,new RegExp(table));
  assert.match(s,/automaticComplianceDecision:false/);
 });
 
@@ -101,4 +101,9 @@ test('multi-document autofill exposes provenance and flags conflicts instead of 
  const js=fs.readFileSync('public/dashboard.js','utf8'),html=fs.readFileSync('public/index.html','utf8'),engine=fs.readFileSync('src/grc-document-intake.ts','utf8');
  assert.match(js,/mergeDocumentAutofill/);assert.match(js,/CONFLICT — REVIEW/);assert.match(js,/sourceLine/);
  assert.match(html,/grcIntakeAutofill/);assert.match(engine,/sourceProvenancePreserved:true/);assert.match(engine,/governedRecords:true/);
+});
+
+test('enterprise exporters disclose populated vendor policy audit and finding detail',()=>{
+ const e=fs.readFileSync('src/enterprise-grc-exporters.ts','utf8'),a=fs.readFileSync('src/audit-management.ts','utf8');
+ assert.match(e,/Findings \/ workpapers/);assert.match(e,/thirdPartyRisk\?\.vendors/);assert.match(e,/policyGovernance\?\.policies/);assert.match(a,/workpaper_details/);
 });

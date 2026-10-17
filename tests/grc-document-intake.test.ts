@@ -48,6 +48,6 @@ test('Enterprise GRC presents intake before scope operations and report export a
  const scopes=ui.indexOf('<h3>Scopes</h3>');
  const report=ui.indexOf('FINAL STEP · REPORTING');
  assert.ok(intake>0&&scopes>intake&&report>scopes);
- assert.match(ui,/INTAKE<\\/span>.*REVIEW<\\/span>.*IMPORT<\\/span>.*SCOPE & CONTROLS<\\/span>.*EVIDENCE<\\/span>.*REPORT<\\/span>/s);
+ assert.ok(ui.indexOf('INTAKE</span>')<ui.indexOf('REVIEW</span>')&&ui.indexOf('REVIEW</span>')<ui.indexOf('IMPORT</span>')&&ui.indexOf('IMPORT</span>')<ui.indexOf('SCOPE & CONTROLS</span>')&&ui.indexOf('SCOPE & CONTROLS</span>')<ui.indexOf('EVIDENCE</span>')&&ui.indexOf('EVIDENCE</span>')<ui.indexOf('REPORT</span>'));
  assert.match(ui,/Generate & Export Enterprise GRC Report/);
 });

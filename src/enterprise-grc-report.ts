@@ -127,6 +127,7 @@ export function buildEnterpriseGrcReport(input:{
   operationalResilience:input.resilience||{services:[],latestExercises:[],gaps:[],summary:{}},
   policyGovernance:input.policy||{policies:[],summary:{}},
   governancePerformance:input.governancePerformance||{appetites:[],metrics:[],reviews:[],summary:{}},
+  dataProtectionOperations:input.privacy||{activities:[],legalRegister:[],notices:[],breaches:[],tests:[],summary:{}},
   auditManagement:input.audit||{audits:[],summary:{}},
   iso42001AuditEvidenceReadiness:input.auditEvidenceReadiness||{requests:[],summary:{total:0,evidenced:0,actionRequired:0,percent:0}},
   sla:input.sla||null,

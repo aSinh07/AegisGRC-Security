@@ -76,9 +76,20 @@ async function loadControlAssurance(){
  if(!activeGrcOrg)return;
  try{const q=activeGrcScope?'?scopeId='+encodeURIComponent(activeGrcScope):'',d=await jf('/api/grc/organizations/'+activeGrcOrg+'/control-assessments'+q),rows=d.assessments||[];
  assuranceControl.innerHTML='<option value="">Select control assessment</option>'+rows.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.control_key)+' · '+esc(x.control_title)+' · '+esc(x.overall_status)+'</option>').join('');
- assuranceHistory.innerHTML=rows.length?grcTable(rows,[['Control','control_key'],['Automation','automated_result'],['Manual','manual_result'],['Evidence','evidence_sufficiency'],['Design','design_effectiveness'],['Operating','operating_effectiveness'],['Approval','approval_status'],['Final','overall_status']]):'<p class="muted">No control assessments exist for this scope yet.</p>';
+ assuranceHistory.innerHTML=rows.length?grcTable(rows,[['Control','control_key'],['Automation','automated_result'],['Manual','manual_result'],['Evidence','evidence_sufficiency'],['Design','design_effectiveness'],['Operating','operating_effectiveness'],['Approval','approval_status'],['Final','overall_status']]):'<p class="muted">No control assessments exist for this scope yet. Click Initialize Scope Assessments once to create them from the scoped control inventory.</p>';
+ const reviewIds=['assuranceEvidence','assuranceManual','assuranceDesign','assuranceOperating','assuranceApproval','assuranceNotes'];for(const id of reviewIds){const el=document.getElementById(id);if(el)el.disabled=!rows.length}
+ const init=document.getElementById('initializeAssuranceBtn');if(init)init.disabled=!activeGrcScope;
+ assuranceMsg.textContent=rows.length?'Select a control assessment to record or inspect its governed review.':(activeGrcScope?'No assessments yet. Click Initialize Scope Assessments.':'Select a scope first.');
  }catch(e){assuranceMsg.textContent=e.message}
 }
+async function initializeScopeAssurance(){
+ if(!activeGrcOrg||!activeGrcScope)return assuranceMsg.textContent='Select an organization and scope first.';
+ const btn=document.getElementById('initializeAssuranceBtn');try{if(btn){btn.disabled=true;btn.textContent='Initializing...'}assuranceMsg.textContent='Loading scoped controls...';
+ const d=await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/scopes/'+encodeURIComponent(activeGrcScope)+'/soa'),controls=d.controls||[];
+ if(!controls.length)return assuranceMsg.textContent='This scope has no controls yet. Add scope controls before initializing assurance.';
+ let completed=0;for(const x of controls){if(!x.control_id)throw new Error('Scoped control is missing its canonical control identity.');await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/control-assessments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scopeId:activeGrcScope,controlId:x.control_id})});completed++}
+ assuranceMsg.textContent='Initialized '+completed+' governed control assessment'+(completed===1?'':'s')+'.';await loadControlAssurance();
+ }catch(e){assuranceMsg.textContent='Assurance initialization failed: '+e.message}finally{if(btn){btn.disabled=false;btn.textContent='Initialize Scope Assessments'}}}
 async function submitControlAssuranceReview(){
  if(!activeGrcOrg||!assuranceControl.value)return assuranceMsg.textContent='Select an organization and control assessment.';
  assuranceMsg.textContent='Recording governed review…';

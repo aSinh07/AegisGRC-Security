@@ -28,7 +28,7 @@ test('onboarding metadata is descriptive and does not replace RBAC role',()=>{
 test('framework crosswalk remains inside enterprise GRC workflow',()=>{
  const ui=fs.readFileSync('public/index.html','utf8');
  assert.match(ui,/Frameworks & Controls/);
- assert.match(ui,/openEnterpriseFrameworks/);
+ assert.doesNotMatch(ui,/Open Evidence Assessment/);
  assert.match(ui,/GRC Framework Crosswalk/);
  assert.match(ui,/operational readiness—not certification/);
 });

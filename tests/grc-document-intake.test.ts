@@ -112,3 +112,5 @@ test('enterprise report carries imported document provenance without treating de
  const engine=fs.readFileSync('src/grc-document-intake.ts','utf8'),server=fs.readFileSync('src/server.ts','utf8'),report=fs.readFileSync('src/enterprise-grc-report.ts','utf8'),exporters=fs.readFileSync('src/enterprise-grc-exporters.ts','utf8');
  assert.match(engine,/documentIntakeReportContext/);assert.match(server,/documentIntakeReportContext/);assert.match(report,/documentDeclaredFrameworks/);assert.match(exporters,/Document declarations are provenance only until mapped to governed controls/);
 });
+
+test('every successful multi-document upload remains reachable for review',()=>{const js=fs.readFileSync('public/dashboard.js','utf8');assert.match(js,/data-action=\\"openGrcIntake\\"/);assert.match(js,/Review '\+esc\(r\.file\)/);});

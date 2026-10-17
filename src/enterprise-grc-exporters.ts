@@ -75,6 +75,8 @@ export function enterpriseGrcXlsx(m:any){
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.operationalResilience?.services||[]),'Resilience Services');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.operationalResilience?.latestExercises||[]),'Resilience Tests');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.operationalResilience?.gaps||[]),'Resilience Gaps');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.dataProtectionOperations?.activities||[]),'Processing Inventory');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.dataProtectionOperations?.legalRegister||[]),'Legal Register');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.policyGovernance?.policies||[]),'Policies');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.auditManagement?.audits||[]),'Audits');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.iso42001AuditEvidenceReadiness?.requests||[]),'ISO42001 Audit Evidence');

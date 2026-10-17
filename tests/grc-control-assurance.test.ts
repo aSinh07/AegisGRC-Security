@@ -55,3 +55,6 @@ test('enterprise workspace exposes unified automation and human control assuranc
  assert.match(js,/loadControlAssurance/);assert.match(js,/submitControlAssuranceReview/);assert.match(js,/loadControlAssuranceHistory/);
  assert.match(js,/\/control-assessments/);
 });
+
+
+test('empty assurance workspace can initialize governed assessments from scoped canonical controls',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');const controls=await readFile(new URL('../src/grc-controls.ts',import.meta.url),'utf8');assert.match(html,/id="initializeAssuranceBtn"/);assert.match(html,/Initialize Scope Assessments/);assert.match(js,/async function initializeScopeAssurance/);assert.match(js,/controlId:x\.control_id/);assert.match(js,/\/control-assessments/);assert.match(controls,/SELECT sc\.id,sc\.control_id,sc\.applicability/);assert.match(js,/No assessments yet\. Click Initialize Scope Assessments/);});

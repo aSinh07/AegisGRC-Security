@@ -43,7 +43,7 @@ import { zapReady,zapScan,zapFindings } from './zap.js';
 import { askCopilot } from './copilot.js';
 import { knowledgeCatalog } from './knowledge.js';
 import { extractDocument } from './document-extract.js';
-import {initGrcIntake,createGrcIntake,getGrcIntake,reviewGrcIntake,approveGrcIntake,importApprovedGrcIntake,bindGrcIntakeScope,applyGrcIntakeAutofill} from './grc-document-intake.js';
+import {initGrcIntake,createGrcIntake,getGrcIntake,reviewGrcIntake,approveGrcIntake,importApprovedGrcIntake,bindGrcIntakeScope,applyGrcIntakeAutofill,documentIntakeReportContext} from './grc-document-intake.js';
 import { inferArchitecture } from './architecture-document-model.js';
 import {architectureConfidence} from './architecture-confidence.js';
 import {architectureInputCapability,architectureFormatCatalog} from './architecture-format-capability.js';
@@ -478,10 +478,11 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-report.:format
  const soa=await statementOfApplicability(u.userId,req.params.orgId,req.params.scopeId);
  const dashboard=await operationsDashboard(u.userId,req.params.orgId),slaState=await sla(u.userId,req.params.orgId);
  const thirdParty=await thirdPartyDashboard(u.userId,req.params.orgId),architecture=await architectureAssurance(u.userId,req.params.orgId,req.params.scopeId),continuousCompliance=await continuousComplianceDashboard(u.userId,req.params.orgId,req.params.scopeId),resilience=await resilienceDashboard(u.userId,req.params.orgId,req.params.scopeId),policy=await policyDashboard(u.userId,req.params.orgId,req.params.scopeId),audit=await auditDashboard(u.userId,req.params.orgId,req.params.scopeId),auditEvidenceReadiness=await iso42001AuditEvidenceReadiness(u.userId,req.params.orgId,req.params.scopeId),governancePerformance=await governancePerformanceDashboard(u.userId,req.params.orgId,req.params.scopeId);
+ const documentIntake=await documentIntakeReportContext(u.userId,req.params.orgId,req.params.scopeId);
  const traces=[];for(const a of base.assessments){try{traces.push(await assessmentTrace(u.userId,a.id))}catch{}}
  const selectedFramework=String(req.query.framework||'').trim().toUpperCase();
  if(selectedFramework&&!frameworkCatalog.some((x:any)=>String(x.id).toUpperCase()===selectedFramework))return res.status(400).json({error:'Unknown enterprise report framework'});
- const model=buildEnterpriseGrcReport({...base,readiness,soa,dashboard,sla:slaState,thirdParty,architecture,continuousCompliance,resilience,policy,audit,auditEvidenceReadiness,governancePerformance,assessmentTraces:traces,selectedFramework:selectedFramework||undefined});
+ const model=buildEnterpriseGrcReport({...base,readiness,soa,dashboard,sla:slaState,thirdParty,architecture,continuousCompliance,resilience,policy,audit,auditEvidenceReadiness,governancePerformance,documentIntake,assessmentTraces:traces,selectedFramework:selectedFramework||undefined});
  const format=String(req.params.format||'json').toLowerCase();let body:Buffer,contentType='application/json',ext=format;
  if(format==='pdf'){body=await enterpriseGrcPdf(model);contentType='application/pdf'}
  else if(format==='docx'){body=await enterpriseGrcDocx(model);contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}

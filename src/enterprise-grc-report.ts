@@ -51,10 +51,16 @@ export function buildEnterpriseGrcReport(input:{
  if(!total||!soaControls.length)opinion='INSUFFICIENT_EVIDENCE';
  else if(highRisks.length||overdueIssues.length||overdueCapa.length||enterpriseGaps>0||criticalOpenIncidents.length||actionRequired.length>Math.max(3,Math.ceil(total*.2)))opinion='SIGNIFICANT_GAPS';
  else if(actionRequired.length||openIssues.length||openCapa.length||expiredAcceptance.length||openIncidents.length||identityReviewRequired.length||failedAutomationRuns.length||pendingSecurityHandoffs.length)opinion='CONDITIONAL';
- const sourceRegister=traces.flatMap((t:any)=>rows(t.evidenceProvenance||t.evidence).map((e:any)=>({
-  assessmentId:t.assessmentId,id:e.id,source:e.source,sha256:e.sha256,createdAt:e.createdAt||e.created_at,
+ const scannerEvidenceRegister=traces.flatMap((t:any)=>rows(t.evidenceProvenance||t.evidence).map((e:any)=>({
+  evidenceClass:'TECHNICAL_SCANNER',assessmentId:t.assessmentId,id:e.id,source:e.source,sha256:e.sha256,createdAt:e.createdAt||e.created_at,
   integrityVerifiedAt:e.integrityVerifiedAt||e.integrity_verified_at,trust:e.trust||e.payload?.metadata?.evidenceTrust||'UNVERIFIED'
  })));
+ const governedGrcEvidenceRegister=controls.flatMap((c:any)=>rows(c.evidence_records).map((e:any)=>({
+  evidenceClass:'GOVERNED_GRC',controlKey:c.control_key,id:e.requestId,title:e.title,status:e.status,version:e.version,sha256:e.sha256,
+  integrityVerifiedAt:e.verifiedAt,validatedAt:e.validatedAt,validUntil:e.validUntil,
+  trust:e.validatedAt&&e.validUntil&&new Date(e.validUntil).getTime()>Date.now()&&e.status==='VALID'?'INDEPENDENTLY_VALIDATED':'REVIEW_REQUIRED'
+ })));
+ const sourceRegister=[...scannerEvidenceRegister,...governedGrcEvidenceRegister];
  const technicalCoverage=traces.map((t:any)=>({
   assessmentId:t.assessmentId,
   infrastructure:t.infrastructureAssurance?.status||'NOT_STARTED',web:t.webAssurance?.status||'NOT_STARTED',
@@ -102,7 +108,7 @@ export function buildEnterpriseGrcReport(input:{
   controlAssurance:controls.map((c:any)=>({
    controlKey:c.control_key,title:c.title,domain:c.domain,applicability:c.applicability,
    justification:c.applicability_justification,implementation:c.implementation,approvedAt:c.approved_at,
-   validEvidence:n(c.valid_evidence),passedLatestTests:n(c.passed_tests),openIssues:n(c.open_issues),
+   validEvidence:n(c.valid_evidence),evidenceRecords:rows(c.evidence_records),passedLatestTests:n(c.passed_tests),openIssues:n(c.open_issues),
    readiness:c.readiness,gaps:rows(c.gaps),frameworkMappings:[...new Map(rows(c.mappings).filter((m:any)=>!selectedFramework||s(m.framework).trim().toUpperCase()===selectedFramework).map((m:any)=>[s(m.framework).trim().toUpperCase()+'|'+s(m.requirementKey||m.requirement_key).trim().toUpperCase(),m])).values()]
   })),
   riskRegister:risks,

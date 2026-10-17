@@ -255,8 +255,14 @@ export async function createControlAssessment(input:{scopeId:string;controlId:st
   const scope=(await pool.query('SELECT id FROM grc_scopes WHERE id=$1 AND organization_id=$2',[input.scopeId,input.organizationId])).rows[0];
   if(!scope)throw new Error('Scope not found in organization');
   const id=crypto.randomUUID();
-  const r=await pool.query(`INSERT INTO grc_control_assessments(id,scope_id,control_id,owner_user_id)
-    VALUES($1,$2,$3,$4) ON CONFLICT(scope_id,control_id) DO UPDATE SET updated_at=now() RETURNING *`,
+  const r=await pool.query(`INSERT INTO grc_control_assessments(id,scope_id,control_id,owner_user_id,applicability,implementation,applicability_justification)
+    SELECT $1,$2,$3,$4,COALESCE(sc.applicability,'PENDING'),COALESCE(sc.implementation,'NOT_IMPLEMENTED'),sc.applicability_justification
+    FROM (SELECT 1) seed LEFT JOIN grc_scope_controls sc ON sc.scope_id=$2 AND sc.control_id=$3
+    ON CONFLICT(scope_id,control_id) DO UPDATE SET
+      applicability=EXCLUDED.applicability,
+      implementation=EXCLUDED.implementation,
+      applicability_justification=COALESCE(EXCLUDED.applicability_justification,grc_control_assessments.applicability_justification),
+      updated_at=now() RETURNING *`,
     [id,input.scopeId,input.controlId,input.ownerUserId||null]);
   return r.rows[0];
 }

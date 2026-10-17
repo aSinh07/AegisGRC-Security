@@ -19,3 +19,11 @@ test('Document-to-GRC UI requires staged human review and discloses no AI',()=>{
 test('intake persists staging separately and never directly writes compliance state',()=>{
  const s=fs.readFileSync('src/grc-document-intake.ts','utf8');assert.match(s,/grc_document_intakes/);assert.match(s,/grc_document_intake_proposals/);assert.match(s,/status='APPROVED'/);assert.match(s,/grc_scope_controls/);assert.match(s,/automaticComplianceDecision:false/);assert.doesNotMatch(s,/UPDATE grc_control_assessments SET overall_status/);
 });
+
+test('governed import targets the live scope-control schema and requires an explicit scope',()=>{
+ const s=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(s,/A governed scope is required before importing control proposals/);
+ assert.match(s,/INSERT INTO grc_scope_controls\(id,organization_id,scope_id,control_id,applicability,implementation,applicability_justification\)/);
+ assert.doesNotMatch(s,/implementation_status|\bjustification\) VALUES/);
+ assert.match(s,/nextLine=.*anchors\[i\+1\]\.source_line/);
+});

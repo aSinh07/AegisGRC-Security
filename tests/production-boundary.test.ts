@@ -175,7 +175,7 @@ test('governed outputs review and audit UX preserve protected workflows',async()
  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
  for(const label of ['Assurance Report Center','Framework Crosswalk Workspace','Consultant Review Center','Audit Evidence Chain','MFA EXPORT','HUMAN GOVERNANCE GATE'])assert.ok(html.includes(label),label);
  for(const id of ['fmt-grc','fmt-remediation','fmt-architecture','fmt-technical','fmt-executive','frameworkList','frameworkConsole','fwAssessment','reviewFramework','reviewQueue','auditTraceStats','auditTraceRows','breachImpactRows'])assert.match(html,new RegExp('id="'+id+'"'));
- for(const action of ["downloadKind('grc')","assessSelectedFramework()","downloadFramework()","submitCurrentForReview()","loadAuditTrace()","downloadAuditPackage('pdf')"])assert.ok(html.includes(action),action);
+ for(const action of ["downloadKind('grc')","assessSelectedFramework()","submitCurrentForReview()","loadAuditTrace()","downloadAuditPackage('pdf')"])assert.ok(html.includes(action),action);assert.ok(!html.includes('Download Governed Report'));
 });
 
 

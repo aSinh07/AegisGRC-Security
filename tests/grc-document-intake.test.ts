@@ -20,12 +20,11 @@ test('intake persists staging separately and never directly writes compliance st
  const s=fs.readFileSync('src/grc-document-intake.ts','utf8');assert.match(s,/grc_document_intakes/);assert.match(s,/grc_document_intake_proposals/);assert.match(s,/status='APPROVED'/);assert.match(s,/grc_scope_controls/);assert.match(s,/automaticComplianceDecision:false/);assert.doesNotMatch(s,/UPDATE grc_control_assessments SET overall_status/);
 });
 
-test('governed import targets the live scope-control schema and requires an explicit scope',()=>{
+test('governed import targets live enterprise modules and requires an explicit scope',()=>{
  const s=fs.readFileSync('src/grc-document-intake.ts','utf8');
- assert.match(s,/A governed scope is required before importing control proposals/);
- assert.match(s,/INSERT INTO grc_scope_controls\(id,organization_id,scope_id,control_id,applicability,implementation,applicability_justification\)/);
- assert.doesNotMatch(s,/implementation_status|\bjustification\) VALUES/);
- assert.match(s,/nextLine=.*anchors\[i\+1\]\.source_line/);
+ assert.match(s,/A governed scope is required before importing document proposals/);
+ for(const table of ['grc_scope_controls','grc_risks','grc_third_parties','grc_policies','grc_audits','grc_document_governed_records'])assert.match(s,new RegExp(table));
+ assert.match(s,/automaticComplianceDecision:false/);
 });
 
 test('intake validates upload trust boundaries and reviewer separation',()=>{
@@ -36,10 +35,11 @@ test('intake validates upload trust boundaries and reviewer separation',()=>{
  assert.match(x,/Approver must be independent from proposal reviewer/);
  assert.match(x,/Approved or imported intake cannot be modified/);
 });
-test('import fails closed when nothing can be safely adapted and discloses partial adapters',()=>{
+test('import fails closed and preserves incomplete document facts for review',()=>{
  const x=fs.readFileSync('src/grc-document-intake.ts','utf8');
  assert.match(x,/nothing was imported/);
- assert.match(x,/remain staged because no safe deterministic write adapter is enabled/);
+ assert.match(x,/remains staged because likelihood and impact 1-5 are required/);
+ assert.match(x,/remains staged because title, objective and criteria are required/);
 });
 
 test('Enterprise GRC presents intake before scope operations and report export as final step',()=>{
@@ -90,4 +90,15 @@ test('Document intake reuses duplicates and supports direct scope autofill',()=>
  assert.match(ui,/document-intakes\/'\+encodeURIComponent\(created\.id\)\+'\/autofill/);
  assert.match(ui,/if\(btn\)btn\.disabled=false/);
  assert.match(html,/Upload & Autofill Documents/);
+});
+
+test('document parser covers enterprise GRC report domains without inventing approvals',()=>{
+ const p=parseGrcDocumentDeterministically('Scope: Banking AI\nControl ID: CFG-02\nControl Title: Secure AI gateway\nApplicability: Applicable\nImplementation Status: Partial\nRisk Title: Prompt injection\nLikelihood: 4\nImpact: 5\nRisk Treatment: Mitigate\nVendor Name: Model Cloud\nVendor Service: Hosted model\nPolicy Title: AI Security Policy\nPolicy Version: 2.0\nAudit Title: AIMS Internal Audit\nAudit Objective: Evaluate AIMS controls\nAudit Criteria: ISO 42001\nAudit Finding: Evidence review is incomplete');
+ for(const f of ['scopeName','controlTitle','riskTitle','likelihood','impact','vendorName','policyTitle','auditTitle','auditFinding'])assert.ok(p.some(x=>x.field===f),f+' missing');
+});
+
+test('multi-document autofill exposes provenance and flags conflicts instead of overwriting',()=>{
+ const js=fs.readFileSync('public/dashboard.js','utf8'),html=fs.readFileSync('public/index.html','utf8'),engine=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(js,/mergeDocumentAutofill/);assert.match(js,/CONFLICT — REVIEW/);assert.match(js,/sourceLine/);
+ assert.match(html,/grcIntakeAutofill/);assert.match(engine,/sourceProvenancePreserved:true/);assert.match(engine,/governedRecords:true/);
 });

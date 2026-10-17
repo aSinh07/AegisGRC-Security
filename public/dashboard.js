@@ -122,8 +122,9 @@ async function saveGrcIntakeReview(){
 }
 async function approveGrcIntake(){
  const status=document.getElementById('grcIntakeStatus');if(!activeGrcOrg||!activeGrcIntake)return;
- try{const out=await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/document-intakes/'+encodeURIComponent(activeGrcIntake)+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(status)status.textContent='Intake approved by independent reviewer. '+(out.nextStep||'');document.getElementById('grcIntakeApproveBtn').disabled=true}catch(e){if(status)status.textContent='Approval failed: '+e.message}
+ try{const out=await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/document-intakes/'+encodeURIComponent(activeGrcIntake)+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(status)status.textContent='Intake approved by independent reviewer. '+(out.nextStep||'');document.getElementById('grcIntakeApproveBtn').disabled=true;document.getElementById('grcIntakeImportBtn').disabled=false}catch(e){if(status)status.textContent='Approval failed: '+e.message}
 }
+async function importGrcIntake(){const status=document.getElementById('grcIntakeStatus');if(!activeGrcOrg||!activeGrcIntake)return;try{const out=await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/document-intakes/'+encodeURIComponent(activeGrcIntake)+'/import',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(status)status.textContent='Governed import complete: '+out.recordsImported+' record(s) updated. No compliance decision was automated.';document.getElementById('grcIntakeImportBtn').disabled=true;await loadSoa()}catch(e){if(status)status.textContent='Import failed: '+e.message}}
 async function loadAutomationCenter(){
  const assurance=document.getElementById('automationAssurance'),rulesEl=document.getElementById('automationRules'),runsEl=document.getElementById('automationRuns'),traceEl=document.getElementById('automationTrace');
  const setAll=x=>{for(const el of [assurance,rulesEl,runsEl,traceEl])if(el)el.innerHTML='<p class="muted">'+esc(x)+'</p>'};

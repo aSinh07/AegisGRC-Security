@@ -386,6 +386,9 @@ async function createCsaAicmAudit(){const msg=document.getElementById('aimsAudit
 
 async function createNist80053Audit(){const msg=document.getElementById('aimsAuditMsg');if(!activeGrcOrg)return msg.textContent='Select an Enterprise GRC organization first.';const key=document.getElementById('aimsAuditKey').value.trim();if(!key)return msg.textContent='Enter a unique audit key.';try{const d=await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/nist80053/audit-playbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auditKey:key,scopeId:activeGrcScope||null})});msg.textContent='Created NIST 800-53 family-level audit '+d.audit_key+' with '+d.workpapersCreated+' NOT_TESTED workpapers. Full control and baseline selection remain separate.';await loadAimsAudits();document.getElementById('aimsAuditSelect').value=d.id;await loadAimsAuditWorkpapers()}catch(e){msg.textContent=e.message}}
 
+// Export Enterprise GRC actions used by delegated data-aegis-click/data-action handlers.
+Object.assign(globalThis,{parseGrcIntake,openGrcIntake,saveGrcIntakeReview,approveGrcIntake,importGrcIntake,loadTimeline,refreshTimelineRecordOptions,loadIso42001AuditEvidence,createIso42001Audit,loadAimsAudits,loadAimsAuditWorkpapers,saveAimsAuditWorkpaper,reviewAimsAuditWorkpaper,advanceAimsAudit,createCsaAicmAudit,createNist80053Audit});
+
 globalThis.openCopilot = openCopilot;
 globalThis.closeCopilot = closeCopilot;
 globalThis.askCopilot = askCopilot;

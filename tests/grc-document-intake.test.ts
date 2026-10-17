@@ -41,3 +41,13 @@ test('import fails closed when nothing can be safely adapted and discloses parti
  assert.match(x,/nothing was imported/);
  assert.match(x,/remain staged because no safe deterministic write adapter is enabled/);
 });
+
+test('Enterprise GRC presents intake before scope operations and report export as final step',()=>{
+ const ui=fs.readFileSync('public/index.html','utf8');
+ const intake=ui.indexOf('STEP 1 · INGEST & STAGE');
+ const scopes=ui.indexOf('<h3>Scopes</h3>');
+ const report=ui.indexOf('FINAL STEP · REPORTING');
+ assert.ok(intake>0&&scopes>intake&&report>scopes);
+ assert.match(ui,/INTAKE<\/span>.*REVIEW<\/span>.*IMPORT<\/span>.*SCOPE & CONTROLS<\/span>.*EVIDENCE<\/span>.*REPORT<\/span>/s);
+ assert.match(ui,/Generate & Export Enterprise GRC Report/);
+});

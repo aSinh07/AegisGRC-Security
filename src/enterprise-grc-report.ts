@@ -10,7 +10,7 @@ const rows=(v:any)=>Array.isArray(v)?v:[];
 
 export function buildEnterpriseGrcReport(input:{
  organization:any;scope:any;readiness:any;soa:any;risks:any[];issues:any[];capa:any[];
- dashboard?:any;sla?:any;assessmentTraces?:any[];securityHandoffs?:any[];automationRuns?:any[];incidents?:any[];identitySignals?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;auditEvidenceReadiness?:any;governancePerformance?:any;documentIntake?:any;selectedFramework?:string;generatedAt?:string;
+ dashboard?:any;sla?:any;assessmentTraces?:any[];securityHandoffs?:any[];automationRuns?:any[];incidents?:any[];identitySignals?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;auditEvidenceReadiness?:any;governancePerformance?:any;privacy?:any;documentIntake?:any;selectedFramework?:string;generatedAt?:string;
 }){
  const generatedAt=input.generatedAt||new Date().toISOString();
  const selectedFramework=s(input.selectedFramework).trim().toUpperCase();

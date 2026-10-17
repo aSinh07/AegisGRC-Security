@@ -27,3 +27,17 @@ test('governed import targets the live scope-control schema and requires an expl
  assert.doesNotMatch(s,/implementation_status|\bjustification\) VALUES/);
  assert.match(s,/nextLine=.*anchors\[i\+1\]\.source_line/);
 });
+
+test('intake validates upload trust boundaries and reviewer separation',()=>{
+ const x=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(x,/between 1 byte and 10 MB/);
+ assert.match(x,/content signature do not match an allowed deterministic intake format/);
+ assert.match(x,/Proposal not found in this intake/);
+ assert.match(x,/Approver must be independent from proposal reviewer/);
+ assert.match(x,/Approved or imported intake cannot be modified/);
+});
+test('import fails closed when nothing can be safely adapted and discloses partial adapters',()=>{
+ const x=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(x,/nothing was imported/);
+ assert.match(x,/remain staged because no safe deterministic write adapter is enabled/);
+});

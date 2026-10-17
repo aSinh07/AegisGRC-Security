@@ -23,7 +23,8 @@ export async function enterpriseGrcDocx(m:any){
   new Paragraph({text:'Executive Summary',heading:HeadingLevel.HEADING_1}),
   ...Object.entries(m.executiveSummary||{}).map(([k,v])=>new Paragraph(k+': '+s(v))),
   new Paragraph({text:'Frameworks & Methodology',heading:HeadingLevel.HEADING_1}),
-  new Paragraph('Frameworks: '+((m.frameworks||[]).join(', ')||'No mapped framework recorded')),
+  new Paragraph('Governed framework mappings: '+((m.frameworks||[]).join(', ')||'None recorded')),
+  new Paragraph('Frameworks declared by imported documents (mapping pending unless shown above): '+((m.documentDeclaredFrameworks||[]).join(', ')||'None recorded')),
   ...(m.methodology||[]).map((x:string)=>new Paragraph('• '+x)),
   new Paragraph({text:'Control Assurance & Gap Register',heading:HeadingLevel.HEADING_1}),
   docTable(['Control','Title','Applicability','Implementation','Readiness','Auditor Action / Gap'],controls),
@@ -61,6 +62,8 @@ export function enterpriseGrcXlsx(m:any){
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.issueRegister||[]),'Issue Register');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.correctivePreventiveActions||[]),'CAPA');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.evidenceRegister||[]),'Evidence Register');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.documentIntakeProvenance?.intakes||[]),'Document Intakes');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.documentIntakeProvenance?.governedRecords||[]),'Document Provenance');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.technicalAssuranceCoverage||[]),'Technical Coverage');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.thirdPartyRisk?.vendors||[]),'Third Parties');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.thirdPartyRisk?.incidents||[]),'Vendor Incidents');
@@ -130,7 +133,7 @@ export function enterpriseGrcPdf(m:any){return new Promise<Buffer>((resolve,reje
   ['Issues & CAPA',s(e.openIssues||0)+' issues; '+s(e.openCapa||0)+' CAPA','Closure requires evidence and governed retest/review.'],
   ['Enterprise workflows',s(e.enterpriseWorkflowGaps||0)+' disclosed gaps','Includes architecture, resilience, policy, obligations, audit and supplier signals.']
  ],[112,118,281]);
- h1('2.','Scope, Frameworks & Assessment Methodology');p('Frameworks: '+((m.frameworks||[]).join(', ')||'No framework mappings recorded for the scoped controls.'));
+ h1('2.','Scope, Frameworks & Assessment Methodology');p('Governed framework mappings: '+((m.frameworks||[]).join(', ')||'None recorded for the scoped controls.'));p('Frameworks declared by imported documents: '+((m.documentDeclaredFrameworks||[]).join(', ')||'None recorded')+'. Document declarations are provenance only until mapped to governed controls.');const di=(m.documentIntakeProvenance?.intakes||[]).slice(0,40);if(di.length)table(['Imported document','Kind','State','Imported / approved'],di.map((x:any)=>[x.filename,x.document_kind,x.status,x.approved_at||x.created_at]),[190,80,80,161]);
  for(const x of m.methodology||[])p('• '+x,8);
  h1('3.','Statement of Applicability / Applicability Record');
  const soa=(m.statementOfApplicability||[]).slice(0,80);

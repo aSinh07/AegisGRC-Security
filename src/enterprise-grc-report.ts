@@ -60,7 +60,7 @@ export function buildEnterpriseGrcReport(input:{
   integrityVerifiedAt:e.verifiedAt,validatedAt:e.validatedAt,validUntil:e.validUntil,
   trust:e.validatedAt&&e.validUntil&&new Date(e.validUntil).getTime()>Date.now()&&e.status==='VALID'?'INDEPENDENTLY_VALIDATED':'REVIEW_REQUIRED'
  })));
- const sourceRegister=[...scannerEvidenceRegister,...governedGrcEvidenceRegister];
+ const sourceRegister:Array<{evidenceClass:string;assessmentId?:any;controlKey?:any;id?:any;source?:any;title?:any;status?:any;version?:any;sha256?:any;createdAt?:any;integrityVerifiedAt?:any;validatedAt?:any;validUntil?:any;trust:any}>=[...scannerEvidenceRegister,...governedGrcEvidenceRegister];
  const technicalCoverage=traces.map((t:any)=>({
   assessmentId:t.assessmentId,
   infrastructure:t.infrastructureAssurance?.status||'NOT_STARTED',web:t.webAssurance?.status||'NOT_STARTED',

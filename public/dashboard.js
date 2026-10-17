@@ -92,8 +92,14 @@ async function initializeScopeAssurance(){
  }catch(e){assuranceMsg.textContent='Assurance initialization failed: '+e.message}finally{if(btn){btn.disabled=false;btn.textContent='Initialize Scope Assessments'}}}
 async function submitControlAssuranceReview(){
  if(!activeGrcOrg||!assuranceControl.value)return assuranceMsg.textContent='Select an organization and control assessment.';
+ if(!activeGrcScope)return assuranceMsg.textContent='Select a scope first.';
+ const notes=assuranceNotes.value.trim();
+ if(notes.length<10)return assuranceMsg.textContent='Reviewer rationale must be at least 10 characters.';
+ if(assuranceApproval.value==='APPROVED'&&assuranceEvidence.value!=='SUFFICIENT')return assuranceMsg.textContent='Approval requires SUFFICIENT evidence.';
+ if(assuranceApproval.value==='APPROVED'&&(assuranceDesign.value==='NOT_TESTED'||assuranceOperating.value==='NOT_TESTED'))return assuranceMsg.textContent='Approval requires both design and operating effectiveness to be tested.';
+ if(assuranceApproval.value==='APPROVED'&&assuranceManual.value==='NOT_REVIEWED')return assuranceMsg.textContent='Complete the accountable manual review before approval.';
  assuranceMsg.textContent='Recording governed review…';
- try{await jf('/api/grc/organizations/'+activeGrcOrg+'/control-assessments/'+encodeURIComponent(assuranceControl.value)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({evidenceSufficiency:assuranceEvidence.value,manualResult:assuranceManual.value,designEffectiveness:assuranceDesign.value,operatingEffectiveness:assuranceOperating.value,approvalStatus:assuranceApproval.value,notes:assuranceNotes.value})});assuranceMsg.textContent='Governed review recorded.';await loadControlAssuranceHistory();await loadControlAssurance()}catch(e){assuranceMsg.textContent=e.message}
+ try{await jf('/api/grc/organizations/'+activeGrcOrg+'/control-assessments/'+encodeURIComponent(assuranceControl.value)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({evidenceSufficiency:assuranceEvidence.value,manualResult:assuranceManual.value,designEffectiveness:assuranceDesign.value,operatingEffectiveness:assuranceOperating.value,approvalStatus:assuranceApproval.value,notes})});assuranceMsg.textContent='Governed review recorded. The accountable reviewer decision is persisted; automation did not independently approve the control.';await loadControlAssuranceHistory();await loadControlAssurance()}catch(e){assuranceMsg.textContent='Governed review failed: '+e.message}
 }
 async function loadControlAssuranceHistory(){
  if(!activeGrcOrg||!assuranceControl.value)return assuranceMsg.textContent='Select a control assessment.';

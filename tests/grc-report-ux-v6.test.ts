@@ -60,11 +60,11 @@ test('document intake autofills governance performance fields',async()=>{
 
 test('every delegated dashboard UI action is callable through globalThis',async()=>{
  const html=await readFile('public/index.html','utf8'),js=await readFile('public/dashboard.js','utf8');
- const referenced=[...html.matchAll(/data-aegis-(?:click|change)="([A-Za-z_$][\\w$]*)\\(/g)].map(m=>m[1]);
- const dynamic=[...js.matchAll(/data-action="([A-Za-z_$][\\w$]*)"/g)].map(m=>m[1]);
+  const referenced=Array.from(html.matchAll(new RegExp('data-aegis-(?:click|change)="([A-Za-z_$][A-Za-z0-9_$]*)\\\\(','g')),m=>m[1]);
+  const dynamic=Array.from(js.matchAll(new RegExp('data-action="([A-Za-z_$][A-Za-z0-9_$]*)"','g')),m=>m[1]);
  const exported=new Set<string>();
- for(const m of js.matchAll(/globalThis\\.([A-Za-z_$][\\w$]*)\\s*=/g))exported.add(m[1]);
- for(const m of js.matchAll(/Object\\.assign\\(globalThis,\\{([^}]*)\\}\\)/gs))for(const n of m[1].split(',').map(x=>x.trim()).filter(Boolean))exported.add(n.split(':')[0].trim());
+  for(const m of js.matchAll(new RegExp('globalThis\\\\.([A-Za-z_$][A-Za-z0-9_$]*)\\\\s*=','g')))exported.add(m[1]);
+  for(const m of js.matchAll(new RegExp('Object\\\\.assign\\\\(globalThis,\\\\{([^}]*)\\\\}\\\\)','gs')))for(const n of m[1].split(',').map(x=>x.trim()).filter(Boolean))exported.add(n.split(':')[0].trim());
  const missing=[...new Set([...referenced,...dynamic])].filter(n=>!exported.has(n));
  assert.deepEqual(missing,[],`delegated UI actions not exported: ${missing.join(', ')}`);
 });

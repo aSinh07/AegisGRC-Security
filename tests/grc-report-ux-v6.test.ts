@@ -46,3 +46,6 @@ test('SoA decision save validates input and exposes deterministic success or fai
 
 
 test('SoA save uses explicit DOM bindings and local visible status',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');assert.match(html,/id="saveSoaDecisionBtn"[^>]*type="button"/);assert.match(html,/id="soaDecisionMsg"[^>]*role="status"/);assert.match(js,/document\.getElementById\('soaControl'\)/);assert.match(js,/document\.getElementById\('soaDecisionMsg'\)/);assert.match(js,/btn\.disabled=true/);assert.match(js,/SoA decision saved successfully\./);assert.match(js,/encodeURIComponent\(scopeId\)/);});
+
+
+test('enterprise report never silently drops populated scope and SoA when selected framework mappings are missing',async()=>{const src=await readFile(new URL('../src/enterprise-grc-report.ts',import.meta.url),'utf8');assert.match(src,/frameworkFilterFallback/);assert.match(src,/const controls=frameworkFilterFallback\?allControls:frameworkMatchedControls/);assert.match(src,/const soaControls=frameworkFilterFallback\?allSoaControls:matchedSoaControls/);assert.match(src,/Persisted scope controls and SoA decisions are retained in this report/);});

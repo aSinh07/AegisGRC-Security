@@ -5,7 +5,7 @@ test('framework crosswalk no longer exposes redundant framework-specific downloa
  assert.doesNotMatch(html,/id="fwReportFramework"/);assert.doesNotMatch(html,/Download Governed Report/);assert.match(html,/Enterprise GRC Intake/);
 });
 test('audit timeline accepts only selected governed UUID records',async()=>{
- const html=await readFile('public/index.html','utf8'),js=await readFile('public/dashboard.js','utf8');
+ const html=await readFile('public/index.html','utf8'),dashboard=await readFile('public/dashboard.js','utf8'),ops=await readFile('public/enterprise-ops.js','utf8'),js=dashboard+'\\n'+ops;
  assert.match(html,/<select id="timelineId"/);
  assert.doesNotMatch(html,/id="timelineId" placeholder="Record ID"/);
  assert.match(html,/data-aegis-change="refreshTimelineRecordOptions\(\)"/);

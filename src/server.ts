@@ -43,7 +43,7 @@ import { zapReady,zapScan,zapFindings } from './zap.js';
 import { askCopilot } from './copilot.js';
 import { knowledgeCatalog } from './knowledge.js';
 import { extractDocument } from './document-extract.js';
-import {initGrcIntake,createGrcIntake,getGrcIntake,reviewGrcIntake,approveGrcIntake,importApprovedGrcIntake,bindGrcIntakeScope} from './grc-document-intake.js';
+import {initGrcIntake,createGrcIntake,getGrcIntake,reviewGrcIntake,approveGrcIntake,importApprovedGrcIntake,bindGrcIntakeScope,applyGrcIntakeAutofill} from './grc-document-intake.js';
 import { inferArchitecture } from './architecture-document-model.js';
 import {architectureConfidence} from './architecture-confidence.js';
 import {architectureInputCapability,architectureFormatCatalog} from './architecture-format-capability.js';
@@ -506,6 +506,7 @@ app.post('/api/grc/organizations/:orgId/document-intakes/:id/approve',async(req,
 app.post('/api/grc/organizations/:orgId/document-intakes/:id/scope',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});const scopeId=String(req.body?.scopeId||'');if(!scopeId)return res.status(400).json({error:'scopeId is required'});res.json(await bindGrcIntakeScope(u.userId,req.params.orgId,req.params.id,scopeId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/document-intakes/:id/import',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await importApprovedGrcIntake(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/automation-center',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await automationCenter(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/grc/organizations/:orgId/document-intakes/:id/autofill',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await applyGrcIntakeAutofill(u.userId,req.params.orgId,req.params.id))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/automation',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await listAutomation(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/automation/rules',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await createAutomationRule(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/automation/rules/:ruleId/run',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await runAutomationRule(u.userId,req.params.orgId,req.params.ruleId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});

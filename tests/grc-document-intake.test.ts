@@ -62,3 +62,17 @@ test('intake can stage before scope but governed import binds an explicit organi
  assert.match(engine,/Imported intake scope cannot be changed/);
  assert.match(engine,/Scope not found in organization/);
 });
+
+test('Document-to-GRC supports multi-file staging and responsive async review actions',()=>{
+ const ui=fs.readFileSync('public/index.html','utf8'),js=fs.readFileSync('public/dashboard.js','utf8');
+ assert.match(ui,/id="grcIntakeFile" type="file" multiple/);
+ assert.match(ui,/Upload & Parse Documents/);
+ assert.match(js,/async function parseGrcIntake\(\)/);
+ assert.match(js,/files=\[\.\.\.\(input\?\.files\|\|\[\]\)\]/);
+ assert.match(js,/for\(let i=0;i<files\.length;i\+\+\)/);
+ assert.match(js,/results\.push\(\{ok:true,file:file\.name,id:created\.id/);
+ assert.match(js,/each document remains separately governed/);
+ assert.match(js,/async function saveGrcIntakeReview\(\)/);
+ assert.match(js,/Saving '\+decisions\.length\+' review decision\(s\)/);
+ assert.match(js,/This intake is REVIEWED; an independent reviewer may now approve it/);
+});

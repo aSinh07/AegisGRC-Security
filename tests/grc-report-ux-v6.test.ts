@@ -54,7 +54,7 @@ test('document intake autofills governance performance fields',async()=>{
 
 
 test('every delegated dashboard UI action is callable through globalThis',async()=>{
- const html=await readFile('public/index.html','utf8'),js=await readFile('public/dashboard.js','utf8');
+ const html=await readFile('public/index.html','utf8'),dashboard=await readFile('public/dashboard.js','utf8'),ops=await readFile('public/enterprise-ops.js','utf8'),js=dashboard+'\\n'+ops;
  const referenced=[...html.matchAll(/data-aegis-(?:click|change)="([A-Za-z_$][A-Za-z0-9_$]*)/g)].map(m=>m[1]);
  const dynamic=[...js.matchAll(/data-action="([A-Za-z_$][A-Za-z0-9_$]*)"/g)].map(m=>m[1]);
  const exported=new Set<string>();

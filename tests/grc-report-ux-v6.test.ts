@@ -1,16 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
 
-test('framework report export uses explicit framework selector and governed step-up flow',async()=>{
- const html=await readFile('public/index.html','utf8'),js=await readFile('public/dashboard.js','utf8');
- assert.match(html,/id="fwReportFramework"/);
- assert.match(html,/Download Governed Report/);
- assert.match(html,/password and current 6-digit authenticator code/);
- assert.match(js,/pendingExport=\{framework,format:fwFormat\.value\}/);
- assert.match(js,/syncFrameworkReportSelector/);
- assert.match(js,/x-report-password/);
- assert.match(js,/x-report-totp/);
+test('framework crosswalk no longer exposes redundant framework-specific download workflow',async()=>{
+ const html=await readFile('public/index.html','utf8');
+ assert.doesNotMatch(html,/id="fwReportFramework"/);assert.doesNotMatch(html,/Download Governed Report/);assert.match(html,/Enterprise GRC Intake/);
 });
-
 test('audit timeline accepts only selected governed UUID records',async()=>{
  const html=await readFile('public/index.html','utf8'),js=await readFile('public/dashboard.js','utf8');
  assert.match(html,/<select id="timelineId"/);

@@ -76,3 +76,18 @@ test('Document-to-GRC supports multi-file staging and responsive async review ac
  assert.match(js,/Saving '\+decisions\.length\+' review decision\(s\)/);
  assert.match(js,/This intake is REVIEWED; an independent reviewer may now approve it/);
 });
+
+
+test('Document intake reuses duplicates and supports direct scope autofill',()=>{
+ const source=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ const server=fs.readFileSync('src/server.ts','utf8');
+ const ui=fs.readFileSync('public/dashboard.js','utf8');
+ const html=fs.readFileSync('public/index.html','utf8');
+ assert.match(source,/reused:true/);
+ assert.match(source,/applyGrcIntakeAutofill/);
+ assert.match(source,/scopeDescription/);
+ assert.match(server,/document-intakes\/:id\/autofill/);
+ assert.match(ui,/document-intakes\/'\+encodeURIComponent\(created\.id\)\+'\/autofill/);
+ assert.match(ui,/if\(btn\)btn\.disabled=false/);
+ assert.match(html,/Upload & Autofill Documents/);
+});

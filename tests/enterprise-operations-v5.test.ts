@@ -7,8 +7,11 @@ test('production application has bounded compute and graceful shutdown',async()=
 
 test('backup and restore drill tooling is isolated from production',async()=>{const backup=await readFile('scripts/backup-postgres.sh','utf8');const restore=await readFile('scripts/verify-restore-drill.sh','utf8');assert.match(backup,/pg_dump/);assert.match(backup,/sha256sum/);assert.match(restore,/postgres:16-alpine/);assert.match(restore,/pg_restore/);assert.match(restore,/public tables/);assert.doesNotMatch(restore,/docker volume rm|DROP DATABASE|dropdb/);});
 
-test('assessment authorization abuse control is durable across application restarts',async()=>{const x=await readFile('src/server.ts','utf8');assert.match(x,/async function assessmentAuthorizationAllowed/);assert.match(x,/authAttemptAllowed\(key/);assert.doesNotMatch(x,/assessmentAuthorizationAttempts=new Map/);});
+test('assessment authorization abuse control is durable across application restarts',async()=>{const x=await readFile('src/server.ts','utf8');assert.match(x,/async function assessmentAuthorizationAllowed/);assert.match(x,/consumeRateLimit\(key/);assert.doesNotMatch(x,/assessmentAuthorizationAttempts=new Map/);});
 
 test('operational telemetry is reviewer protected and exposes bounded health signals',async()=>{const server=await readFile('src/server.ts','utf8');const health=await readFile('src/operational-health.ts','utf8');assert.match(server,/\/api\/operations\/health/);assert.match(server,/Reviewer role required/);for(const s of ['scannerQueue','failed_last_hour','waitingCount','rssBytes','heapUsedBytes','uptimeSeconds'])assert.ok(health.includes(s),s);});
 
 test('external enterprise assurance prerequisites are explicitly scoped',async()=>{const review=await readFile('docs/INDEPENDENT_SECURITY_REVIEW_SCOPE.md','utf8');const domain=await readFile('docs/CUSTOM_DOMAIN_TLS_CUTOVER.md','utf8');for(const s of ['cross-tenant','SSRF','retest','Critical and High findings are release blockers'])assert.ok(review.includes(s),s);for(const s of ['custom domain','Caddy','COOKIE_SECURE=true','production-acceptance.sh','PostgreSQL'])assert.ok(domain.includes(s),s);});
+
+
+test('assessment authorization quota atomically consumes each successful attempt',async()=>{const auth=await readFile('src/user-auth.ts','utf8');const server=await readFile('src/server.ts','utf8');assert.match(auth,/export async function consumeRateLimit/);assert.match(auth,/failures\+1/);assert.match(auth,/Number\(r\.rows\[0\]\.failures\)<=limit/);assert.match(server,/return consumeRateLimit\(key/);});

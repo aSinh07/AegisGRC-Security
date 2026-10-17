@@ -297,6 +297,7 @@ export async function reviewControlAssessment(id:string,input:{
   if(!input.actorUserId)throw new Error('Accountable reviewer is required');
   if(!input.notes||input.notes.trim().length<10)throw new Error('Review rationale is required');
   if(input.approvalStatus==='APPROVED'&&input.evidenceSufficiency!=='SUFFICIENT')throw new Error('Approval requires sufficient evidence');
+  if(input.approvalStatus==='APPROVED'&&input.manualResult==='NOT_REVIEWED')throw new Error('Approval requires accountable manual review');
   if(input.approvalStatus==='APPROVED'&&(input.designEffectiveness==='NOT_TESTED'||input.operatingEffectiveness==='NOT_TESTED'))throw new Error('Approval requires design and operating effectiveness tests');
   const client=await pool.connect();
   try{

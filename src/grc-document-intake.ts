@@ -3,7 +3,7 @@ import {pool} from './db-pool.js';
 import {requireOrgPermission} from './grc-organizations.js';
 import {extractDocument} from './document-extract.js';
 
-export type IntakeKind='CONTROL'|'RISK'|'VENDOR'|'POLICY'|'AUDIT'|'INCIDENT'|'SCOPE'|'UNKNOWN';
+export type IntakeKind='CONTROL'|'RISK'|'VENDOR'|'POLICY'|'AUDIT'|'INCIDENT'|'SCOPE'|'PRIVACY'|'LEGAL'|'ARCHITECTURE'|'RESILIENCE'|'GOVERNANCE'|'UNKNOWN';
 export type IntakeProposal={id:string;kind:IntakeKind;field:string;value:string;confidence:number;source:{line:number;excerpt:string};rule:string;status:'PROPOSED'|'ACCEPTED'|'REJECTED';targetKey?:string};
 
 const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
@@ -40,13 +40,43 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'AUDIT',field:'auditFinding',patterns:[/\b(?:audit\s+finding|finding|observation|nonconformity)\s*[:#-]\s*([^|;]{4,500})/i]},
  {kind:'INCIDENT',field:'incidentTitle',patterns:[/\b(?:incident(?:\s+title)?)\s*[:#-]\s*([^|;]{4,220})/i]},
  {kind:'SCOPE',field:'scopeName',patterns:[/\b(?:scope|system\s+name|assessment\s+scope|in[- ]scope)\s*[:#-]\s*([^|;]{3,220})/i]},
- {kind:'SCOPE',field:'scopeDescription',patterns:[/\b(?:scope\s+description|scope\s+statement|scope\s+includes?|scope\s+covers?)\s*[:#-]\s*([^|;]{4,500})/i]}
+ {kind:'SCOPE',field:'scopeDescription',patterns:[/\b(?:scope\s+description|scope\s+statement|scope\s+includes?|scope\s+covers?)\s*[:#-]\s*([^|;]{4,500})/i]},
+ {kind:'PRIVACY',field:'activityKey',patterns:[/\b(?:processing\s+activity\s+(?:id|key)|activity\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,60})/i]},
+ {kind:'PRIVACY',field:'activityName',patterns:[/\b(?:processing\s+activity\s+(?:name|title)|activity\s+name)\s*[:#-]\s*([^|;]{3,220})/i]},
+ {kind:'PRIVACY',field:'processingPurpose',patterns:[/\b(?:processing\s+purpose|specific\s+purpose|purpose)\s*[:#-]\s*([^|;]{3,500})/i]},
+ {kind:'PRIVACY',field:'processingGround',patterns:[/\b(?:processing\s+ground|lawful\s+basis|legal\s+basis)\s*[:#-]\s*([^|;]{2,220})/i]},
+ {kind:'PRIVACY',field:'retentionRule',patterns:[/\b(?:retention\s+rule|retention\s+period|retention)\s*[:#-]\s*([^|;]{2,220})/i]},
+ {kind:'PRIVACY',field:'dataCategories',patterns:[/\b(?:personal\s+data\s+categories|data\s+categories)\s*[:#-]\s*([^|;]{2,500})/i]},
+ {kind:'PRIVACY',field:'systems',patterns:[/\b(?:processing\s+systems|systems)\s*[:#-]\s*([^|;]{2,500})/i]},
+ {kind:'PRIVACY',field:'recipients',patterns:[/\b(?:data\s+recipients|recipients)\s*[:#-]\s*([^|;]{2,500})/i]},
+ {kind:'LEGAL',field:'legalKey',patterns:[/\b(?:legal\s+reference\s+key|legal\s+key|requirement\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
+ {kind:'LEGAL',field:'legalTitle',patterns:[/\b(?:legal\s+requirement\s+title|legal\s+title|requirement\s+title)\s*[:#-]\s*([^|;]{3,300})/i]},
+ {kind:'LEGAL',field:'legalSource',patterns:[/\b(?:authoritative\s+source(?:\s+reference)?|legal\s+source)\s*[:#-]\s*([^|;]{3,500})/i]},
+ {kind:'ARCHITECTURE',field:'componentKey',patterns:[/\b(?:component\s+(?:id|key)|asset\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
+ {kind:'ARCHITECTURE',field:'componentName',patterns:[/\b(?:component\s+(?:name|title)|asset\s+name)\s*[:#-]\s*([^|;]{2,220})/i]},
+ {kind:'ARCHITECTURE',field:'componentType',patterns:[/\b(?:component\s+type|asset\s+type)\s*[:#-]\s*(FIREWALL|WAF|LOAD[_ -]?BALANCER|ROUTER|SWITCH|VPN[_ -]?GATEWAY|IDS[_ -]?IPS|CDN|DNS|REVERSE[_ -]?PROXY|SERVICE|DATA[_ -]?FLOW|TRUST[_ -]?BOUNDARY)\b/i]},
+ {kind:'ARCHITECTURE',field:'componentCriticality',patterns:[/\b(?:component\s+criticality|asset\s+criticality)\s*[:#-]\s*(low|medium|high|critical)\b/i]},
+ {kind:'ARCHITECTURE',field:'internetExposed',patterns:[/\b(?:internet[- ]exposed|publicly\s+exposed)\s*[:#-]\s*(yes|no|true|false)\b/i]},
+ {kind:'RESILIENCE',field:'serviceKey',patterns:[/\b(?:business\s+service\s+(?:id|key)|service\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
+ {kind:'RESILIENCE',field:'serviceName',patterns:[/\b(?:business\s+service\s+(?:name|title)|service\s+name)\s*[:#-]\s*([^|;]{3,220})/i]},
+ {kind:'RESILIENCE',field:'serviceCriticality',patterns:[/\b(?:service\s+criticality|business\s+criticality)\s*[:#-]\s*(low|medium|high|critical)\b/i]},
+ {kind:'RESILIENCE',field:'rtoMinutes',patterns:[/\bRTO(?:\s+minutes)?\s*[:#-]\s*(\d{1,8})\b/i]},
+ {kind:'RESILIENCE',field:'rpoMinutes',patterns:[/\bRPO(?:\s+minutes)?\s*[:#-]\s*(\d{1,8})\b/i]},
+ {kind:'RESILIENCE',field:'mtdMinutes',patterns:[/\b(?:MTD|maximum\s+tolerable\s+downtime)(?:\s+minutes)?\s*[:#-]\s*(\d{1,8})\b/i]},
+ {kind:'RESILIENCE',field:'recoveryStrategy',patterns:[/\b(?:recovery\s+strategy)\s*[:#-]\s*([^|;]{3,500})/i]},
+ {kind:'GOVERNANCE',field:'appetiteKey',patterns:[/\b(?:risk\s+appetite\s+(?:id|key)|appetite\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
+ {kind:'GOVERNANCE',field:'appetiteTitle',patterns:[/\b(?:risk\s+appetite\s+title|appetite\s+title)\s*[:#-]\s*([^|;]{3,220})/i]},
+ {kind:'GOVERNANCE',field:'appetiteStatement',patterns:[/\b(?:risk\s+appetite\s+statement|appetite\s+statement)\s*[:#-]\s*([^|;]{15,500})/i]},
+ {kind:'GOVERNANCE',field:'toleranceRating',patterns:[/\b(?:tolerance\s+rating|risk\s+tolerance)\s*[:#-]\s*(low|medium|high|critical)\b/i]},
+ {kind:'GOVERNANCE',field:'metricKey',patterns:[/\b(?:metric\s+(?:id|key)|KPI\s+key|KRI\s+key|KCI\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
+ {kind:'GOVERNANCE',field:'metricTitle',patterns:[/\b(?:metric\s+(?:name|title)|KPI\s+title|KRI\s+title|KCI\s+title)\s*[:#-]\s*([^|;]{3,220})/i]},
+ {kind:'GOVERNANCE',field:'metricType',patterns:[/\b(?:metric\s+type)\s*[:#-]\s*(KPI|KRI|KCI)\b/i]}
 ];
 function clean(v:string){return v.replace(/\s+/g,' ').trim().slice(0,500)}
 function confidence(line:string,match:string){let n=.72;if(/[:#-]/.test(line))n+=.08;if(match.length>=4)n+=.05;if(line.length<220)n+=.05;return Math.min(.95,Math.round(n*100)/100)}
 export function parseGrcDocumentDeterministically(text:string){
  const lines=String(text||'').split(/\r?\n/).map(clean).filter(Boolean).slice(0,20000),proposals:IntakeProposal[]=[];
- lines.forEach((line,idx)=>{for(const def of labels)for(const pattern of def.patterns){const m=line.match(pattern);if(!m?.[1])continue;const value=clean(m[1]);if(value.length<2&&!['likelihood','impact'].includes(def.field))continue;proposals.push({id:crypto.createHash('sha256').update(idx+'|'+def.kind+'|'+def.field+'|'+value).digest('hex').slice(0,24),kind:def.kind,field:def.field,value,confidence:confidence(line,value),source:{line:idx+1,excerpt:line.slice(0,260)},rule:'LABEL_'+def.field.toUpperCase(),status:'PROPOSED'});break}});
+ lines.forEach((line,idx)=>{for(const def of labels)for(const pattern of def.patterns){const m=line.match(pattern);if(!m?.[1])continue;const value=clean(m[1]);if(value.length<2&&!['likelihood','impact','rtoMinutes','rpoMinutes','mtdMinutes'].includes(def.field))continue;proposals.push({id:crypto.createHash('sha256').update(idx+'|'+def.kind+'|'+def.field+'|'+value).digest('hex').slice(0,24),kind:def.kind,field:def.field,value,confidence:confidence(line,value),source:{line:idx+1,excerpt:line.slice(0,260)},rule:'LABEL_'+def.field.toUpperCase(),status:'PROPOSED'});break}});
  const seen=new Set<string>();return proposals.filter(p=>{const k=p.kind+'|'+p.field+'|'+p.value.toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
 }
 export async function initGrcIntake(){await pool.query(`

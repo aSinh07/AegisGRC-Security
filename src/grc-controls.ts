@@ -107,7 +107,7 @@ export async function approveScopeControl(userId:string,orgId:string,scopeId:str
 }
 export async function statementOfApplicability(userId:string,orgId:string,scopeId:string){
  await requireOrgPermission(userId,orgId,'read');await assertScope(orgId,scopeId);
- const rows=(await pool.query(`SELECT sc.id,sc.applicability,sc.applicability_justification,sc.implementation,sc.owner_user_id,sc.related_risk_ids,sc.evidence_refs,sc.approved_by,sc.approved_at,
+ const rows=(await pool.query(`SELECT sc.id,sc.control_id,sc.applicability,sc.applicability_justification,sc.implementation,sc.owner_user_id,sc.related_risk_ids,sc.evidence_refs,sc.approved_by,sc.approved_at,
  c.control_key,c.title,c.domain,
  COALESCE(json_agg(json_build_object('framework',fr.framework,'version',fr.framework_version,'requirementKey',fr.requirement_key,'title',fr.title,'mappingType',m.mapping_type))
  FILTER(WHERE fr.id IS NOT NULL),'[]'::json) mappings

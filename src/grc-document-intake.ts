@@ -17,7 +17,8 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'POLICY',field:'policyTitle',patterns:[/\b(?:policy\s+(?:name|title))\s*[:#-]\s*([^|;]{3,180})/i]},
  {kind:'AUDIT',field:'auditFinding',patterns:[/\b(?:audit\s+finding|observation|nonconformity)\s*[:#-]\s*([^|;]{4,240})/i]},
  {kind:'INCIDENT',field:'incidentTitle',patterns:[/\b(?:incident(?:\s+title)?)\s*[:#-]\s*([^|;]{4,180})/i]},
- {kind:'SCOPE',field:'scopeName',patterns:[/\b(?:scope|system\s+name)\s*[:#-]\s*([^|;]{3,180})/i]}
+ {kind:'SCOPE',field:'scopeName',patterns:[/\b(?:scope|system\s+name|assessment\s+scope|in[- ]scope)\s*[:#-]\s*([^|;]{3,180})/i]},
+ {kind:'SCOPE',field:'scopeDescription',patterns:[/\b(?:scope\s+description|scope\s+statement|scope\s+includes?|scope\s+covers?)\s*[:#-]\s*([^|;]{4,500})/i]}
 ];
 function clean(v:string){return v.replace(/\s+/g,' ').trim().slice(0,500)}
 function confidence(line:string,match:string){let n=.72;if(/[:#-]/.test(line))n+=.08;if(match.length>=4)n+=.05;if(line.length<220)n+=.05;return Math.min(.95,Math.round(n*100)/100)}
@@ -56,7 +57,8 @@ export async function createGrcIntake(user:string,org:string,scopeId:string|unde
  const extracted=await extractDocument(filename,mime,file.buffer);const text=String(extracted.text||'');if(text.trim().length<20)throw Object.assign(new Error('Document has no usable text layer; scanned/image-only documents require text extraction before deterministic intake'),{statusCode:422});
  const sha=crypto.createHash('sha256').update(file.buffer).digest('hex'),textSha=crypto.createHash('sha256').update(text).digest('hex'),proposals=parseGrcDocumentDeterministically(text),id=crypto.randomUUID();
  const kinds=[...new Set(proposals.map(x=>x.kind).filter(x=>x!=='UNKNOWN'))],docKind=kinds.length===1?kinds[0]:kinds.length?'MIXED':'UNCLASSIFIED';const client=await pool.connect();
- try{await client.query('BEGIN');const prior=(await client.query('SELECT id FROM grc_document_intakes WHERE organization_id=$1 AND scope_id IS NOT DISTINCT FROM $2 AND sha256=$3',[org,scopeId||null,sha])).rows[0];if(prior)throw Object.assign(new Error('This exact document is already staged for this organization and scope'),{statusCode:409});
+ try{await client.query('BEGIN');const prior=(await client.query('SELECT id,status,proposal_count FROM grc_document_intakes WHERE organization_id=$1 AND scope_id IS NOT DISTINCT FROM $2 AND sha256=$3',[org,scopeId||null,sha])).rows[0];
+ if(prior){await client.query('ROLLBACK');return {id:prior.id,filename,sha256:sha,documentKind:docKind,pages:(extracted as any).pages||null,proposalCount:Number(prior.proposal_count||0),status:prior.status,engine:'DETERMINISTIC_RULE_ENGINE_V1',aiUsed:false,reused:true};}
  await client.query('INSERT INTO grc_document_intakes(id,organization_id,scope_id,filename,mime_type,sha256,document_kind,extracted_text_sha256,proposal_count,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[id,org,scopeId||null,filename,mime,sha,docKind,textSha,proposals.length,user]);
  for(const p of proposals)await client.query('INSERT INTO grc_document_intake_proposals(intake_id,proposal_id,kind,field,value,confidence,source_line,source_excerpt,rule) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[id,p.id,p.kind,p.field,p.value,p.confidence,p.source.line,p.source.excerpt,p.rule]);
  await client.query('COMMIT');return {id,filename,sha256:sha,documentKind:docKind,pages:(extracted as any).pages||null,proposalCount:proposals.length,status:'REVIEW_REQUIRED',engine:'DETERMINISTIC_RULE_ENGINE_V1',aiUsed:false};
@@ -106,5 +108,25 @@ export async function importApprovedGrcIntake(user:string,org:string,id:string){
   await client.query("UPDATE grc_document_intakes SET status='IMPORTED' WHERE id=$1",[id]);
   await client.query('COMMIT');
   return {id,status:'IMPORTED',recordsImported:imported,automaticComplianceDecision:false,limitations:skippedKinds.length?['Accepted '+skippedKinds.join(', ')+' proposals remain staged because no safe deterministic write adapter is enabled for those record types.']:[]};
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
+
+
+export async function applyGrcIntakeAutofill(user:string,org:string,id:string){
+ await requireOrgPermission(user,org,'manageScope');const client=await pool.connect();
+ try{await client.query('BEGIN');const intake=(await client.query('SELECT * FROM grc_document_intakes WHERE id=$1 AND organization_id=$2 FOR UPDATE',[id,org])).rows[0];
+  if(!intake)throw Object.assign(new Error('Document intake not found'),{statusCode:404});
+  const ps=(await client.query("SELECT *,COALESCE(NULLIF(reviewer_value,''),value) final_value FROM grc_document_intake_proposals WHERE intake_id=$1 ORDER BY confidence DESC,source_line",[id])).rows;
+  const pick=(field:string)=>ps.find((p:any)=>p.kind==='SCOPE'&&p.field===field)?.final_value;
+  const name=clean(String(pick('scopeName')||''));
+  const description=clean(String(pick('scopeDescription')||''));
+  let scope:any=null;
+  if(name){
+   scope=(await client.query('SELECT * FROM grc_scopes WHERE organization_id=$1 AND lower(name)=lower($2)',[org,name])).rows[0];
+   if(!scope){scope=(await client.query(`INSERT INTO grc_scopes(id,organization_id,name,description,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *`,[crypto.randomUUID(),org,name,description||('Autofilled from governed document '+intake.filename),user])).rows[0]}
+   else if(description&&!scope.description){scope=(await client.query('UPDATE grc_scopes SET description=$3,updated_at=now() WHERE id=$1 AND organization_id=$2 RETURNING *',[scope.id,org,description])).rows[0]}
+   await client.query('UPDATE grc_document_intakes SET scope_id=$1 WHERE id=$2',[scope.id,id]);
+  }
+  await client.query('COMMIT');return {id,reused:false,scope,autofill:{scopeName:name||null,scopeDescription:description||null},proposalCount:ps.length};
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }

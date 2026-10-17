@@ -64,7 +64,15 @@ export async function initGrcIntake(){await pool.query(`
   source_line integer NOT NULL,source_excerpt text NOT NULL,rule text NOT NULL,status text NOT NULL DEFAULT 'PROPOSED',
   reviewer_value text,reviewed_by uuid REFERENCES app_users(id) ON DELETE SET NULL,reviewed_at timestamptz,
   PRIMARY KEY(intake_id,proposal_id)
- ); CREATE INDEX IF NOT EXISTS grc_intake_org_scope_idx ON grc_document_intakes(organization_id,scope_id,created_at DESC);`)}
+ );
+ CREATE TABLE IF NOT EXISTS grc_document_governed_records(
+  id uuid PRIMARY KEY,intake_id uuid NOT NULL REFERENCES grc_document_intakes(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,scope_id uuid REFERENCES grc_scopes(id) ON DELETE CASCADE,
+  record_type text NOT NULL,record_id uuid NOT NULL,source_line integer,source_excerpt text,created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(intake_id,record_type,record_id)
+ );
+ CREATE INDEX IF NOT EXISTS grc_intake_org_scope_idx ON grc_document_intakes(organization_id,scope_id,created_at DESC);
+ CREATE INDEX IF NOT EXISTS grc_document_governed_records_intake_idx ON grc_document_governed_records(intake_id,record_type);`)}
 export async function createGrcIntake(user:string,org:string,scopeId:string|undefined,file:{originalname:string;mimetype:string;buffer:Buffer}){
  await requireOrgPermission(user,org,'manageControl');
  const filename=String(file.originalname||'').replace(/[\\/\0]/g,'_').trim(),mime=String(file.mimetype||'').toLowerCase(),size=file.buffer?.length||0;

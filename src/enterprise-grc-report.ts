@@ -10,7 +10,7 @@ const rows=(v:any)=>Array.isArray(v)?v:[];
 
 export function buildEnterpriseGrcReport(input:{
  organization:any;scope:any;readiness:any;soa:any;risks:any[];issues:any[];capa:any[];
- dashboard?:any;sla?:any;assessmentTraces?:any[];securityHandoffs?:any[];automationRuns?:any[];incidents?:any[];identitySignals?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;auditEvidenceReadiness?:any;governancePerformance?:any;selectedFramework?:string;generatedAt?:string;
+ dashboard?:any;sla?:any;assessmentTraces?:any[];securityHandoffs?:any[];automationRuns?:any[];incidents?:any[];identitySignals?:any[];thirdParty?:any;architecture?:any;continuousCompliance?:any;resilience?:any;policy?:any;audit?:any;auditEvidenceReadiness?:any;governancePerformance?:any;documentIntake?:any;selectedFramework?:string;generatedAt?:string;
 }){
  const generatedAt=input.generatedAt||new Date().toISOString();
  const selectedFramework=s(input.selectedFramework).trim().toUpperCase();
@@ -80,6 +80,8 @@ export function buildEnterpriseGrcReport(input:{
   organization:{id:input.organization?.id,name:input.organization?.name,industry:input.organization?.industry},
   scope:input.scope,
   frameworks:[...frameworkSet].sort(),
+  documentDeclaredFrameworks:rows(input.documentIntake?.declaredFrameworks),
+  documentIntakeProvenance:input.documentIntake||{intakes:[],declaredFrameworks:[],governedRecords:[]},
   reportContext:{selectedFramework:selectedFramework||null,scopeMode:selectedFramework?'FRAMEWORK_FILTERED':'MULTI_FRAMEWORK',frameworkFilterFallback,frameworkMappingWarning:frameworkFilterFallback?'No controls in this populated scope are mapped to the selected framework. Persisted scope controls and SoA decisions are retained in this report so entered governance data is not silently hidden. Add governed framework mappings to obtain framework-specific filtering.':null},
   managementOpinion:{
    conclusion:opinion,

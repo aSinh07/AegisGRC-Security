@@ -108,39 +108,47 @@ export async function bindGrcIntakeScope(user:string,org:string,id:string,scopeI
 }
 export async function importApprovedGrcIntake(user:string,org:string,id:string){
  await requireOrgPermission(user,org,'manageControl');const client=await pool.connect();
- try{
-  await client.query('BEGIN');
+ try{await client.query('BEGIN');
   const intake=(await client.query("SELECT * FROM grc_document_intakes WHERE id=$1 AND organization_id=$2 AND status='APPROVED' FOR UPDATE",[id,org])).rows[0];
   if(!intake)throw Object.assign(new Error('Approved intake not found'),{statusCode:409});
-  if(!intake.scope_id)throw Object.assign(new Error('A governed scope is required before importing control proposals'),{statusCode:409});
+  if(!intake.scope_id)throw Object.assign(new Error('A governed scope is required before importing document proposals'),{statusCode:409});
   const ps=(await client.query("SELECT *,COALESCE(NULLIF(reviewer_value,''),value) final_value FROM grc_document_intake_proposals WHERE intake_id=$1 AND status='ACCEPTED' ORDER BY source_line,proposal_id",[id])).rows;
-  let imported=0;
-  const controls=ps.filter((p:any)=>p.kind==='CONTROL');
-  const anchors=controls.filter((p:any)=>p.field==='controlKey');
-  for(let i=0;i<anchors.length;i++){
-   const anchor=anchors[i],nextLine=i+1<anchors.length?Number(anchors[i+1].source_line):Number.MAX_SAFE_INTEGER;
-   const related=controls.filter((p:any)=>Number(p.source_line)>=Number(anchor.source_line)&&Number(p.source_line)<nextLine);
-   const key=clean(anchor.final_value).toUpperCase();
-   const control=(await client.query('SELECT id FROM grc_canonical_controls WHERE upper(control_key)=upper($1)',[key])).rows[0];
-   if(!control)continue;
-   const applicability=clean(related.find((x:any)=>x.field==='applicability')?.final_value||'PENDING').toUpperCase().replace(/[ -]/g,'_');
-   const implementation=clean(related.find((x:any)=>x.field==='implementation')?.final_value||'NOT_IMPLEMENTED').toUpperCase().replace(/ /g,'_');
-   if(!['APPLICABLE','NOT_APPLICABLE','PENDING'].includes(applicability)||!['NOT_IMPLEMENTED','PLANNED','PARTIAL','IMPLEMENTED'].includes(implementation))continue;
-   await client.query(`INSERT INTO grc_scope_controls(id,organization_id,scope_id,control_id,applicability,implementation,applicability_justification)
-    VALUES($1,$2,$3,$4,$5,$6,$7)
-    ON CONFLICT(scope_id,control_id) DO UPDATE SET applicability=EXCLUDED.applicability,implementation=EXCLUDED.implementation,
-    applicability_justification=EXCLUDED.applicability_justification,updated_at=now()`,
-    [crypto.randomUUID(),org,intake.scope_id,control.id,applicability,implementation,'Imported from approved deterministic intake '+id]);
-   imported++;
+  let imported=0;const importedByType:Record<string,number>={},limitations:string[]=[];
+  const note=async(type:string,recordId:string,p:any)=>{await client.query('INSERT INTO grc_document_governed_records(id,intake_id,organization_id,scope_id,record_type,record_id,source_line,source_excerpt) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING',[crypto.randomUUID(),id,org,intake.scope_id,type,recordId,p?.source_line||null,p?.source_excerpt||null]);imported++;importedByType[type]=(importedByType[type]||0)+1};
+  const groups=(kind:string,anchorField:string)=>{const rows=ps.filter((p:any)=>p.kind===kind),anchors=rows.filter((p:any)=>p.field===anchorField);return anchors.map((anchor:any,i:number)=>({anchor,rows:rows.filter((p:any)=>Number(p.source_line)>=Number(anchor.source_line)&&Number(p.source_line)<(i+1<anchors.length?Number(anchors[i+1].source_line):Number.MAX_SAFE_INTEGER))}))};
+  const val=(rows:any[],field:string)=>clean(String(rows.find((x:any)=>x.field===field)?.final_value||''));
+  for(const g of groups('CONTROL','controlKey')){
+   const key=val(g.rows,'controlKey').toUpperCase(),control=(await client.query('SELECT id FROM grc_canonical_controls WHERE upper(control_key)=upper($1)',[key])).rows[0];if(!control){limitations.push('Control '+key+' is not in the canonical control catalog.');continue}
+   const applicability=(val(g.rows,'applicability')||'PENDING').toUpperCase().replace(/[ -]/g,'_'),implementation=(val(g.rows,'implementation')||'NOT_IMPLEMENTED').toUpperCase().replace(/ /g,'_');
+   if(!['APPLICABLE','NOT_APPLICABLE','PENDING'].includes(applicability)||!['NOT_IMPLEMENTED','PLANNED','PARTIAL','IMPLEMENTED'].includes(implementation)){limitations.push('Control '+key+' has unsupported applicability or implementation.');continue}
+   const justification=val(g.rows,'justification')||('Imported from approved document '+intake.filename+'; source line '+g.anchor.source_line);
+   const row=(await client.query('INSERT INTO grc_scope_controls(id,organization_id,scope_id,control_id,applicability,implementation,applicability_justification) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(scope_id,control_id) DO UPDATE SET applicability=EXCLUDED.applicability,implementation=EXCLUDED.implementation,applicability_justification=EXCLUDED.applicability_justification,updated_at=now() RETURNING id',[crypto.randomUUID(),org,intake.scope_id,control.id,applicability,implementation,justification])).rows[0];await note('CONTROL',row.id,g.anchor);
   }
-  if(!imported)throw Object.assign(new Error('No accepted proposal matched a safe deterministic write adapter; approved staged data was preserved and nothing was imported'),{statusCode:409});
-  const skippedKinds=[...new Set(ps.filter((p:any)=>p.kind!=='CONTROL').map((p:any)=>String(p.kind)))];
-  await client.query("UPDATE grc_document_intakes SET status='IMPORTED' WHERE id=$1",[id]);
-  await client.query('COMMIT');
-  return {id,status:'IMPORTED',recordsImported:imported,automaticComplianceDecision:false,limitations:skippedKinds.length?['Accepted '+skippedKinds.join(', ')+' proposals remain staged because no safe deterministic write adapter is enabled for those record types.']:[]};
+  for(const g of groups('RISK','riskTitle')){
+   const title=val(g.rows,'riskTitle'),likelihood=Number(val(g.rows,'likelihood')),impact=Number(val(g.rows,'impact'));if(!title||!Number.isInteger(likelihood)||likelihood<1||likelihood>5||!Number.isInteger(impact)||impact<1||impact>5){limitations.push('Risk '+(title||'(untitled)')+' remains staged because likelihood and impact 1-5 are required.');continue}
+   const score=likelihood*impact,rating=score>=20?'CRITICAL':score>=15?'HIGH':score>=8?'MEDIUM':score>=4?'LOW':'VERY_LOW',rawKey=val(g.rows,'riskKey').toUpperCase(),key=rawKey||('DOC-'+id.slice(0,8).toUpperCase()+'-RISK-'+g.anchor.source_line),treatment=(val(g.rows,'treatment')||'MITIGATE').toUpperCase();
+   if(!['MITIGATE','ACCEPT','TRANSFER','AVOID'].includes(treatment)){limitations.push('Risk '+key+' has unsupported treatment.');continue}
+   const row=(await client.query("INSERT INTO grc_risks(id,organization_id,risk_key,title,description,category,likelihood,impact,inherent_score,inherent_rating,treatment,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'OPEN') ON CONFLICT(risk_key) DO UPDATE SET title=EXCLUDED.title,description=EXCLUDED.description,category=EXCLUDED.category,likelihood=EXCLUDED.likelihood,impact=EXCLUDED.impact,inherent_score=EXCLUDED.inherent_score,inherent_rating=EXCLUDED.inherent_rating,treatment=EXCLUDED.treatment,updated_at=now() WHERE grc_risks.organization_id=EXCLUDED.organization_id RETURNING id",[crypto.randomUUID(),org,key,title,val(g.rows,'riskDescription')||null,val(g.rows,'riskCategory')||'DOCUMENT_DERIVED',likelihood,impact,score,rating,treatment])).rows[0];if(row)await note('RISK',row.id,g.anchor);
+  }
+  for(const g of groups('VENDOR','vendorName')){
+   const name=val(g.rows,'vendorName');if(!name)continue;const generated=name.toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50),key=val(g.rows,'vendorKey').toUpperCase()||generated||('VENDOR-'+g.anchor.source_line),tier0=(val(g.rows,'vendorTier')||'TIER_3').toUpperCase().replace(/[ -]/g,'_'),tier=/^[1-4]$/.test(tier0)?'TIER_'+tier0:tier0,crit=(val(g.rows,'vendorCriticality')||'MEDIUM').toUpperCase();
+   if(!/^TIER_[1-4]$/.test(tier)||!['LOW','MEDIUM','HIGH','CRITICAL'].includes(crit)){limitations.push('Vendor '+name+' has unsupported tier or criticality.');continue}
+   const row=(await client.query("INSERT INTO grc_third_parties(id,organization_id,vendor_key,name,service,tier,criticality,status,metadata,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,'DUE_DILIGENCE',$8,$9) ON CONFLICT(organization_id,vendor_key) DO UPDATE SET name=EXCLUDED.name,service=EXCLUDED.service,tier=EXCLUDED.tier,criticality=EXCLUDED.criticality,updated_at=now() RETURNING id",[crypto.randomUUID(),org,key,name,val(g.rows,'vendorService'),tier,crit,{documentIntakeId:id,sourceLine:g.anchor.source_line},user])).rows[0];await note('VENDOR',row.id,g.anchor);
+  }
+  for(const g of groups('POLICY','policyTitle')){
+   const title=val(g.rows,'policyTitle');if(!title)continue;const generated=title.toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50),key=val(g.rows,'policyKey').toUpperCase()||generated||('POLICY-'+g.anchor.source_line);
+   const row=(await client.query("INSERT INTO grc_policies(id,organization_id,scope_id,policy_key,title,category,version,status,content_ref,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,'DRAFT',$8,$9) ON CONFLICT(organization_id,policy_key) DO UPDATE SET title=EXCLUDED.title,category=EXCLUDED.category,version=EXCLUDED.version,content_ref=EXCLUDED.content_ref,updated_at=now() RETURNING id",[crypto.randomUUID(),org,intake.scope_id,key,title,val(g.rows,'policyCategory')||'SECURITY',val(g.rows,'policyVersion')||'1.0','DOCUMENT_INTAKE:'+id+'#line:'+g.anchor.source_line,user])).rows[0];await note('POLICY',row.id,g.anchor);
+  }
+  for(const g of groups('AUDIT','auditTitle')){
+   const title=val(g.rows,'auditTitle'),objective=val(g.rows,'auditObjective'),criteria=val(g.rows,'auditCriteria');if(!title||objective.length<5||criteria.length<3){limitations.push('Audit '+(title||'(untitled)')+' remains staged because title, objective and criteria are required.');continue}
+   const key=val(g.rows,'auditKey').toUpperCase()||('DOC-'+id.slice(0,8).toUpperCase()+'-AUDIT-'+g.anchor.source_line),type=(val(g.rows,'auditType')||'INTERNAL').toUpperCase().replace(/[- ]/g,'_');if(!['INTERNAL','EXTERNAL','SUPPLIER','REGULATORY','CERTIFICATION','FOLLOW_UP'].includes(type)){limitations.push('Audit '+key+' has unsupported type.');continue}
+   const row=(await client.query("INSERT INTO grc_audits(id,organization_id,scope_id,audit_key,title,audit_type,objective,criteria,lead_auditor_id,status,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'PLANNED',$9) ON CONFLICT(organization_id,audit_key) DO UPDATE SET title=EXCLUDED.title,objective=EXCLUDED.objective,criteria=EXCLUDED.criteria,updated_at=now() RETURNING id",[crypto.randomUUID(),org,intake.scope_id,key,title,type,objective,criteria,user])).rows[0];await note('AUDIT',row.id,g.anchor);
+   for(const finding of g.rows.filter((x:any)=>x.field==='auditFinding')){const title2=clean(finding.final_value),exists=(await client.query('SELECT 1 FROM grc_audit_workpapers WHERE audit_id=$1 AND title=$2',[row.id,title2])).rows[0];if(!exists)await client.query("INSERT INTO grc_audit_workpapers(id,organization_id,audit_id,title,procedure,conclusion,result,prepared_by) VALUES($1,$2,$3,$4,$5,'','NOT_TESTED',$6)",[crypto.randomUUID(),org,row.id,title2,'Validate document-derived audit observation against governed evidence.',user])}
+  }
+  if(!imported)throw Object.assign(new Error('No accepted proposal matched a safe governed write adapter; approved staged data was preserved and nothing was imported'),{statusCode:409});
+  await client.query("UPDATE grc_document_intakes SET status='IMPORTED' WHERE id=$1",[id]);await client.query('COMMIT');return {id,status:'IMPORTED',recordsImported:imported,importedByType,automaticComplianceDecision:false,governedRecords:true,limitations:[...new Set(limitations)]};
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
-
 
 export async function applyGrcIntakeAutofill(user:string,org:string,id:string){
  await requireOrgPermission(user,org,'manageScope');const client=await pool.connect();

@@ -49,3 +49,6 @@ test('SoA save uses explicit DOM bindings and local visible status',async()=>{co
 
 
 test('enterprise report never silently drops populated scope and SoA when selected framework mappings are missing',async()=>{const src=await readFile(new URL('../src/enterprise-grc-report.ts',import.meta.url),'utf8');assert.match(src,/frameworkFilterFallback/);assert.match(src,/const controls=frameworkFilterFallback\?allControls:frameworkMatchedControls/);assert.match(src,/const soaControls=frameworkFilterFallback\?allSoaControls:matchedSoaControls/);assert.match(src,/Persisted scope controls and SoA decisions are retained in this report/);});
+
+
+test('Enterprise GRC exposes verified control-bound evidence upload instead of relying on assessment vault uploads',async()=>{const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');const js=await readFile(new URL('../public/dashboard.js',import.meta.url),'utf8');for(const id of ['grcEvidenceRequest','grcEvidenceFile','uploadGrcEvidenceBtn','grcEvidenceUploadMsg'])assert.match(html,new RegExp('id="'+id+'"'));assert.match(js,/async function uploadGrcEvidence\(\)/);assert.match(js,/evidence-requests\/.*\/upload/);assert.match(js,/body\.append\('evidence',file,file\.name\)/);assert.match(js,/SHA-256 server verified/);assert.match(js,/Independent validation is still required/);});

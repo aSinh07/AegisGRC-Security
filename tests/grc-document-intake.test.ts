@@ -51,3 +51,14 @@ test('Enterprise GRC presents intake before scope operations and report export a
  assert.ok(ui.indexOf('INTAKE</span>')<ui.indexOf('REVIEW</span>')&&ui.indexOf('REVIEW</span>')<ui.indexOf('IMPORT</span>')&&ui.indexOf('IMPORT</span>')<ui.indexOf('SCOPE & CONTROLS</span>')&&ui.indexOf('SCOPE & CONTROLS</span>')<ui.indexOf('EVIDENCE</span>')&&ui.indexOf('EVIDENCE</span>')<ui.indexOf('REPORT</span>'));
  assert.match(ui,/Generate & Export Enterprise GRC Report/);
 });
+
+test('intake can stage before scope but governed import binds an explicit organization scope',()=>{
+ const js=fs.readFileSync('public/dashboard.js','utf8'),server=fs.readFileSync('src/server.ts','utf8'),engine=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(js,/if\(activeGrcScope\)form\.append\('scopeId',activeGrcScope\)/);
+ assert.match(js,/Select or create the governed target scope before import/);
+ assert.match(js,/document-intakes\/.*\/scope/);
+ assert.match(server,/document-intakes\/:id\/scope/);
+ assert.match(engine,/export async function bindGrcIntakeScope/);
+ assert.match(engine,/Imported intake scope cannot be changed/);
+ assert.match(engine,/Scope not found in organization/);
+});

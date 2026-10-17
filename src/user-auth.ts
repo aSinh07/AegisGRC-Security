@@ -79,6 +79,15 @@ export async function authAttemptAllowed(key:string,limit=10,windowMinutes=15){
  RETURNING failures,blocked_until`,[key,windowMinutes]);
  const x=r.rows[0];return !(x.blocked_until&&new Date(x.blocked_until).getTime()>Date.now())&&Number(x.failures)<limit;
 }
+export async function consumeRateLimit(key:string,limit=20,windowMinutes=60){
+ const r=await pool.query(`INSERT INTO app_auth_attempts(attempt_key,failures,window_started_at,blocked_until,updated_at)
+ VALUES($1,1,now(),NULL,now()) ON CONFLICT(attempt_key) DO UPDATE SET
+ failures=CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN 1 ELSE app_auth_attempts.failures+1 END,
+ window_started_at=CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN now() ELSE app_auth_attempts.window_started_at END,
+ blocked_until=NULL,updated_at=now()
+ RETURNING failures`,[key,limit,windowMinutes]);
+ return Number(r.rows[0].failures)<=limit;
+}
 export async function recordAuthFailure(key:string,limit=10,windowMinutes=15){
  const r=await pool.query(`INSERT INTO app_auth_attempts(attempt_key,failures,window_started_at,blocked_until,updated_at)
  VALUES($1,1,now(),CASE WHEN 1 >= $2 THEN now()+($3::text||' minutes')::interval ELSE NULL END,now()) ON CONFLICT(attempt_key) DO UPDATE SET

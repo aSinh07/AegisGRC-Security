@@ -94,7 +94,7 @@ test('authentication throttle query uses contiguous PostgreSQL parameters',async
  const {readFile}=await import('node:fs/promises');
  const auth=await readFile(new URL('../src/user-auth.ts',import.meta.url),'utf8');
  const start=auth.indexOf('export async function authAttemptAllowed');
- const end=auth.indexOf('export async function recordAuthFailure');
+ const end=auth.indexOf('export async function consumeRateLimit');
  const limiter=auth.slice(start,end);
  assert.match(limiter,/\$1/);
  assert.match(limiter,/\$2::text/);

@@ -179,7 +179,7 @@ test('document approval queue exposes reviewed intakes to independent governance
  assert.match(html,/Pending Reviews & Approvals/);
  assert.match(html,/value="GRC_CONSULTANT"/);
  assert.match(dash,/async function loadGrcIntakeQueue/);
- assert.match(dash,/Approve \/ inspect/);
+ assert.ok(dash.includes("x.status==='REVIEWED'?'Approve / inspect'"));
 });
 
 

@@ -14,7 +14,7 @@ const permissions={
  manageRisk:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','RISK_OWNER']),
  manageAssessment:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST']),
  findingReview:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','REVIEWER']),
- review:new Set<OrgRole>(['GRC_MANAGER','REVIEWER','AUDITOR'])
+ review:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','REVIEWER','AUDITOR'])
 };
 export type OrgPermission=keyof typeof permissions;
 export function roleAllows(role:OrgRole,permission:OrgPermission){return permissions[permission].has(role)}

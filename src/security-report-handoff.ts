@@ -16,7 +16,19 @@ CREATE TABLE IF NOT EXISTS grc_security_report_handoffs(
  UNIQUE(organization_id,report_id)
 );
 CREATE INDEX IF NOT EXISTS grc_security_handoff_org_idx ON grc_security_report_handoffs(organization_id,status,created_at DESC);
-`)}
+`);
+ // Backfill Offensive/Defensive documents uploaded before automatic GRC handoff existed.
+ await pool.query(`
+ INSERT INTO grc_security_report_handoffs(id,organization_id,assessment_id,report_id,source,sha256,recorded_at,evidence_refs,frameworks_requested,status,created_by,created_at)
+ SELECT gen_random_uuid(),a.organization_id,d.assessment_id,d.id,
+   CASE WHEN COALESCE(ev.payload->'metadata'->>'description','') LIKE 'Offensive%' THEN 'OFFENSIVE' ELSE 'DEFENSIVE' END,
+   d.sha256,d.created_at,jsonb_build_array(d.id::text),'[]'::jsonb,'REVIEW_REQUIRED',a.created_by,d.created_at
+ FROM documents d JOIN assessments a ON a.id=d.assessment_id
+ JOIN LATERAL (SELECT e.payload FROM audit_events e WHERE e.assessment_id=d.assessment_id AND e.action='DOCUMENT_UPLOADED' AND e.payload->'metadata'->>'documentId'=d.id::text ORDER BY e.created_at DESC LIMIT 1) ev ON true
+ WHERE a.organization_id IS NOT NULL AND (COALESCE(ev.payload->'metadata'->>'description','') LIKE 'Offensive%' OR COALESCE(ev.payload->'metadata'->>'description','') LIKE 'Defensive%')
+ ON CONFLICT(organization_id,report_id) DO NOTHING;
+ `)
+}
 
 export async function createSecurityReportHandoff(user:string,org:string,input:any){
  await requireOrgPermission(user,org,'manageRisk');

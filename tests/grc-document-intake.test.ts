@@ -159,3 +159,17 @@ test('independent reviewer can discover existing tenant intakes without re-uploa
  assert.match(dash,/Open for independent approval/);
  assert.match(dash,/loadGrcIntakeQueue\(\)/);
 });
+
+
+test('document approval queue exposes reviewed intakes to independent governance roles',()=>{
+ const org=fs.readFileSync('src/grc-organizations.ts','utf8');
+ const html=fs.readFileSync('public/index.html','utf8');
+ const dash=fs.readFileSync('public/dashboard.js','utf8');
+ assert.match(org,/GRC_CONSULTANT/);
+ assert.match(org,/review:new Set<OrgRole>\(\['GRC_MANAGER','GRC_CONSULTANT','REVIEWER','AUDITOR'\]\)/);
+ assert.doesNotMatch(org,/review:new Set<OrgRole>\([^\n]*'ORG_ADMIN'/);
+ assert.match(html,/Pending Reviews & Approvals/);
+ assert.match(html,/value="GRC_CONSULTANT"/);
+ assert.match(dash,/async function loadGrcIntakeQueue/);
+ assert.match(dash,/Open for independent approval/);
+});

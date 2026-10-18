@@ -143,7 +143,7 @@ test('organization reviewer onboarding is email based and preserves independent 
  assert.match(html,/value="REVIEWER"/);
  assert.match(dash,/async function addGrcMemberByEmail/);
  assert.match(dash,/loadGrcMembers\(\)/);
- assert.match(org,/review:new Set<OrgRole>\(\['GRC_MANAGER','REVIEWER','AUDITOR'\]\)/);
+ assert.match(org,/review:new Set<OrgRole>\(\['GRC_MANAGER','GRC_CONSULTANT','REVIEWER','AUDITOR'\]\)/);
  assert.doesNotMatch(org,/review:new Set<OrgRole>\(\[[^\]]*'ORG_ADMIN'/);
 });
 

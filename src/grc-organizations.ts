@@ -13,6 +13,7 @@ const permissions={
  manageControl:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','CONTROL_OWNER']),
  manageRisk:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','RISK_OWNER']),
  manageAssessment:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST']),
+ initiateAudit:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','AUDITOR']),
  findingReview:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','REVIEWER']),
  review:new Set<OrgRole>(['GRC_MANAGER','REVIEWER','AUDITOR'])
 };

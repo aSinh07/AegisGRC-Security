@@ -77,7 +77,7 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'COMPLIANCE',field:'obligationTitle',patterns:[/\b(?:obligation\s+(?:name|title)|obligation)\s*[:#-]\s*([^|;]{3,220})/i]},
  {kind:'COMPLIANCE',field:'obligationSource',patterns:[/\b(?:obligation\s+source|compliance\s+source)\s*[:#-]\s*([^|;]{3,500})/i]},
  {kind:'COMPLIANCE',field:'frequencyDays',patterns:[/\b(?:frequency\s+days|recurrence\s+days)\s*[:#-]\s*(\d{1,6})\b/i]},
- {kind:'COMPLIANCE',field:'nextDueAt',patterns:[/\b(?:next\s+due(?:\s+date)?|due\s+date)\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]}
+ {kind:'COMPLIANCE',field:'nextDueAt',patterns:[/\b(?:next\s+due(?:\s+date)?|due\s+date)\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]},
  {kind:'AI_IMPACT',field:'impactKey',patterns:[/\b(?:ai\s+impact\s+(?:assessment\s+)?(?:id|key)|assessment\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
  {kind:'AI_IMPACT',field:'reviewPeriod',patterns:[/\b(?:ai\s+impact\s+)?review\s+period\s*[:#-]\s*([^|;]{2,120})/i]},
  {kind:'AI_IMPACT',field:'aiSystem',patterns:[/\b(?:ai\s+system|ai\s+use\s+case)\s*[:#-]\s*([^|;]{3,300})/i]},

@@ -484,13 +484,15 @@ app.get('/api/grc/organizations/:orgId/scopes/:scopeId/enterprise-report.:format
  const selectedFramework=String(req.query.framework||'').trim().toUpperCase();
  if(selectedFramework&&!frameworkCatalog.some((x:any)=>String(x.id).toUpperCase()===selectedFramework))return res.status(400).json({error:'Unknown enterprise report framework'});
  const model=buildEnterpriseGrcReport({...base,readiness,soa,dashboard,sla:slaState,thirdParty,architecture,continuousCompliance,resilience,policy,audit,auditEvidenceReadiness,governancePerformance,privacy,documentIntake,assessmentTraces:traces,selectedFramework:selectedFramework||undefined});
+ const combined=String(req.query.package||'').toLowerCase()==='combined';
+ if(combined){model.documentControl.title='Combined Enterprise GRC, Offensive & Defensive Assurance Report';model.documentControl.documentId='AEGIS-COMBINED-ASSURANCE-'+String(req.params.scopeId).toUpperCase();(model as any).reportPackage='COMBINED_GRC_OFFENSIVE_DEFENSIVE'}
  const format=String(req.params.format||'json').toLowerCase();let body:Buffer,contentType='application/json',ext=format;
  if(format==='pdf'){body=await enterpriseGrcPdf(model);contentType='application/pdf'}
  else if(format==='docx'){body=await enterpriseGrcDocx(model);contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
  else if(format==='xlsx'){body=enterpriseGrcXlsx(model);contentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
  else if(format==='json'){body=Buffer.from(JSON.stringify(model,null,2))}
  else return res.status(400).json({error:'Enterprise GRC report format must be pdf, docx, xlsx or json'});
- res.setHeader('Content-Type',contentType);res.setHeader('Content-Disposition','attachment; filename="AegisGRC-Enterprise-'+req.params.scopeId+'.'+ext+'"');res.send(body);
+ res.setHeader('Content-Type',contentType);res.setHeader('Content-Disposition','attachment; filename="'+(combined?'AegisGRC-Combined-Assurance-':'AegisGRC-Enterprise-')+req.params.scopeId+'.'+ext+'"');res.send(body);
  }catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 app.post('/api/internal/grc/automation/run-due',async(req,res)=>{try{

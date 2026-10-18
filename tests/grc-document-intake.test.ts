@@ -146,3 +146,16 @@ test('organization reviewer onboarding is email based and preserves independent 
  assert.match(org,/review:new Set<OrgRole>\(\['GRC_MANAGER','REVIEWER','AUDITOR'\]\)/);
  assert.doesNotMatch(org,/review:new Set<OrgRole>\(\[[^\]]*'ORG_ADMIN'/);
 });
+
+test('independent reviewer can discover existing tenant intakes without re-uploading documents',()=>{
+ const intake=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ const server=fs.readFileSync('src/server.ts','utf8');
+ const html=fs.readFileSync('public/index.html','utf8');
+ const dash=fs.readFileSync('public/dashboard.js','utf8');
+ assert.match(intake,/export async function listGrcIntakes/);
+ assert.match(server,/organizations\/:orgId\/document-intakes'/);
+ assert.match(html,/Pending Reviews & Approvals/);
+ assert.match(dash,/async function loadGrcIntakeQueue/);
+ assert.match(dash,/Open for independent approval/);
+ assert.match(dash,/loadGrcIntakeQueue\(\)/);
+});

@@ -198,3 +198,6 @@ test('reviewer approval queue loads independently of broad workspace hydration a
 
 
 test('approved fact import separates audit creation from independent approval permission',()=>{const src=fs.readFileSync('src/grc-document-intake.ts','utf8');assert.match(src,/p\.kind==='AUDIT'\)\)await requireOrgPermission\(user,org,'initiateAudit'\)/);assert.doesNotMatch(src,/p\.kind==='AUDIT'\)\)await requireOrgPermission\(user,org,'review'\)/);});
+
+
+test('legacy offensive and defensive uploads are backfilled into GRC security handoffs',()=>{const src=fs.readFileSync('src/security-report-handoff.ts','utf8');assert.match(src,/Backfill Offensive\/Defensive documents uploaded before automatic GRC handoff existed/);assert.match(src,/INSERT INTO grc_security_report_handoffs/);assert.match(src,/DOCUMENT_UPLOADED/);assert.match(src,/LIKE 'Offensive%'/);assert.match(src,/LIKE 'Defensive%'/);assert.match(src,/ON CONFLICT\(organization_id,report_id\) DO NOTHING/);});

@@ -164,7 +164,7 @@ test('independent reviewer can discover existing tenant intakes without re-uploa
  assert.match(server,/organizations\/:orgId\/document-intakes'/);
  assert.match(html,/Pending Reviews & Approvals/);
  assert.match(dash,/async function loadGrcIntakeQueue/);
- assert.match(dash,/Approve \/ inspect/);
+ assert.match(dash,/x.status==='REVIEWED'?'Approve \/ inspect'/);
  assert.match(dash,/loadGrcIntakeQueue\(\)/);
 });
 

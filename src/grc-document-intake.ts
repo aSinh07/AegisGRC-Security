@@ -3,7 +3,7 @@ import {pool} from './db-pool.js';
 import {requireOrgPermission} from './grc-organizations.js';
 import {extractDocument} from './document-extract.js';
 
-export type IntakeKind='CONTROL'|'RISK'|'VENDOR'|'POLICY'|'AUDIT'|'INCIDENT'|'SCOPE'|'PRIVACY'|'LEGAL'|'ARCHITECTURE'|'RESILIENCE'|'GOVERNANCE'|'COMPLIANCE'|'UNKNOWN';
+export type IntakeKind='CONTROL'|'RISK'|'VENDOR'|'POLICY'|'AUDIT'|'INCIDENT'|'SCOPE'|'PRIVACY'|'LEGAL'|'ARCHITECTURE'|'RESILIENCE'|'GOVERNANCE'|'COMPLIANCE'|'AI_IMPACT'|'UNKNOWN';
 export type IntakeProposal={id:string;kind:IntakeKind;field:string;value:string;confidence:number;source:{line:number;excerpt:string};rule:string;status:'PROPOSED'|'ACCEPTED'|'REJECTED';targetKey?:string};
 
 const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
@@ -78,6 +78,19 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'COMPLIANCE',field:'obligationSource',patterns:[/\b(?:obligation\s+source|compliance\s+source)\s*[:#-]\s*([^|;]{3,500})/i]},
  {kind:'COMPLIANCE',field:'frequencyDays',patterns:[/\b(?:frequency\s+days|recurrence\s+days)\s*[:#-]\s*(\d{1,6})\b/i]},
  {kind:'COMPLIANCE',field:'nextDueAt',patterns:[/\b(?:next\s+due(?:\s+date)?|due\s+date)\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]}
+ {kind:'AI_IMPACT',field:'impactKey',patterns:[/\b(?:ai\s+impact\s+(?:assessment\s+)?(?:id|key)|assessment\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
+ {kind:'AI_IMPACT',field:'reviewPeriod',patterns:[/\b(?:ai\s+impact\s+)?review\s+period\s*[:#-]\s*([^|;]{2,120})/i]},
+ {kind:'AI_IMPACT',field:'aiSystem',patterns:[/\b(?:ai\s+system|ai\s+use\s+case)\s*[:#-]\s*([^|;]{3,300})/i]},
+ {kind:'AI_IMPACT',field:'intendedUse',patterns:[/\bintended\s+use\s*[:#-]\s*([^|;]{10,500})/i]},
+ {kind:'AI_IMPACT',field:'foreseeableMisuse',patterns:[/\bforeseeable\s+misuse\s*[:#-]\s*([^|;]{10,500})/i]},
+ {kind:'AI_IMPACT',field:'affectedParties',patterns:[/\b(?:affected\s+(?:parties|groups|persons)|impacted\s+groups)\s*[:#-]\s*([^|;]{10,500})/i]},
+ {kind:'AI_IMPACT',field:'dataExposureImpact',patterns:[/\b(?:data(?:\/privacy)?\s+(?:exposure\s+)?impact|privacy\s+impact)\s*[:#-]\s*([^|;]{10,500})/i]},
+ {kind:'AI_IMPACT',field:'erroneousOutputImpact',patterns:[/\b(?:erroneous\s+output\s+(?:impact|consequence)|incorrect\s+output\s+(?:impact|consequence))\s*[:#-]\s*([^|;]{10,500})/i]},
+ {kind:'AI_IMPACT',field:'downstreamImpact',patterns:[/\b(?:downstream\s+(?:impact|effects?))\s*[:#-]\s*([^|;]{10,500})/i]},
+ {kind:'AI_IMPACT',field:'humanOversight',patterns:[/\bhuman\s+oversight\s*[:#-]\s*([^|;]{10,500})/i]},
+ {kind:'AI_IMPACT',field:'reviewTriggers',patterns:[/\b(?:review|change)\s+triggers?\s*[:#-]\s*([^|;]{10,500})/i]},
+ {kind:'AI_IMPACT',field:'riskRating',patterns:[/\b(?:ai\s+impact\s+)?risk\s+(?:rating|level)\s*[:#-]\s*(low|medium|high|critical)\b/i]},
+ {kind:'AI_IMPACT',field:'evidenceRefs',patterns:[/\b(?:validated\s+evidence(?:\s+vault)?\s+(?:version\s+)?(?:ids?|refs?)|evidence\s+vault\s+version\s+(?:ids?|refs?))\s*[:#-]\s*([^|;]{10,500})/i]}
 ];
 function clean(v:string){return v.replace(/\s+/g,' ').trim().slice(0,500)}
 function confidence(line:string,match:string){let n=.72;if(/[:#-]/.test(line))n+=.08;if(match.length>=4)n+=.05;if(line.length<220)n+=.05;return Math.min(.95,Math.round(n*100)/100)}

@@ -195,3 +195,6 @@ test('independent approval queue exposes server-authorized reviewer action and b
 
 
 test('reviewer approval queue loads independently of broad workspace hydration and detail exposes eligibility',()=>{const intake=fs.readFileSync('src/grc-document-intake.ts','utf8');const ui=fs.readFileSync('public/dashboard.js','utf8');assert.match(intake,/approval:\{viewerRole:m\?\.role\|\|null,canApprove,blocker:/);assert.match(ui,/Promise\.allSettled\(\[loadGrcIntakeQueue\(\),loadGrcMembers\(\),loadSecurityHandoffs\(\)\]\)/);assert.match(ui,/data\?\.approval\?\.canApprove/);assert.match(ui,/data\?\.approval\?\.blocker/);});
+
+
+test('approved fact import separates audit creation from independent approval permission',()=>{const src=fs.readFileSync('src/grc-document-intake.ts','utf8');assert.match(src,/p\.kind==='AUDIT'\)\)await requireOrgPermission\(user,org,'initiateAudit'\)/);assert.doesNotMatch(src,/p\.kind==='AUDIT'\)\)await requireOrgPermission\(user,org,'review'\)/);});

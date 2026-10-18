@@ -164,7 +164,7 @@ test('independent reviewer can discover existing tenant intakes without re-uploa
  assert.match(server,/organizations\/:orgId\/document-intakes'/);
  assert.match(html,/Pending Reviews & Approvals/);
  assert.match(dash,/async function loadGrcIntakeQueue/);
- assert.match(dash,/Open for independent approval/);
+ assert.match(dash,/Approve \/ inspect/);
  assert.match(dash,/loadGrcIntakeQueue\(\)/);
 });
 
@@ -179,7 +179,7 @@ test('document approval queue exposes reviewed intakes to independent governance
  assert.match(html,/Pending Reviews & Approvals/);
  assert.match(html,/value="GRC_CONSULTANT"/);
  assert.match(dash,/async function loadGrcIntakeQueue/);
- assert.match(dash,/Open for independent approval/);
+ assert.match(dash,/Approve \/ inspect/);
 });
 
 

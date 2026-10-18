@@ -4,8 +4,8 @@ import pg from 'pg';
 
 
 
-export type OrgRole='ORG_ADMIN'|'GRC_MANAGER'|'GRC_ANALYST'|'CONTROL_OWNER'|'RISK_OWNER'|'REVIEWER'|'AUDITOR'|'VIEWER';
-const roles:OrgRole[]=['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','CONTROL_OWNER','RISK_OWNER','REVIEWER','AUDITOR','VIEWER'];
+export type OrgRole='ORG_ADMIN'|'GRC_MANAGER'|'GRC_CONSULTANT'|'GRC_ANALYST'|'CONTROL_OWNER'|'RISK_OWNER'|'REVIEWER'|'AUDITOR'|'VIEWER';
+const roles:OrgRole[]=['ORG_ADMIN','GRC_MANAGER','GRC_CONSULTANT','GRC_ANALYST','CONTROL_OWNER','RISK_OWNER','REVIEWER','AUDITOR','VIEWER'];
 const permissions={
  read:new Set<OrgRole>(roles),
  manageOrg:new Set<OrgRole>(['ORG_ADMIN']),
@@ -15,7 +15,7 @@ const permissions={
  manageAssessment:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST']),
  initiateAudit:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','AUDITOR']),
  findingReview:new Set<OrgRole>(['ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','REVIEWER']),
- review:new Set<OrgRole>(['GRC_MANAGER','REVIEWER','AUDITOR'])
+ review:new Set<OrgRole>(['GRC_MANAGER','GRC_CONSULTANT','REVIEWER','AUDITOR'])
 };
 export type OrgPermission=keyof typeof permissions;
 export function roleAllows(role:OrgRole,permission:OrgPermission){return permissions[permission].has(role)}
@@ -33,7 +33,7 @@ export async function initOrganizations(){
  CREATE TABLE IF NOT EXISTS grc_organization_members(
    organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
    user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-   role text NOT NULL CHECK(role IN ('ORG_ADMIN','GRC_MANAGER','GRC_ANALYST','CONTROL_OWNER','RISK_OWNER','REVIEWER','AUDITOR','VIEWER')),
+   role text NOT NULL CHECK(role IN ('ORG_ADMIN','GRC_MANAGER','GRC_CONSULTANT','GRC_ANALYST','CONTROL_OWNER','RISK_OWNER','REVIEWER','AUDITOR','VIEWER')),
    status text NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','SUSPENDED')),
    created_at timestamptz NOT NULL DEFAULT now(),
    PRIMARY KEY(organization_id,user_id)

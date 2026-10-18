@@ -90,10 +90,10 @@ export async function consumeRateLimit(key:string,limit=20,windowMinutes=60){
 }
 export async function recordAuthFailure(key:string,limit=10,windowMinutes=15){
  const r=await pool.query(`INSERT INTO app_auth_attempts(attempt_key,failures,window_started_at,blocked_until,updated_at)
- VALUES($1,1,now(),CASE WHEN 1 >= $2 THEN now()+($2::text||' minutes')::interval ELSE NULL END,now()) ON CONFLICT(attempt_key) DO UPDATE SET
- failures=CASE WHEN app_auth_attempts.window_started_at<=now()-($2::text||' minutes')::interval THEN 1 ELSE app_auth_attempts.failures+1 END,
- window_started_at=CASE WHEN app_auth_attempts.window_started_at<=now()-($2::text||' minutes')::interval THEN now() ELSE app_auth_attempts.window_started_at END,
- blocked_until=CASE WHEN (CASE WHEN app_auth_attempts.window_started_at<=now()-($2::text||' minutes')::interval THEN 1 ELSE app_auth_attempts.failures+1 END)>=$2 THEN now()+($2::text||' minutes')::interval ELSE app_auth_attempts.blocked_until END,
+ VALUES($1,1,now(),CASE WHEN 1 >= $2 THEN now()+($3::text||' minutes')::interval ELSE NULL END,now()) ON CONFLICT(attempt_key) DO UPDATE SET
+ failures=CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN 1 ELSE app_auth_attempts.failures+1 END,
+ window_started_at=CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN now() ELSE app_auth_attempts.window_started_at END,
+ blocked_until=CASE WHEN (CASE WHEN app_auth_attempts.window_started_at<=now()-($3::text||' minutes')::interval THEN 1 ELSE app_auth_attempts.failures+1 END)>=$2 THEN now()+($3::text||' minutes')::interval ELSE app_auth_attempts.blocked_until END,
  updated_at=now() RETURNING failures,blocked_until`,[key,limit,windowMinutes]);
  return {failures:Number(r.rows[0].failures),blockedUntil:r.rows[0].blocked_until||null};
 }

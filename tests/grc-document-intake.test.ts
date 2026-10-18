@@ -129,3 +129,20 @@ test('ISO 42001 AI impact intake requires independently validated current Eviden
  assert.match(x,/validated_by IS NOT NULL/);assert.match(x,/validated_by IS DISTINCT FROM v\.submitted_by/);assert.match(x,/valid_until>now\(\)/);
  assert.match(x,/status='SUBMITTED'/);assert.doesNotMatch(x,/AI_IMPACT[\\s\\S]{0,5000}status='APPROVED'/);
 });
+
+
+test('organization reviewer onboarding is email based and preserves independent approval',()=>{
+ const org=fs.readFileSync('src/grc-organizations.ts','utf8');
+ const server=fs.readFileSync('src/server.ts','utf8');
+ const html=fs.readFileSync('public/index.html','utf8');
+ const dash=fs.readFileSync('public/dashboard.js','utf8');
+ assert.match(org,/export async function addMemberByEmail/);
+ assert.match(org,/Registered and MFA-verified AegisGRC user not found for this email/);
+ assert.match(server,/members\/by-email/);
+ assert.match(html,/Organization Members & Independent Reviewers/);
+ assert.match(html,/value="REVIEWER"/);
+ assert.match(dash,/async function addGrcMemberByEmail/);
+ assert.match(dash,/loadGrcMembers\(\)/);
+ assert.match(org,/review:new Set<OrgRole>\(\['GRC_MANAGER','REVIEWER','AUDITOR'\]\)/);
+ assert.doesNotMatch(org,/review:new Set<OrgRole>\(\[[^\]]*'ORG_ADMIN'/);
+});

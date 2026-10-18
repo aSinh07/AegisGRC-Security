@@ -63,3 +63,6 @@ test('every delegated dashboard UI action is callable through globalThis',async(
  const missing=[...new Set([...referenced,...dynamic])].filter(n=>!exported.has(n));
  assert.deepEqual(missing,[],`delegated UI actions not exported: ${missing.join(', ')}`);
 });
+
+
+test('enterprise reporting UI exposes combined GRC offensive defensive package',()=>{const html=fs.readFileSync('public/index.html','utf8'),js=fs.readFileSync('public/dashboard.js','utf8'),server=fs.readFileSync('src/server.ts','utf8');assert.match(html,/Combined Assurance Report · GRC \+ Offensive \+ Defensive/);assert.match(js,/package=combined/);assert.match(js,/AegisGRC-Combined-Assurance-/);assert.match(server,/COMBINED_GRC_OFFENSIVE_DEFENSIVE/);});

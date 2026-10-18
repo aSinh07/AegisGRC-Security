@@ -65,4 +65,4 @@ test('every delegated dashboard UI action is callable through globalThis',async(
 });
 
 
-test('enterprise reporting UI exposes combined GRC offensive defensive package',()=>{const html=fs.readFileSync('public/index.html','utf8'),js=fs.readFileSync('public/dashboard.js','utf8'),server=fs.readFileSync('src/server.ts','utf8');assert.match(html,/Combined Assurance Report · GRC \+ Offensive \+ Defensive/);assert.match(js,/package=combined/);assert.match(js,/AegisGRC-Combined-Assurance-/);assert.match(server,/COMBINED_GRC_OFFENSIVE_DEFENSIVE/);});
+test('enterprise reporting UI exposes combined GRC offensive defensive package',async()=>{const html=await readFile('public/index.html','utf8'),js=await readFile('public/dashboard.js','utf8'),server=await readFile('src/server.ts','utf8');assert.match(html,/Combined Assurance Report · GRC \+ Offensive \+ Defensive/);assert.match(js,/package=combined/);assert.match(js,/AegisGRC-Combined-Assurance-/);assert.match(server,/COMBINED_GRC_OFFENSIVE_DEFENSIVE/);});

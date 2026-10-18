@@ -38,6 +38,8 @@ export async function initOrganizations(){
    created_at timestamptz NOT NULL DEFAULT now(),
    PRIMARY KEY(organization_id,user_id)
  );
+ ALTER TABLE grc_organization_members DROP CONSTRAINT IF EXISTS grc_organization_members_role_check;
+ ALTER TABLE grc_organization_members ADD CONSTRAINT grc_organization_members_role_check CHECK(role IN ('ORG_ADMIN','GRC_MANAGER','GRC_CONSULTANT','GRC_ANALYST','CONTROL_OWNER','RISK_OWNER','REVIEWER','AUDITOR','VIEWER'));
  CREATE INDEX IF NOT EXISTS grc_org_members_user_idx ON grc_organization_members(user_id,status);
  CREATE TABLE IF NOT EXISTS grc_scopes(
    id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,

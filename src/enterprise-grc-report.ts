@@ -42,6 +42,9 @@ export function buildEnterpriseGrcReport(input:{
  const total=controls.length,coverage=total?Math.round(ready.length*100/total):0;
  const acceptedSecurityHandoffs=securityHandoffs.filter((x:any)=>x.status==='EVIDENCE_ACCEPTED');
  const pendingSecurityHandoffs=securityHandoffs.filter((x:any)=>x.status==='REVIEW_REQUIRED');
+ const rejectedSecurityHandoffs=securityHandoffs.filter((x:any)=>x.status==='REJECTED');
+ const offensiveSecurityHandoffs=securityHandoffs.filter((x:any)=>String(x.source||'').toUpperCase()==='OFFENSIVE');
+ const defensiveSecurityHandoffs=securityHandoffs.filter((x:any)=>String(x.source||'').toUpperCase()==='DEFENSIVE');
  const failedAutomationRuns=automationRuns.filter((x:any)=>x.status==='FAILED');
  const openIncidents=incidents.filter((x:any)=>x.phase!=='CLOSED');
  const criticalOpenIncidents=openIncidents.filter((x:any)=>x.severity==='CRITICAL');
@@ -118,7 +121,8 @@ export function buildEnterpriseGrcReport(input:{
   correctivePreventiveActions:capa,
   evidenceRegister:sourceRegister,
   technicalAssuranceCoverage:technicalCoverage,
-  securityReportEvidence:{accepted:acceptedSecurityHandoffs,pendingReview:pendingSecurityHandoffs,total:securityHandoffs.length,assuranceNote:'Accepted technical reports are governed evidence inputs, not automatic proof of control conformity.'},
+  securityReportEvidence:{accepted:acceptedSecurityHandoffs,pendingReview:pendingSecurityHandoffs,rejected:rejectedSecurityHandoffs,offensive:offensiveSecurityHandoffs,defensive:defensiveSecurityHandoffs,total:securityHandoffs.length,assuranceNote:'Accepted technical reports are governed evidence inputs, not automatic proof of control conformity.'},
+  combinedAssurance:{grcIncluded:true,offensive:{total:offensiveSecurityHandoffs.length,accepted:offensiveSecurityHandoffs.filter((x:any)=>x.status==='EVIDENCE_ACCEPTED').length,items:offensiveSecurityHandoffs},defensive:{total:defensiveSecurityHandoffs.length,accepted:defensiveSecurityHandoffs.filter((x:any)=>x.status==='EVIDENCE_ACCEPTED').length,items:defensiveSecurityHandoffs},governanceRule:'Only independently accepted technical reports contribute as governed security evidence; pending and rejected reports remain disclosed for traceability.'},
   automationAssurance:{recentRuns:automationRuns,failedRuns:failedAutomationRuns,assuranceNote:'Automation execution health is disclosed because failed or missing automation cannot be treated as successful control testing.'},
   incidentAndIdentityAssurance:{openIncidents,criticalOpenIncidents,identitySignalsReviewRequired:identityReviewRequired,assuranceNote:'Incident and identity signals are operational risk indicators requiring investigation; they are not automatic declarations of breach, compromise, or control failure.'},
   thirdPartyRisk:input.thirdParty||{vendors:[],incidents:[],summary:{}},

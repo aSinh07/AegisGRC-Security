@@ -192,3 +192,6 @@ test('security evidence handoff serializes JSONB arrays before PostgreSQL insert
 
 
 test('independent approval queue exposes server-authorized reviewer action and blockers',()=>{const intake=fs.readFileSync('src/grc-document-intake.ts','utf8');const ui=fs.readFileSync('public/dashboard.js','utf8');assert.match(intake,/can_approve:canApprove/);assert.match(intake,/roleAllows\(m\.role as any,'review'\)/);assert.match(intake,/Uploader cannot independently approve/);assert.match(intake,/Proposal reviewer cannot independently approve/);assert.match(ui,/data-action="approveGrcIntakeById"/);assert.match(ui,/Approve now/);assert.match(ui,/approval_blocker/);});
+
+
+test('reviewer approval queue loads independently of broad workspace hydration and detail exposes eligibility',()=>{const intake=fs.readFileSync('src/grc-document-intake.ts','utf8');const ui=fs.readFileSync('public/dashboard.js','utf8');assert.match(intake,/approval:\{viewerRole:m\?\.role\|\|null,canApprove,blocker:/);assert.match(ui,/Promise\.allSettled\(\[loadGrcIntakeQueue\(\),loadGrcMembers\(\),loadSecurityHandoffs\(\)\]\)/);assert.match(ui,/data\?\.approval\?\.canApprove/);assert.match(ui,/data\?\.approval\?\.blocker/);});

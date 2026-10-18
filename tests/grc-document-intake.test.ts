@@ -27,6 +27,14 @@ test('governed import targets live enterprise modules and requires an explicit s
  assert.match(s,/automaticComplianceDecision:false/);
 });
 
+test('incomplete approved controls enter the governed scope as pending review without inventing compliance',()=>{
+ const x=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(x,/suppliedApplicability\|\|'PENDING'/);
+ assert.match(x,/suppliedImplementation\|\|'NOT_IMPLEMENTED'/);
+ assert.match(x,/accountable human review required/);
+ assert.match(x,/automaticComplianceDecision:false/);
+});
+
 test('intake validates upload trust boundaries and reviewer separation',()=>{
  const x=fs.readFileSync('src/grc-document-intake.ts','utf8');
  assert.match(x,/between 1 byte and 10 MB/);

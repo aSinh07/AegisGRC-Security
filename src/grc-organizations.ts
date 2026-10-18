@@ -93,6 +93,16 @@ export async function listScopes(userId:string,organizationId:string){
  return (await pool.query(`SELECT id,organization_id,name,description,status,created_at,updated_at FROM grc_scopes
  WHERE organization_id=$1 ORDER BY created_at DESC`,[organizationId])).rows;
 }
+export async function addMemberByEmail(actorId:string,organizationId:string,email:string,role:OrgRole){
+ await requireOrgPermission(actorId,organizationId,'manageOrg');
+ email=String(email||'').trim().toLowerCase();
+ if(!email)throw new Error('Member email is required');
+ if(!roles.includes(role))throw new Error('Invalid organization role');
+ const user=(await pool.query('SELECT id,totp_verified FROM app_users WHERE lower(email)=lower($1)',[email])).rows[0];
+ if(!user||!user.totp_verified)throw Object.assign(new Error('Registered and MFA-verified AegisGRC user not found for this email'),{statusCode:404});
+ return addMember(actorId,organizationId,user.id,role);
+}
+
 export async function addMember(actorId:string,organizationId:string,userId:string,role:OrgRole){
  await requireOrgPermission(actorId,organizationId,'manageOrg');
  if(!roles.includes(role))throw new Error('Invalid organization role');

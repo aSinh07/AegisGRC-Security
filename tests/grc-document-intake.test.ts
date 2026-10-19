@@ -218,3 +218,6 @@ test('independent intake approval is state-safe and idempotent',()=>{const x=fs.
 
 
 test('approved governed import is permission-consistent and retry safe',()=>{const engine=fs.readFileSync('src/grc-document-intake.ts','utf8'),ui=fs.readFileSync('public/dashboard.js','utf8');const start=engine.indexOf('export async function importApprovedGrcIntake');const end=engine.indexOf('export async function applyGrcIntakeAutofill',start);const body=engine.slice(start,end);assert.match(body,/alreadyImported:true/);assert.match(body,/current state is/);assert.doesNotMatch(body,/requireOrgPermission\(user,org,'manageRisk'\)/);assert.match(ui,/Verify Imported Facts/);});
+
+
+test('approved import cannot mutate scope as a side effect',()=>{const engine=fs.readFileSync('src/grc-document-intake.ts','utf8'),ui=fs.readFileSync('public/dashboard.js','utf8');const b=engine.slice(engine.indexOf('export async function bindGrcIntakeScope'),engine.indexOf('export async function importApprovedGrcIntake'));assert.match(b,/requireOrgPermission\(user,org,'manageScope'\)/);const fn=ui.slice(ui.indexOf('async function importGrcIntake'),ui.indexOf('async function loadAutomationCenter'));assert.doesNotMatch(fn,/document-intakes.*\/scope/);assert.match(fn,/document-intakes.*\/import/);});

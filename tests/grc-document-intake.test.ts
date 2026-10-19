@@ -201,3 +201,6 @@ test('approved fact import separates audit creation from independent approval pe
 
 
 test('legacy offensive and defensive uploads are backfilled into GRC security handoffs',()=>{const src=fs.readFileSync('src/security-report-handoff.ts','utf8');assert.match(src,/Backfill Offensive\/Defensive documents uploaded before automatic GRC handoff existed/);assert.match(src,/INSERT INTO grc_security_report_handoffs/);assert.match(src,/DOCUMENT_UPLOADED/);assert.match(src,/LIKE 'Offensive%'/);assert.match(src,/LIKE 'Defensive%'/);assert.match(src,/ON CONFLICT\(organization_id,report_id\) DO NOTHING/);});
+
+
+test('approved control intake persists governed framework mapping when requirement exists',()=>{const x=fs.readFileSync('src/grc-document-intake.ts','utf8');assert.match(x,/val\(g\.rows,'framework'\)/);assert.match(x,/val\(g\.rows,'frameworkControl'\)/);assert.match(x,/FROM grc_framework_requirements WHERE active=true/);assert.match(x,/INSERT INTO grc_control_framework_mappings/);assert.match(x,/mapping remains review-required/);});

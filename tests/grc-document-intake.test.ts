@@ -280,3 +280,42 @@ test('deterministic parser preserves repeated field values for separate GRC reco
  assert.equal(p.filter(x=>x.kind==='CONTROL'&&x.field==='applicability'&&x.value.toUpperCase()==='APPLICABLE').length,2);
  assert.equal(p.filter(x=>x.kind==='CONTROL'&&x.field==='implementation'&&x.value.toUpperCase()==='PARTIAL').length,2);
 });
+
+
+test('security audit reports parse into governed audit facts without inventing compliance conclusions',()=>{
+ const p=parseGrcDocumentDeterministically([
+  'Assessment ID: EXT-SEC-2026-01',
+  'Assessment Title: External Security Audit - Customer Platform',
+  'Assessment Type: External',
+  'Assessment Objective: Evaluate security controls and identify material weaknesses',
+  'Assessment Criteria: ISO 27001 and approved internal security baseline',
+  'Finding Title: Privileged administrator MFA coverage gap',
+  'Finding Severity: High',
+  'Affected System: Identity platform',
+  'Control Reference: IAM-01',
+  'Evidence: Three privileged accounts were outside the enforced MFA policy',
+  'Recommendation: Enforce phishing-resistant MFA for all privileged identities',
+  'Finding Title: Public API rate limiting weakness',
+  'Severity: Medium',
+  'Affected Asset: Public API gateway',
+  'Evidence Reference: Audit sample API-17',
+  'Remediation: Apply tenant-aware throttling and alerting'
+ ].join('\n'));
+ for(const field of ['auditKey','auditTitle','auditType','auditObjective','auditCriteria','auditFinding','auditSeverity','auditAffectedAsset','auditControlReference','auditEvidence','auditRecommendation'])assert.ok(p.some(x=>x.field===field),field+' missing');
+ assert.equal(p.filter(x=>x.field==='auditFinding').length,2);
+ assert.equal(p.filter(x=>x.field==='auditSeverity').length,2);
+ assert.ok(p.every(x=>x.status==='PROPOSED'));
+});
+
+test('security audit intake preserves finding details as untested governed workpapers',()=>{
+ const engine=fs.readFileSync('src/grc-document-intake.ts','utf8'),html=fs.readFileSync('public/index.html','utf8');
+ assert.match(html,/Security Audit → GRC Intake/);
+ assert.match(html,/internal or external security audit reports/);
+ assert.match(html,/Existing GRC documents remain supported for baseline migration/);
+ for(const field of ['auditSeverity','auditRecommendation','auditEvidence','auditAffectedAsset','auditControlReference'])assert.match(engine,new RegExp(field));
+ assert.match(engine,/Source severity:/);
+ assert.match(engine,/Affected asset:/);
+ assert.match(engine,/Source control reference:/);
+ assert.match(engine,/NOT_TESTED/);
+ assert.match(engine,/automaticComplianceDecision:false/);
+});

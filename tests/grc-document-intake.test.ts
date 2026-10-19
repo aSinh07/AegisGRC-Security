@@ -224,3 +224,13 @@ test('approved governed import is permission-consistent and retry safe',()=>{con
 
 
 test('approved import cannot mutate scope as a side effect',()=>{const engine=fs.readFileSync('src/grc-document-intake.ts','utf8'),ui=fs.readFileSync('public/dashboard.js','utf8');const b=engine.slice(engine.indexOf('export async function bindGrcIntakeScope'),engine.indexOf('export async function importApprovedGrcIntake'));assert.match(b,/requireOrgPermission\(user,org,'manageScope'\)/);const fn=ui.slice(ui.indexOf('async function importGrcIntake'),ui.indexOf('async function loadAutomationCenter'));assert.doesNotMatch(fn,/document-intakes.*\/scope/);assert.match(fn,/document-intakes.*\/import/);});
+
+
+test('structured risk table rows keep IDs, titles and scores in separate fields',()=>{
+ const p=parseGrcDocumentDeterministically('RISK-001 | Compromised privileged credentials could permit unauthorized production access. | 3 | 5 | High | CISO | Enforce phishing-resistant MFA and quarterly privileged-access review.');
+ const get=(field:string)=>p.find(x=>x.field===field)?.value;
+ assert.equal(get('riskKey'),'RISK-001');
+ assert.equal(get('riskTitle'),'Compromised privileged credentials could permit unauthorized production access.');
+ assert.equal(get('likelihood'),'3');assert.equal(get('impact'),'5');
+ assert.ok(!get('riskTitle')?.includes('3/5/5'));
+});

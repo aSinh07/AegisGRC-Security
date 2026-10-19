@@ -29,3 +29,6 @@ test('security handoff is cryptographically bound to a stored document in the sa
 
 
 test('all security handoff evidence references are assessment-bound',()=>{const x=readFileSync('src/security-report-handoff.ts','utf8');assert.match(x,/Primary security report must be included in evidence references/);assert.match(x,/id::text=ANY\(\$2::text\[\]\)/);assert.match(x,/Every security handoff evidence reference must resolve to a stored document in the same assessment/);});
+
+
+test('security report handoff accepts assessment operators and duplicate creation is idempotent',()=>{const x=readFileSync('src/security-report-handoff.ts','utf8');assert.match(x,/roleAllows\(m\.role as any,'manageAssessment'\)/);assert.match(x,/roleAllows\(m\.role as any,'manageRisk'\)/);assert.match(x,/reused:true/);assert.match(x,/Conflicting security report handoff already exists/);});

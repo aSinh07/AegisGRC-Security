@@ -26,3 +26,6 @@ test('security evidence review is tenant-scoped serialized and idempotent',()=>{
 
 
 test('security handoff is cryptographically bound to a stored document in the same assessment',()=>{const x=readFileSync('src/security-report-handoff.ts','utf8');assert.match(x,/FROM documents WHERE id=\$1 AND assessment_id=\$2/);assert.match(x,/evidence hash does not match stored document/);assert.match(x,/String\(document\.sha256/);});
+
+
+test('all security handoff evidence references are assessment-bound',()=>{const x=readFileSync('src/security-report-handoff.ts','utf8');assert.match(x,/Primary security report must be included in evidence references/);assert.match(x,/id::text=ANY\(\$2::text\[\]\)/);assert.match(x,/Every security handoff evidence reference must resolve to a stored document in the same assessment/);});

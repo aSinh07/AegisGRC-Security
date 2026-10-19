@@ -237,3 +237,14 @@ test('structured risk table rows keep IDs, titles and scores in separate fields'
 
 
 test('Document-to-GRC UI never reports zero-fact extraction as successful parsing',()=>{const js=fs.readFileSync('public/dashboard.js','utf8');assert.match(js,/if\(!Number\(created\.proposalCount\|\|0\)\)throw new Error\('Document was stored, but no deterministic GRC facts were extracted/);});
+
+
+test('approved intake import relies on the governed intake scope, not reviewer browser scope state',()=>{
+ const ui=fs.readFileSync('public/dashboard.js','utf8');
+ const start=ui.indexOf('async function importGrcIntake()');
+ const end=ui.indexOf('async function loadAutomationCenter',start);
+ const body=ui.slice(start,end);
+ assert.doesNotMatch(body,/if\(!activeGrcScope\)/);
+ assert.match(body,/document-intakes.*\/import/);
+ assert.match(body,/intake-bound governed scope/);
+});

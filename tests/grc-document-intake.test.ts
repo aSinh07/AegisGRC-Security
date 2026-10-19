@@ -204,3 +204,11 @@ test('legacy offensive and defensive uploads are backfilled into GRC security ha
 
 
 test('approved control intake persists governed framework mapping when requirement exists',()=>{const x=fs.readFileSync('src/grc-document-intake.ts','utf8');assert.match(x,/val\(g\.rows,'framework'\)/);assert.match(x,/val\(g\.rows,'frameworkControl'\)/);assert.match(x,/FROM grc_framework_requirements WHERE active=true/);assert.match(x,/INSERT INTO grc_control_framework_mappings/);assert.match(x,/mapping remains review-required/);});
+
+
+test('approved governed import can be executed by manage-control or independent-review roles without re-gating accepted proposal kinds',()=>{
+ const x=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(x,/requireIntakeImportOperator/);
+ assert.match(x,/roleAllows\(m\.role as any,'manageControl'\).*roleAllows\(m\.role as any,'review'/s);
+ assert.doesNotMatch(x,/ps\.some\(\(p:any\)=>\['RISK','VENDOR'\]\.includes\(p\.kind\)\).*requireOrgPermission\(user,org,'manageRisk'\)/s);
+});

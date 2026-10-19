@@ -34,6 +34,9 @@ export async function createSecurityReportHandoff(user:string,org:string,input:a
  await requireOrgPermission(user,org,'manageRisk');
  const assessment=(await pool.query('SELECT id FROM assessments WHERE id=$1 AND organization_id=$2',[input.assessmentId,org])).rows[0];
  if(!assessment)throw Object.assign(new Error('Assessment not found in organization'),{statusCode:404});
+ const document=(await pool.query('SELECT id,assessment_id,sha256,created_at FROM documents WHERE id=$1 AND assessment_id=$2',[String(input.reportId||''),assessment.id])).rows[0];
+ if(!document)throw Object.assign(new Error('Security report document is not part of the assessment'),{statusCode:404});
+ if(String(input.sha256||'').toLowerCase()!==String(document.sha256||'').toLowerCase())throw Object.assign(new Error('Security report evidence hash does not match stored document'),{statusCode:409});
  const normalized=prepareEvidenceHandoff({organizationId:org,assessmentId:String(input.assessmentId),reportId:String(input.reportId),source:String(input.source||'').toUpperCase() as SecuritySource,sha256:String(input.sha256||''),recordedAt:String(input.recordedAt||''),status:'EVIDENCE_RECORDED',evidenceRefs:input.evidenceRefs,frameworksRequested:input.frameworksRequested||[]});
  return (await pool.query(`INSERT INTO grc_security_report_handoffs(id,organization_id,assessment_id,report_id,source,sha256,recorded_at,evidence_refs,frameworks_requested,status,created_by)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'REVIEW_REQUIRED',$10) ON CONFLICT(organization_id,report_id) DO NOTHING RETURNING *`,[crypto.randomUUID(),org,normalized.assessmentId,normalized.reportId,normalized.source,normalized.sha256,normalized.recordedAt,JSON.stringify(normalized.evidenceRefs),JSON.stringify(normalized.frameworksRequested),user])).rows[0]||(()=>{throw Object.assign(new Error('Report already handed off'),{statusCode:409})})()

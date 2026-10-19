@@ -63,10 +63,11 @@ test('Enterprise GRC presents intake before scope operations and report export a
 test('intake can stage before scope while approved import cannot mutate scope',()=>{
  const js=fs.readFileSync('public/dashboard.js','utf8'),server=fs.readFileSync('src/server.ts','utf8'),engine=fs.readFileSync('src/grc-document-intake.ts','utf8');
  assert.match(js,/if\(activeGrcScope\)form\.append\('scopeId',activeGrcScope\)/);
- assert.match(js,/Select or create the governed target scope before import/);
  const importFn=js.slice(js.indexOf('async function importGrcIntake'),js.indexOf('async function loadAutomationCenter'));
+ assert.doesNotMatch(importFn,/if\(!activeGrcScope\)/);
  assert.doesNotMatch(importFn,/document-intakes.*\/scope/);
  assert.match(importFn,/document-intakes.*\/import/);
+ assert.match(engine,/if\(!intake\.scope_id\)throw Object\.assign\(new Error\('Approved intake must be bound to a governed scope before import'\)/);
  assert.match(server,/document-intakes\/:id\/scope/);
  assert.match(engine,/export async function bindGrcIntakeScope/);
  assert.match(engine,/requireOrgPermission\(user,org,'manageScope'\)/);

@@ -21,11 +21,11 @@ CREATE INDEX IF NOT EXISTS grc_security_handoff_org_idx ON grc_security_report_h
  await pool.query(`
  INSERT INTO grc_security_report_handoffs(id,organization_id,assessment_id,report_id,source,sha256,recorded_at,evidence_refs,frameworks_requested,status,created_by,created_at)
  SELECT gen_random_uuid(),a.organization_id,d.assessment_id,d.id,
-   CASE WHEN COALESCE(ev.payload->'metadata'->>'description','') LIKE 'Offensive%' THEN 'OFFENSIVE' ELSE 'DEFENSIVE' END,
+   CASE WHEN COALESCE(ev.payload->'metadata'->>'description','') ILIKE '%offensive%' OR COALESCE(ev.payload->'metadata'->>'documentType','') IN ('PENTEST_REPORT','VULNERABILITY_REPORT') THEN 'OFFENSIVE' ELSE 'DEFENSIVE' END,
    d.sha256,d.created_at,jsonb_build_array(d.id::text),'[]'::jsonb,'REVIEW_REQUIRED',a.created_by,d.created_at
  FROM documents d JOIN assessments a ON a.id=d.assessment_id
  JOIN LATERAL (SELECT e.payload FROM audit_events e WHERE e.assessment_id=d.assessment_id AND e.action='DOCUMENT_UPLOADED' AND e.payload->'metadata'->>'documentId'=d.id::text ORDER BY e.created_at DESC LIMIT 1) ev ON true
- WHERE a.organization_id IS NOT NULL AND (COALESCE(ev.payload->'metadata'->>'description','') LIKE 'Offensive%' OR COALESCE(ev.payload->'metadata'->>'description','') LIKE 'Defensive%')
+ WHERE a.organization_id IS NOT NULL AND (COALESCE(ev.payload->'metadata'->>'description','') ILIKE '%offensive%' OR COALESCE(ev.payload->'metadata'->>'description','') ILIKE '%defensive%' OR COALESCE(ev.payload->'metadata'->>'documentType','') IN ('PENTEST_REPORT','VULNERABILITY_REPORT'))
  ON CONFLICT(organization_id,report_id) DO NOTHING;
  `)
 }

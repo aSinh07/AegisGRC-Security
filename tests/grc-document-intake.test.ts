@@ -248,3 +248,32 @@ test('approved intake import relies on the governed intake scope, not reviewer b
  assert.match(body,/document-intakes.*\/import/);
  assert.match(body,/intake-bound governed scope/);
 });
+
+
+test('deterministic parser preserves repeated field values for separate GRC records',()=>{
+ const p=parseGrcDocumentDeterministically([
+  'Risk Title: Privileged identity compromise',
+  'Risk Key: R-001',
+  'Likelihood: 4',
+  'Impact: 5',
+  'Risk Treatment: MITIGATE',
+  'Risk Title: Broken API authorization',
+  'Risk Key: R-002',
+  'Likelihood: 4',
+  'Impact: 5',
+  'Risk Treatment: MITIGATE',
+  'Control Key: A.5.15',
+  'Control Title: Access Control',
+  'Applicability: APPLICABLE',
+  'Implementation Status: PARTIAL',
+  'Control Key: A.5.16',
+  'Control Title: Identity Management',
+  'Applicability: APPLICABLE',
+  'Implementation Status: PARTIAL'
+ ].join('\n'));
+ assert.equal(p.filter(x=>x.kind==='RISK'&&x.field==='likelihood'&&x.value==='4').length,2);
+ assert.equal(p.filter(x=>x.kind==='RISK'&&x.field==='impact'&&x.value==='5').length,2);
+ assert.equal(p.filter(x=>x.kind==='RISK'&&x.field==='treatment'&&x.value.toUpperCase()==='MITIGATE').length,2);
+ assert.equal(p.filter(x=>x.kind==='CONTROL'&&x.field==='applicability'&&x.value.toUpperCase()==='APPLICABLE').length,2);
+ assert.equal(p.filter(x=>x.kind==='CONTROL'&&x.field==='implementation'&&x.value.toUpperCase()==='PARTIAL').length,2);
+});

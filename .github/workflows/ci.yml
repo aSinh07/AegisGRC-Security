@@ -44,7 +44,10 @@ jobs:
       - name: TypeScript build check
         run: npm run build
       - name: Test
-        run: npm test
+        # Integration test files share this job's single PostgreSQL service. Run files
+        # serially so independent schema/runtime initializers cannot deadlock each other.
+        # This preserves the complete test suite and every assertion.
+        run: node --test --test-concurrency=1 --import tsx tests/*.test.ts
       - name: Concurrent runtime and graceful-shutdown smoke
         run: |
           set -euo pipefail

@@ -23,3 +23,6 @@ test('security report upload and legacy backfill classify offensive and defensiv
 
 
 test('security evidence review is tenant-scoped serialized and idempotent',()=>{const x=readFileSync('src/security-report-handoff.ts','utf8');assert.match(x,/organization_id=\$2 FOR UPDATE/);assert.match(x,/alreadyReviewed:true/);assert.match(x,/AND reviewed_at IS NULL RETURNING \*/);assert.match(x,/client\.query\('BEGIN'\)/);});
+
+
+test('security handoff is cryptographically bound to a stored document in the same assessment',()=>{const x=readFileSync('src/security-report-handoff.ts','utf8');assert.match(x,/FROM documents WHERE id=\$1 AND assessment_id=\$2/);assert.match(x,/evidence hash does not match stored document/);assert.match(x,/String\(document\.sha256/);});

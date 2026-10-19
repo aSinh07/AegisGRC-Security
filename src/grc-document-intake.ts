@@ -108,7 +108,7 @@ function parseStructuredRiskRow(line:string,idx:number):IntakeProposal[]{
 export function parseGrcDocumentDeterministically(text:string){
  const lines=String(text||'').split(/\r?\n/).map(clean).filter(Boolean).slice(0,20000),proposals:IntakeProposal[]=[];
  lines.forEach((line,idx)=>{const structured=parseStructuredRiskRow(line,idx);if(structured.length){proposals.push(...structured);return}for(const def of labels)for(const pattern of def.patterns){const m=line.match(pattern);if(!m?.[1])continue;const value=clean(m[1]);if(value.length<2&&!['likelihood','impact','rtoMinutes','rpoMinutes','mtdMinutes','frequencyDays'].includes(def.field))continue;proposals.push({id:crypto.createHash('sha256').update(idx+'|'+def.kind+'|'+def.field+'|'+value).digest('hex').slice(0,24),kind:def.kind,field:def.field,value,confidence:confidence(line,value),source:{line:idx+1,excerpt:line.slice(0,260)},rule:'LABEL_'+def.field.toUpperCase(),status:'PROPOSED'});break}});
- const seen=new Set<string>();return proposals.filter(p=>{const k=p.kind+'|'+p.field+'|'+p.value.toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
+ return proposals;
 }
 export async function initGrcIntake(){await pool.query(`
  CREATE TABLE IF NOT EXISTS grc_document_intakes(

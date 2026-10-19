@@ -32,3 +32,16 @@ test('all security handoff evidence references are assessment-bound',()=>{const 
 
 
 test('security report handoff accepts assessment operators and duplicate creation is idempotent',()=>{const x=readFileSync('src/security-report-handoff.ts','utf8');assert.match(x,/roleAllows\(m\.role as any,'manageAssessment'\)/);assert.match(x,/roleAllows\(m\.role as any,'manageRisk'\)/);assert.match(x,/reused:true/);assert.match(x,/Conflicting security report handoff already exists/);});
+
+
+test('generated Offensive and Defensive PDF reports are persisted and handed to Enterprise GRC',()=>{
+ const server=readFileSync('src/server.ts','utf8');
+ assert.match(server,/Generated Offensive\/Defensive reports are themselves governed technical evidence/);
+ assert.match(server,/kind==='technical'\|\|kind==='remediation'/);
+ assert.match(server,/kind==='technical'\?'OFFENSIVE':'DEFENSIVE'/);
+ assert.match(server,/crypto\.createHash\('sha256'\)\.update\(body\)\.digest\('hex'\)/);
+ assert.match(server,/await db\.saveDocument\(\{id:reportId,assessmentId:a\.id/);
+ assert.match(server,/generated:true,securitySource:source/);
+ assert.match(server,/await createSecurityReportHandoff\(u\.userId,access\.organization_id,\{assessmentId:a\.id,reportId,source,sha256/);
+ assert.match(server,/status:'REVIEW_REQUIRED'/);
+});

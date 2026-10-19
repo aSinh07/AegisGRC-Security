@@ -215,3 +215,6 @@ test('approved governed import can be executed by manage-control or independent-
 
 
 test('independent intake approval is state-safe and idempotent',()=>{const x=fs.readFileSync('src/grc-document-intake.ts','utf8');assert.match(x,/\['APPROVED','IMPORTED'\]\.includes\(String\(intake\.status\)\)/);assert.match(x,/alreadyApproved:true/);assert.match(x,/intake\.status\)!=='REVIEWED'/);assert.match(x,/WHERE id=\$1 AND status='REVIEWED'/);});
+
+
+test('approved governed import is permission-consistent and retry safe',()=>{const engine=fs.readFileSync('src/grc-document-intake.ts','utf8'),ui=fs.readFileSync('public/dashboard.js','utf8');const start=engine.indexOf('export async function importApprovedGrcIntake');const end=engine.indexOf('export async function applyGrcIntakeAutofill',start);const body=engine.slice(start,end);assert.match(body,/alreadyImported:true/);assert.match(body,/current state is/);assert.doesNotMatch(body,/requireOrgPermission\(user,org,'manageRisk'\)/);assert.match(ui,/Verify Imported Facts/);});

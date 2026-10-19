@@ -9,3 +9,14 @@ test('remediation report contains defensive mitigation and retest lifecycle',()=
 test('defensive XLSX includes a dedicated mitigation and retest sheet',()=>{const b=xlsxReport(a,fs,'remediation',ev);const wb=XLSX.read(b,{type:'buffer'});assert.ok(wb.SheetNames.includes('Mitigation Retest'));assert.ok(wb.SheetNames.includes('Evidence Provenance'));});
 
 test('security reports distinguish supported capability from executed evidence',()=>{const m=reportModel({...a,scanCoverage:{required:['http-posture','nmap'],succeeded:['http-posture'],failed:[],notRun:['nmap'],complete:false}},fs,'technical',ev);assert.equal(m.coverage.complete,false);assert.deepEqual(m.coverage.notRun,['nmap']);assert.match(m.coverage.boundary,/not reported as tested/i);});
+
+
+test('security report upload and legacy backfill classify offensive and defensive evidence robustly',()=>{
+ const server=readFileSync('src/server.ts','utf8'),handoff=readFileSync('src/security-report-handoff.ts','utf8');
+ assert.match(server,/securitySource/);
+ assert.match(server,/\/offensive\/i\.test\(description\)/);
+ assert.match(server,/\/defensive\/i\.test\(description\)/);
+ assert.match(server,/PENTEST_REPORT','VULNERABILITY_REPORT/);
+ assert.match(handoff,/ILIKE '%offensive%'/);
+ assert.match(handoff,/ILIKE '%defensive%'/);
+});

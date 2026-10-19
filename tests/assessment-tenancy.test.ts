@@ -119,3 +119,6 @@ test('browser report download preserves same-origin session and gives actionable
  assert.match(fn,/login session has expired/i);assert.match(fn,/account password is incorrect/i);assert.match(fn,/Authenticator code invalid or expired/i);
  assert.match(fn,/if\(!b\.size\)/);
 });
+
+
+test('assessment evidence deletion requires tenant access and manageAssessment permission',async()=>{const server=await readFile(new URL('../src/server.ts',import.meta.url),'utf8');const start=server.indexOf("app.delete('/api/assessments/:id/documents/:docId'");assert.ok(start>=0);const body=server.slice(start,server.indexOf('app.',start+10));assert.match(body,/requireAssessmentAccess\(u\.userId,req\.params\.id\)/);assert.match(body,/requireOrgPermission\(u\.userId,access\.organization_id,'manageAssessment'\)/);});

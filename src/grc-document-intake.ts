@@ -32,12 +32,17 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'POLICY',field:'policyKey',patterns:[/\bpolicy\s+(?:id|key)\s*[:#-]\s*([A-Z0-9._-]{2,60})/i]},
  {kind:'POLICY',field:'policyCategory',patterns:[/\bpolicy\s+category\s*[:#-]\s*([^|;,]{2,100})/i]},
  {kind:'POLICY',field:'policyVersion',patterns:[/\bpolicy\s+version\s*[:#-]\s*([^|;,]{1,40})/i]},
- {kind:'AUDIT',field:'auditKey',patterns:[/\b(?:audit\s+(?:id|key))\s*[:#-]\s*([A-Z0-9._-]{2,60})/i]},
- {kind:'AUDIT',field:'auditTitle',patterns:[/\b(?:audit\s+(?:name|title)|audit)\s*[:#-]\s*([^|;]{3,220})/i]},
- {kind:'AUDIT',field:'auditType',patterns:[/\b(?:audit\s+type)\s*[:#-]\s*(internal|external|supplier|regulatory|certification|follow[_ -]?up)\b/i]},
- {kind:'AUDIT',field:'auditObjective',patterns:[/\b(?:audit\s+objective|objective)\s*[:#-]\s*([^|;]{5,500})/i]},
- {kind:'AUDIT',field:'auditCriteria',patterns:[/\b(?:audit\s+criteria|criteria)\s*[:#-]\s*([^|;]{3,500})/i]},
- {kind:'AUDIT',field:'auditFinding',patterns:[/\b(?:audit\s+finding|finding|observation|nonconformity)\s*[:#-]\s*([^|;]{4,500})/i]},
+ {kind:'AUDIT',field:'auditKey',patterns:[/\b(?:audit|assessment|security\s+audit)\s+(?:id|key|reference)\s*[:#-]\s*([A-Z0-9._-]{2,60})/i]},
+ {kind:'AUDIT',field:'auditTitle',patterns:[/\b(?:audit|assessment|security\s+audit)\s+(?:name|title)\s*[:#-]\s*([^|;]{3,220})/i,/\baudit\s*[:#-]\s*([^|;]{3,220})/i]},
+ {kind:'AUDIT',field:'auditType',patterns:[/\b(?:audit|assessment)\s+type\s*[:#-]\s*(internal|external|supplier|regulatory|certification|follow[_ -]?up)\b/i]},
+ {kind:'AUDIT',field:'auditObjective',patterns:[/\b(?:audit|assessment)\s+objective\s*[:#-]\s*([^|;]{5,500})/i,/\bobjective\s*[:#-]\s*([^|;]{5,500})/i]},
+ {kind:'AUDIT',field:'auditCriteria',patterns:[/\b(?:audit|assessment)\s+criteria\s*[:#-]\s*([^|;]{3,500})/i,/\bcriteria\s*[:#-]\s*([^|;]{3,500})/i]},
+ {kind:'AUDIT',field:'auditFinding',patterns:[/\b(?:audit\s+finding|security\s+finding|finding(?:\s+title)?|observation|nonconformity)\s*[:#-]\s*([^|;]{4,500})/i]},
+ {kind:'AUDIT',field:'auditSeverity',patterns:[/\b(?:finding\s+severity|severity|risk\s+rating)\s*[:#-]\s*(critical|high|medium|low|informational|info)\b/i]},
+ {kind:'AUDIT',field:'auditRecommendation',patterns:[/\b(?:recommendation|recommended\s+action|remediation)\s*[:#-]\s*([^|;]{4,500})/i]},
+ {kind:'AUDIT',field:'auditEvidence',patterns:[/\b(?:audit\s+evidence|evidence|evidence\s+reference)\s*[:#-]\s*([^|;]{3,500})/i]},
+ {kind:'AUDIT',field:'auditAffectedAsset',patterns:[/\b(?:affected\s+(?:asset|system|component)|asset)\s*[:#-]\s*([^|;]{2,220})/i]},
+ {kind:'AUDIT',field:'auditControlReference',patterns:[/\b(?:affected\s+control|control\s+reference|control\s+mapping)\s*[:#-]\s*([^|;]{2,220})/i]},
  {kind:'INCIDENT',field:'incidentTitle',patterns:[/\b(?:incident(?:\s+title)?)\s*[:#-]\s*([^|;]{4,220})/i]},
  {kind:'SCOPE',field:'scopeName',patterns:[/\b(?:scope|system\s+name|assessment\s+scope|in[- ]scope)\s*[:#-]\s*([^|;]{3,220})/i]},
  {kind:'SCOPE',field:'scopeDescription',patterns:[/\b(?:scope\s+description|scope\s+statement|scope\s+includes?|scope\s+covers?)\s*[:#-]\s*([^|;]{4,500})/i]},
@@ -220,7 +225,8 @@ export async function importApprovedGrcIntake(user:string,org:string,id:string){
    const title=val(g.rows,'auditTitle'),objective=val(g.rows,'auditObjective'),criteria=val(g.rows,'auditCriteria');if(!title||objective.length<5||criteria.length<3){limitations.push('Audit '+(title||'(untitled)')+' remains staged because title, objective and criteria are required.');continue}
    const key=val(g.rows,'auditKey').toUpperCase()||('DOC-'+id.slice(0,8).toUpperCase()+'-AUDIT-'+g.anchor.source_line),type=val(g.rows,'auditType').toUpperCase().replace(/[- ]/g,'_');if(!['INTERNAL','EXTERNAL','SUPPLIER','REGULATORY','CERTIFICATION','FOLLOW_UP'].includes(type)){limitations.push('Audit '+key+' has unsupported type.');continue}
    const row=(await client.query("INSERT INTO grc_audits(id,organization_id,scope_id,audit_key,title,audit_type,objective,criteria,lead_auditor_id,status,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'PLANNED',$9) ON CONFLICT(organization_id,audit_key) DO UPDATE SET title=EXCLUDED.title,objective=EXCLUDED.objective,criteria=EXCLUDED.criteria,updated_at=now() RETURNING id",[crypto.randomUUID(),org,intake.scope_id,key,title,type,objective,criteria,user])).rows[0];await note('AUDIT',row.id,g.anchor);
-   for(const finding of g.rows.filter((x:any)=>x.field==='auditFinding')){const title2=clean(finding.final_value),exists=(await client.query('SELECT 1 FROM grc_audit_workpapers WHERE audit_id=$1 AND title=$2',[row.id,title2])).rows[0];if(!exists)await client.query("INSERT INTO grc_audit_workpapers(id,organization_id,audit_id,title,procedure,conclusion,result,prepared_by) VALUES($1,$2,$3,$4,$5,'','NOT_TESTED',$6)",[crypto.randomUUID(),org,row.id,title2,'Validate document-derived audit observation against governed evidence.',user])}
+   const findings=g.rows.filter((x:any)=>x.field==='auditFinding');
+   for(let fi=0;fi<findings.length;fi++){const finding=findings[fi],title2=clean(finding.final_value),nextLine=fi+1<findings.length?Number(findings[fi+1].source_line):Number.MAX_SAFE_INTEGER,detail=g.rows.filter((x:any)=>Number(x.source_line)>Number(finding.source_line)&&Number(x.source_line)<nextLine),detailVal=(field:string)=>clean(String(detail.find((x:any)=>x.field===field)?.final_value||'')),severity=detailVal('auditSeverity'),recommendation=detailVal('auditRecommendation'),evidence=detailVal('auditEvidence'),asset=detailVal('auditAffectedAsset'),controlRef=detailVal('auditControlReference'),procedure=recommendation||'Validate document-derived security audit observation against governed evidence.',conclusion=[severity&&('Source severity: '+severity.toUpperCase()),asset&&('Affected asset: '+asset),controlRef&&('Source control reference: '+controlRef)].filter(Boolean).join(' | '),exists=(await client.query('SELECT 1 FROM grc_audit_workpapers WHERE audit_id=$1 AND title=$2',[row.id,title2])).rows[0];if(!exists)await client.query("INSERT INTO grc_audit_workpapers(id,organization_id,audit_id,title,procedure,sample_description,conclusion,result,prepared_by) VALUES($1,$2,$3,$4,$5,$6,$7,'NOT_TESTED',$8)",[crypto.randomUUID(),org,row.id,title2,procedure,evidence,conclusion,user])}
   }
   for(const g of groups('PRIVACY','activityKey')){
    const key=val(g.rows,'activityKey').toUpperCase(),name=val(g.rows,'activityName'),purpose=val(g.rows,'processingPurpose'),ground=val(g.rows,'processingGround'),retention=val(g.rows,'retentionRule');

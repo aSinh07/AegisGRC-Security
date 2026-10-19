@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import * as XLSX from 'xlsx';
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import * as XLSX from 'xlsx';
 import {reportModel,xlsxReport} from '../src/exporters.js';
 const a:any={id:'a1',target:'https://example.test',authorizedAt:'2026-01-01',status:'COMPLETED',findings:[],evidenceIds:[]};
 const fs:any[]=[{id:'f1',assessmentId:'a1',source:'zap',title:'Observed weakness',description:'Evidence-backed observation',severity:'HIGH',asset:'https://example.test',evidenceHash:'a'.repeat(64),createdAt:'2026-01-01',mappings:{},remediation:'Apply fix and retest.'}];

@@ -155,7 +155,7 @@ export async function approveGrcIntake(user:string,org:string,id:string){await r
 
 async function requireIntakeImportOperator(user:string,org:string){const m=await membership(user,org);if(!m||(!roleAllows(m.role as any,'manageControl')&&!roleAllows(m.role as any,'review')))throw Object.assign(new Error('Role '+String(m?.role||'MEMBER')+' cannot execute an independently approved governed import'),{statusCode:403});return m}
 export async function bindGrcIntakeScope(user:string,org:string,id:string,scopeId:string){
- await requireIntakeImportOperator(user,org);const client=await pool.connect();
+ await requireOrgPermission(user,org,'manageScope');const client=await pool.connect();
  try{await client.query('BEGIN');const intake=(await client.query("SELECT id,status FROM grc_document_intakes WHERE id=$1 AND organization_id=$2 FOR UPDATE",[id,org])).rows[0];
   if(!intake)throw Object.assign(new Error('Document intake not found'),{statusCode:404});
   if(!['REVIEW_REQUIRED','REVIEWED','APPROVED'].includes(String(intake.status)))throw Object.assign(new Error('Imported intake scope cannot be changed'),{statusCode:409});

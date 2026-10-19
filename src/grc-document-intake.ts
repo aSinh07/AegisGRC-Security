@@ -94,9 +94,20 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
 ];
 function clean(v:string){return v.replace(/\s+/g,' ').trim().slice(0,500)}
 function confidence(line:string,match:string){let n=.72;if(/[:#-]/.test(line))n+=.08;if(match.length>=4)n+=.05;if(line.length<220)n+=.05;return Math.min(.95,Math.round(n*100)/100)}
+function structuredCells(line:string){return line.split(/\s*\|\s*|\t+/).map(clean).filter(Boolean)}
+function parseStructuredRiskRow(line:string,idx:number):IntakeProposal[]{
+ const c=structuredCells(line);if(c.length<4)return [];
+ const riskAt=c.findIndex(x=>/^RISK[-_ ]?[A-Z0-9.-]+$/i.test(x));if(riskAt<0)return [];
+ const key=c[riskAt].replace(/\s+/g,'-'),title=clean(c[riskAt+1]||'');if(title.length<4)return [];
+ const out:IntakeProposal[]=[];const add=(field:string,value:string)=>out.push({id:crypto.createHash('sha256').update(idx+'|RISK|'+field+'|'+value).digest('hex').slice(0,24),kind:'RISK',field,value,confidence:.95,source:{line:idx+1,excerpt:line.slice(0,260)},rule:'STRUCTURED_RISK_ROW_'+field.toUpperCase(),status:'PROPOSED'});
+ add('riskKey',key);add('riskTitle',title);
+ const nums=c.slice(riskAt+2).filter(x=>/^[1-5]$/.test(x));if(nums[0])add('likelihood',nums[0]);if(nums[1])add('impact',nums[1]);
+ const rating=c.slice(riskAt+2).find(x=>/^(low|medium|high|critical)$/i.test(x));if(rating)add('riskCategory',rating);
+ return out;
+}
 export function parseGrcDocumentDeterministically(text:string){
  const lines=String(text||'').split(/\r?\n/).map(clean).filter(Boolean).slice(0,20000),proposals:IntakeProposal[]=[];
- lines.forEach((line,idx)=>{for(const def of labels)for(const pattern of def.patterns){const m=line.match(pattern);if(!m?.[1])continue;const value=clean(m[1]);if(value.length<2&&!['likelihood','impact','rtoMinutes','rpoMinutes','mtdMinutes','frequencyDays'].includes(def.field))continue;proposals.push({id:crypto.createHash('sha256').update(idx+'|'+def.kind+'|'+def.field+'|'+value).digest('hex').slice(0,24),kind:def.kind,field:def.field,value,confidence:confidence(line,value),source:{line:idx+1,excerpt:line.slice(0,260)},rule:'LABEL_'+def.field.toUpperCase(),status:'PROPOSED'});break}});
+ lines.forEach((line,idx)=>{const structured=parseStructuredRiskRow(line,idx);if(structured.length){proposals.push(...structured);return}for(const def of labels)for(const pattern of def.patterns){const m=line.match(pattern);if(!m?.[1])continue;const value=clean(m[1]);if(value.length<2&&!['likelihood','impact','rtoMinutes','rpoMinutes','mtdMinutes','frequencyDays'].includes(def.field))continue;proposals.push({id:crypto.createHash('sha256').update(idx+'|'+def.kind+'|'+def.field+'|'+value).digest('hex').slice(0,24),kind:def.kind,field:def.field,value,confidence:confidence(line,value),source:{line:idx+1,excerpt:line.slice(0,260)},rule:'LABEL_'+def.field.toUpperCase(),status:'PROPOSED'});break}});
  const seen=new Set<string>();return proposals.filter(p=>{const k=p.kind+'|'+p.field+'|'+p.value.toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
 }
 export async function initGrcIntake(){await pool.query(`

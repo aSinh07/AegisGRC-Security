@@ -212,3 +212,6 @@ test('approved governed import can be executed by manage-control or independent-
  assert.match(x,/roleAllows\(m\.role as any,'manageControl'\).*roleAllows\(m\.role as any,'review'/s);
  assert.doesNotMatch(x,/ps\.some\(\(p:any\)=>\['RISK','VENDOR'\]\.includes\(p\.kind\)\).*requireOrgPermission\(user,org,'manageRisk'\)/s);
 });
+
+
+test('independent intake approval is state-safe and idempotent',()=>{const x=fs.readFileSync('src/grc-document-intake.ts','utf8');assert.match(x,/\['APPROVED','IMPORTED'\]\.includes\(String\(intake\.status\)\)/);assert.match(x,/alreadyApproved:true/);assert.match(x,/intake\.status\)!=='REVIEWED'/);assert.match(x,/WHERE id=\$1 AND status='REVIEWED'/);});

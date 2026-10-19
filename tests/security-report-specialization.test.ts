@@ -20,3 +20,6 @@ test('security report upload and legacy backfill classify offensive and defensiv
  assert.match(handoff,/ILIKE '%offensive%'/);
  assert.match(handoff,/ILIKE '%defensive%'/);
 });
+
+
+test('security evidence review is tenant-scoped serialized and idempotent',()=>{const x=readFileSync('src/security-report-handoff.ts','utf8');assert.match(x,/organization_id=\$2 FOR UPDATE/);assert.match(x,/alreadyReviewed:true/);assert.match(x,/AND reviewed_at IS NULL RETURNING \*/);assert.match(x,/client\.query\('BEGIN'\)/);});

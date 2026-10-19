@@ -234,3 +234,6 @@ test('structured risk table rows keep IDs, titles and scores in separate fields'
  assert.equal(get('likelihood'),'3');assert.equal(get('impact'),'5');
  assert.ok(!get('riskTitle')?.includes('3/5/5'));
 });
+
+
+test('Document-to-GRC UI never reports zero-fact extraction as successful parsing',()=>{const js=fs.readFileSync('public/dashboard.js','utf8');assert.match(js,/if\(!Number\(created\.proposalCount\|\|0\)\)throw new Error\('Document was stored, but no deterministic GRC facts were extracted/);});

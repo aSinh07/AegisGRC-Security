@@ -956,6 +956,21 @@ app.get('/api/assessments/:id/export/:kind/:format',async(req,res)=>{
   else if(format==='csv'){body=csvReport(fs);mime='text/csv'}
   else if(format==='txt'){body=txtReport(a,fs,kind,ev);mime='text/plain'}
   else {body=Buffer.from(JSON.stringify(kind==='remediation'?{...reportModel(a,fs,kind),evidence:ev.map(e=>({id:e.id,source:e.source,sha256:e.sha256,createdAt:e.createdAt,exitCode:e.exitCode??null})),trace:await assessmentTrace(u.userId,a.id)}:reportModel(a,fs,kind),null,2));mime='application/json'}
+  // Generated Offensive/Defensive reports are themselves governed technical evidence.
+  // Persist the exact exported bytes and create the GRC handoff before returning the download.
+  if((kind==='technical'||kind==='remediation')&&format==='pdf'){
+   const source=kind==='technical'?'OFFENSIVE':'DEFENSIVE',sha256=crypto.createHash('sha256').update(body).digest('hex');
+   const hex=sha256.slice(0,32).split('');hex[12]='4';hex[16]=((parseInt(hex[16],16)&3)|8).toString(16);
+   const reportId=[hex.slice(0,8).join(''),hex.slice(8,12).join(''),hex.slice(12,16).join(''),hex.slice(16,20).join(''),hex.slice(20,32).join('')].join('-');
+   const existing=await db.document(reportId);
+   if(!existing){
+    const createdAt=new Date().toISOString(),filename=`aegis-${kind}-${a.id}.pdf`;
+    await db.saveDocument({id:reportId,assessmentId:a.id,filename,mimeType:'application/pdf',size:body.length,sha256,createdAt,content:body});
+    await db.saveAudit({id:crypto.randomUUID(),assessmentId:a.id,action:'DOCUMENT_UPLOADED',actor:u.userId,createdAt,metadata:{documentId:reportId,filename,size:body.length,sha256,documentType:kind==='technical'?'PENTEST_REPORT':'COMPLIANCE_EVIDENCE',description:source+' generated security report',generated:true,securitySource:source}});
+   }
+   const access=await requireAssessmentAccess(u.userId,a.id);
+   await createSecurityReportHandoff(u.userId,access.organization_id,{assessmentId:a.id,reportId,source,sha256,recordedAt:existing?.createdAt||new Date().toISOString(),evidenceRefs:[reportId],frameworksRequested:[]});
+  }
   res.setHeader('Content-Disposition',`attachment; filename="aegis-${kind}-${a.id}.${format}"`);res.type(mime).send(body);
  }catch(e:any){res.status(500).json({error:e.message})}
 });

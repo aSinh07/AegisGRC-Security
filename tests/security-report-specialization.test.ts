@@ -44,5 +44,6 @@ test('generated Offensive and Defensive PDF reports are persisted and handed to 
  assert.match(server,/generated:true,securitySource:source/);
  assert.match(server,/await createSecurityReportHandoff\(u\.userId,access\.organization_id,\{assessmentId:a\.id,reportId,source,sha256/);
  const handoff=readFileSync('src/security-report-handoff.ts','utf8');
- assert.match(handoff,/status:'REVIEW_REQUIRED'/);
+ assert.match(handoff,/DEFAULT 'REVIEW_REQUIRED'/);
+ assert.match(handoff,/,'REVIEW_REQUIRED',a\.created_by/);
 });

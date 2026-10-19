@@ -67,7 +67,9 @@ test('intake can stage before scope while approved import cannot mutate scope',(
  assert.doesNotMatch(importFn,/if\(!activeGrcScope\)/);
  assert.doesNotMatch(importFn,/document-intakes.*\/scope/);
  assert.match(importFn,/document-intakes.*\/import/);
- assert.match(engine,/if\(!intake\.scope_id\)throw Object\.assign\(new Error\('Approved intake must be bound to a governed scope before import'\)/);
+ assert.match(engine,/if\(!intake\.scope_id\)throw Object\.assign\(new Error\('A governed scope is required before importing document proposals'\)/);
+ assert.match(engine,/organization_id=\$2 FOR UPDATE/);
+ assert.match(engine,/intake\.scope_id,type,recordId/);
  assert.match(server,/document-intakes\/:id\/scope/);
  assert.match(engine,/export async function bindGrcIntakeScope/);
  assert.match(engine,/requireOrgPermission\(user,org,'manageScope'\)/);

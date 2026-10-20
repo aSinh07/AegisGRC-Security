@@ -162,3 +162,13 @@ test('finding governance enforces one recoverable risk and CAPA per issue',()=>{
  assert.match(mod,/SELECT r\.\* FROM grc_enterprise_risks r JOIN grc_issue_risks ir/);
  assert.match(mod,/SELECT \* FROM grc_capa WHERE organization_id=\$1 AND issue_id=\$2/);
 });
+
+
+test('accepted security reports expose conservative cross-report correlation as advisory intelligence',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/findingFingerprint,correlateFindings/);
+ assert.match(mod,/SELECT payload FROM findings WHERE assessment_id=\$1/);
+ assert.match(mod,/correlationIsAdvisory:true/);
+ assert.match(mod,/automaticComplianceDecision:false/);
+ assert.match(mod,/severityConflict:correlation\.severityConflict/);
+});

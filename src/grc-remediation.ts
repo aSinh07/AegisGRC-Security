@@ -204,3 +204,13 @@ export async function reconcileRemediationDuplicates(user:string,org:string,issu
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 }
+
+export async function reconcileAllRemediationDuplicates(user:string,org:string,input:any={}){
+ await requireOrgPermission(user,org,'review');
+ const rationale=String(input?.rationale||'Legacy duplicate remediation records reconciled in bulk; earliest governed records retained as canonical and all historical records preserved.').trim();
+ if(rationale.length<10)throw Object.assign(new Error('Meaningful reconciliation rationale required'),{statusCode:400});
+ const integrity=await remediationIntegrity(user,org),pending=(integrity.issues||[]).filter((x:any)=>!x.reconciliation_id),results:any[]=[];
+ for(const issue of pending)results.push(await reconcileRemediationDuplicates(user,org,String(issue.issue_id),{rationale}));
+ const after=await remediationIntegrity(user,org);
+ return {reconciled:results.length,unresolved:after.unresolved,issues:after.issues,boundary:after.boundary};
+}

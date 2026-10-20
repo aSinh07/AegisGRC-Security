@@ -131,3 +131,14 @@ test('authorized URL evidence can generate first-party Offensive and Defensive r
  assert.match(html,/Generate Defensive Report → GRC/);
  assert.match(html,/Authorize \+ Analyze Defensive URL/);
 });
+
+
+test('generated security reports preserve authorized URL provenance through the GRC handoff',()=>{
+ const server=readFileSync('src/server.ts','utf8'),handoff=readFileSync('src/security-report-handoff.ts','utf8');
+ assert.match(handoff,/source_context jsonb NOT NULL DEFAULT/);
+ assert.match(handoff,/ADD COLUMN IF NOT EXISTS source_context/);
+ assert.match(server,/inputMode:'AUTHORIZED_URL_ASSESSMENT'/);
+ assert.match(server,/target:a\.target/);
+ assert.match(server,/organizationId:access\.organization_id/);
+ assert.match(server,/sourceContext:handoff\.source_context/);
+});

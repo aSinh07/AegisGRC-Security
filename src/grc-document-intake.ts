@@ -3,6 +3,7 @@ import {pool} from './db-pool.js';
 import {requireOrgPermission,membership,roleAllows} from './grc-organizations.js';
 import {extractDocument} from './document-extract.js';
 
+const GRC_INTAKE_ENGINE='DETERMINISTIC_RULE_ENGINE_V2';
 export type IntakeKind='CONTROL'|'RISK'|'VENDOR'|'POLICY'|'AUDIT'|'INCIDENT'|'SCOPE'|'PRIVACY'|'LEGAL'|'ARCHITECTURE'|'RESILIENCE'|'GOVERNANCE'|'COMPLIANCE'|'AI_IMPACT'|'UNKNOWN';
 export type IntakeProposal={id:string;kind:IntakeKind;field:string;value:string;confidence:number;source:{line:number;excerpt:string};rule:string;status:'PROPOSED'|'ACCEPTED'|'REJECTED';targetKey?:string};
 
@@ -128,6 +129,7 @@ export async function initGrcIntake(){await pool.query(`
   sha256 text NOT NULL,document_kind text NOT NULL,extracted_text_sha256 text NOT NULL,
   status text NOT NULL DEFAULT 'REVIEW_REQUIRED',proposal_count integer NOT NULL DEFAULT 0,
   created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,approved_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  engine_version text NOT NULL DEFAULT 'DETERMINISTIC_RULE_ENGINE_V1',
   approved_at timestamptz,created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(organization_id,scope_id,sha256)
  );
  CREATE TABLE IF NOT EXISTS grc_document_intake_proposals(
@@ -143,6 +145,7 @@ export async function initGrcIntake(){await pool.query(`
   record_type text NOT NULL,record_id uuid NOT NULL,source_line integer,source_excerpt text,created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(intake_id,record_type,record_id)
  );
+ ALTER TABLE grc_document_intakes ADD COLUMN IF NOT EXISTS engine_version text NOT NULL DEFAULT 'DETERMINISTIC_RULE_ENGINE_V1';
  CREATE INDEX IF NOT EXISTS grc_intake_org_scope_idx ON grc_document_intakes(organization_id,scope_id,created_at DESC);
  CREATE INDEX IF NOT EXISTS grc_document_governed_records_intake_idx ON grc_document_governed_records(intake_id,record_type);`)}
 export async function createGrcIntake(user:string,org:string,scopeId:string|undefined,file:{originalname:string;mimetype:string;buffer:Buffer}){
@@ -159,11 +162,19 @@ export async function createGrcIntake(user:string,org:string,scopeId:string|unde
  const extracted=await extractDocument(filename,mime,file.buffer);const text=String(extracted.text||'');if(text.trim().length<20)throw Object.assign(new Error('Document has no usable text layer; scanned/image-only documents require text extraction before deterministic intake'),{statusCode:422});
  const sha=crypto.createHash('sha256').update(file.buffer).digest('hex'),textSha=crypto.createHash('sha256').update(text).digest('hex'),proposals=parseGrcDocumentDeterministically(text),id=crypto.randomUUID();
  const kinds=[...new Set(proposals.map(x=>x.kind).filter(x=>x!=='UNKNOWN'))],docKind=kinds.length===1?kinds[0]:kinds.length?'MIXED':'UNCLASSIFIED';const client=await pool.connect();
- try{await client.query('BEGIN');const prior=(await client.query('SELECT id,status,proposal_count FROM grc_document_intakes WHERE organization_id=$1 AND scope_id IS NOT DISTINCT FROM $2 AND sha256=$3',[org,scopeId||null,sha])).rows[0];
- if(prior){await client.query('ROLLBACK');return {id:prior.id,filename,sha256:sha,documentKind:docKind,pages:(extracted as any).pages||null,proposalCount:Number(prior.proposal_count||0),status:prior.status,engine:'DETERMINISTIC_RULE_ENGINE_V1',aiUsed:false,reused:true};}
- await client.query('INSERT INTO grc_document_intakes(id,organization_id,scope_id,filename,mime_type,sha256,document_kind,extracted_text_sha256,proposal_count,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[id,org,scopeId||null,filename,mime,sha,docKind,textSha,proposals.length,user]);
+ try{await client.query('BEGIN');const prior=(await client.query('SELECT id,status,proposal_count,engine_version FROM grc_document_intakes WHERE organization_id=$1 AND scope_id IS NOT DISTINCT FROM $2 AND sha256=$3 FOR UPDATE',[org,scopeId||null,sha])).rows[0];
+ if(prior&&prior.engine_version===GRC_INTAKE_ENGINE){await client.query('ROLLBACK');return {id:prior.id,filename,sha256:sha,documentKind:docKind,pages:(extracted as any).pages||null,proposalCount:Number(prior.proposal_count||0),status:prior.status,engine:GRC_INTAKE_ENGINE,aiUsed:false,reused:true};}
+ if(prior){
+  const reviewed=Number((await client.query("SELECT count(*)::int n FROM grc_document_intake_proposals WHERE intake_id=$1 AND (status<>'PROPOSED' OR reviewed_by IS NOT NULL)",[prior.id])).rows[0]?.n||0);
+  if(prior.status!=='REVIEW_REQUIRED'||reviewed>0)throw Object.assign(new Error('This document was parsed by an older intake engine and already has governance decisions. Upload a byte-distinct revision to preserve the existing audit trail.'),{statusCode:409});
+  await client.query('DELETE FROM grc_document_intake_proposals WHERE intake_id=$1',[prior.id]);
+  for(const p of proposals)await client.query('INSERT INTO grc_document_intake_proposals(intake_id,proposal_id,kind,field,value,confidence,source_line,source_excerpt,rule) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[prior.id,p.id,p.kind,p.field,p.value,p.confidence,p.source.line,p.source.excerpt,p.rule]);
+  await client.query('UPDATE grc_document_intakes SET document_kind=$2,extracted_text_sha256=$3,proposal_count=$4,engine_version=$5 WHERE id=$1',[prior.id,docKind,textSha,proposals.length,GRC_INTAKE_ENGINE]);
+  await client.query('COMMIT');return {id:prior.id,filename,sha256:sha,documentKind:docKind,pages:(extracted as any).pages||null,proposalCount:proposals.length,status:'REVIEW_REQUIRED',engine:GRC_INTAKE_ENGINE,aiUsed:false,reused:false,reparsed:true};
+ }
+ await client.query('INSERT INTO grc_document_intakes(id,organization_id,scope_id,filename,mime_type,sha256,document_kind,extracted_text_sha256,proposal_count,created_by,engine_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',[id,org,scopeId||null,filename,mime,sha,docKind,textSha,proposals.length,user,GRC_INTAKE_ENGINE]);
  for(const p of proposals)await client.query('INSERT INTO grc_document_intake_proposals(intake_id,proposal_id,kind,field,value,confidence,source_line,source_excerpt,rule) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[id,p.id,p.kind,p.field,p.value,p.confidence,p.source.line,p.source.excerpt,p.rule]);
- await client.query('COMMIT');return {id,filename,sha256:sha,documentKind:docKind,pages:(extracted as any).pages||null,proposalCount:proposals.length,status:'REVIEW_REQUIRED',engine:'DETERMINISTIC_RULE_ENGINE_V1',aiUsed:false};
+ await client.query('COMMIT');return {id,filename,sha256:sha,documentKind:docKind,pages:(extracted as any).pages||null,proposalCount:proposals.length,status:'REVIEW_REQUIRED',engine:GRC_INTAKE_ENGINE,aiUsed:false};
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}
 export async function listGrcIntakes(user:string,org:string){await requireOrgPermission(user,org,'read');const m=await membership(user,org);const canReviewRole=!!m&&roleAllows(m.role as any,'review');const intakes=(await pool.query(`SELECT i.id,i.scope_id,i.filename,i.document_kind,i.status,i.proposal_count,i.created_by,i.approved_by,i.approved_at,i.created_at,
  (SELECT count(*)::int FROM grc_document_intake_proposals p WHERE p.intake_id=i.id AND p.status='PROPOSED') pending_proposals,

@@ -95,3 +95,12 @@ test('accepted security handoff can recover deterministic finding materializatio
  assert.match(src,/materializeAcceptedSecurityFindings\(org,id\)/);
  assert.match(src,/recovered:true/);
 });
+
+
+test('security intelligence governance emits durable proposal audit events',()=>{
+ const src=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(src,/grc_security_proposal_events/);
+ assert.match(src,/event,actor_user_id,snapshot/);
+ assert.match(src,/'GOVERNED'/);
+ assert.match(src,/'REJECTED'/);
+});

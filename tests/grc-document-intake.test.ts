@@ -363,3 +363,12 @@ test('next audit date line is not consumed by earlier generic audit labels',()=>
  const p=parseGrcDocumentDeterministically('Next Audit Date: 2027-04-20');
  assert.deepEqual(p.filter(x=>x.kind==='AUDIT').map(x=>[x.field,x.value]),[['nextAuditAt','2027-04-20']]);
 });
+
+
+test('security audit labels do not pollute control owner or audit severity/evidence',()=>{
+ const p=parseGrcDocumentDeterministically('Risk Owner: AI Governance Manager\nRisk Rating: High\nPreventive Action: Add recurring evidence-validation checkpoint');
+ assert.equal(p.some(x=>x.kind==='CONTROL'&&x.field==='owner'),false);
+ assert.equal(p.some(x=>x.kind==='AUDIT'&&x.field==='auditSeverity'),false);
+ assert.equal(p.some(x=>x.kind==='AUDIT'&&x.field==='auditEvidence'),false);
+ assert.ok(p.some(x=>x.kind==='AI_IMPACT'&&x.field==='riskRating'&&x.value==='High'));
+});

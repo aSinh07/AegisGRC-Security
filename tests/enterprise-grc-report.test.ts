@@ -89,5 +89,21 @@ test('enterprise acceptance surfaces legacy remediation duplicates without delet
  assert.match(mod,/duplicateIssueCapas/);
  assert.match(mod,/HAVING count\(\*\)>1/);
  assert.match(mod,/REMEDIATION_DATA_INTEGRITY/);
- assert.match(mod,/Aegis does not delete governance history automatically/);
+ assert.match(mod,/governed reconciliation workflow/);
+});
+
+test('legacy remediation reconciliation is non-destructive, audited and acceptance-aware',()=>{
+ const rem=readFileSync('src/grc-remediation.ts','utf8'),acc=readFileSync('src/enterprise-acceptance.ts','utf8');
+ assert.match(rem,/grc_remediation_reconciliations/);assert.match(rem,/REMEDIATION_DUPLICATES_RECONCILED/);assert.match(rem,/historyPreserved:true/);
+ assert.doesNotMatch(rem,/DELETE FROM grc_issue_risks/);assert.doesNotMatch(rem,/DELETE FROM grc_capa/);
+ assert.match(acc,/grc_remediation_reconciliations/);assert.match(acc,/rr\.id IS NULL/);
+});
+test('ISO 42001 assessment UI selects only current validated Evidence Vault versions and shows actionable errors',()=>{
+ const ui=readFileSync('public/dashboard.js','utf8'),html=readFileSync('public/index.html','utf8');
+ assert.match(html,/id="aiImpactEvidence" multiple/);assert.match(ui,/integrity_status==='SERVER_VERIFIED'/);assert.match(ui,/Select at least one current validated Evidence Vault version/);assert.match(ui,/ISO 42001 submission failed:/);
+});
+test('operational health exposes HTTP, event-loop, database, scanner and process telemetry',()=>{
+ const src=readFileSync('src/operational-health.ts','utf8'),server=readFileSync('src/server.ts','utf8');
+ assert.match(src,/recordHttpObservation/);assert.match(src,/averageLatencyMs/);assert.match(src,/errorRate/);assert.match(src,/eventLoop/);assert.match(src,/scannerQueue/);assert.match(src,/database/);
+ assert.match(server,/recordHttpObservation\(res\.statusCode,latencyMs\)/);
 });

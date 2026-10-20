@@ -47,3 +47,19 @@ test('generated Offensive and Defensive PDF reports are persisted and handed to 
  assert.match(handoff,/DEFAULT 'REVIEW_REQUIRED'/);
  assert.match(handoff,/,'REVIEW_REQUIRED',a\.created_by/);
 });
+
+
+test('accepted security reports materialize proposed GRC intelligence without automatic compliance decisions',()=>{
+ const handoff=readFileSync('src/security-report-handoff.ts','utf8');
+ const engine=readFileSync('src/security-report-findings.ts','utf8');
+ const server=readFileSync('src/server.ts','utf8');
+ assert.match(handoff,/materializeAcceptedSecurityFindings\(org,id\)/);
+ assert.match(handoff,/governanceState:'PROPOSED'/);
+ assert.match(handoff,/automaticComplianceDecision:false/);
+ assert.match(engine,/status text NOT NULL DEFAULT 'PROPOSED'/);
+ assert.match(engine,/recommendFindingGrcLinkage\(f\)/);
+ assert.match(engine,/confidence:'SCANNER_REPORTED'/);
+ assert.match(engine,/automaticComplianceDecision:false/);
+ assert.match(server,/security-finding-proposals/);
+ assert.match(server,/assurance:'PROPOSED_ONLY'/);
+});

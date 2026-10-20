@@ -82,6 +82,7 @@ import {initAssessmentInventory,createAssessmentAsset,listAssessmentAssets,initi
 import { cyberIntel,nvdCve,authoritativeResources } from './cyber-intel.js';
 import {initIncidentResponse,createIncident,transitionIncident,ingestIdentitySignal,reviewIdentitySignal,incidentDashboard} from './incident-response.js';
 import {initSecurityReportHandoffs,createSecurityReportHandoff,reviewSecurityReportHandoff,listSecurityReportHandoffs} from './security-report-handoff.js';
+import {initSecurityFindingProposals,listSecurityFindingProposals} from './security-report-findings.js';
 import {initBreachAssessment,deriveBreachAssessment,listBreachAssessments} from './breach-assessment.js';
 import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,recoverStaleScannerJobs,executeClaimedScannerJob,scannerRegistry} from './scanner-jobs.js';
 import { analyzeIntel } from './intel-ai.js';
@@ -119,6 +120,7 @@ await initAssessmentInventory();
 await initBreachAssessment();
 await initIncidentResponse();
 await initSecurityReportHandoffs();
+await initSecurityFindingProposals();
 await initScannerJobs();
 await recoverStaleScannerJobs();
 
@@ -530,6 +532,8 @@ app.get('/api/grc/organizations/:orgId/dashboard',async(req,res)=>{try{const u=a
 app.get('/api/grc/organizations/:orgId/sla',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await sla(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/timeline/:type/:recordId',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({events:await timeline(u.userId,req.params.orgId,req.params.type,req.params.recordId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.get('/api/grc/organizations/:orgId/security-report-handoffs',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({items:await listSecurityReportHandoffs(u.userId,req.params.orgId)})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/grc/organizations/:orgId/security-finding-proposals',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});await requireOrgPermission(u.userId,req.params.orgId,'read');res.json({proposals:await listSecurityFindingProposals(req.params.orgId),assurance:'PROPOSED_ONLY',automaticComplianceDecision:false})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
 app.post('/api/grc/organizations/:orgId/security-report-handoffs',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json({handoff:await createSecurityReportHandoff(u.userId,req.params.orgId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/security-report-handoffs/:handoffId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({handoff:await reviewSecurityReportHandoff(u.userId,req.params.orgId,req.params.handoffId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 

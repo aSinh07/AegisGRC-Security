@@ -5,7 +5,7 @@ export async function enterpriseAcceptance(user:string,org:string,scopeId:string
  await requireOrgPermission(user,org,'read');
  const [readiness,vendors,architecture,continuous,resilience,policies,audits,auditEvidence]=await Promise.all([organizationAuditReadiness(user,org,scopeId),thirdPartyDashboard(user,org),architectureAssurance(user,org,scopeId),continuousComplianceDashboard(user,org,scopeId),resilienceDashboard(user,org,scopeId),policyDashboard(user,org,scopeId),auditDashboard(user,org,scopeId),iso42001AuditEvidenceReadiness(user,org,scopeId)]);
  const q=async(sql:string,args:any[]=[org])=>Number((await pool.query(sql,args)).rows[0]?.c||0);
- const [openCriticalRisks,openP0Issues,overdueCapa,pendingEvidence,failedTests,activeAssessments,pendingSecurityEvidence,pendingSecurityIntelligence,assessmentCoverageRows]=await Promise.all([
+ const [openCriticalRisks,openP0Issues,overdueCapa,pendingEvidence,failedTests,activeAssessments,pendingSecurityEvidence,pendingSecurityIntelligence,duplicateIssueRiskLinks,duplicateIssueCapas,assessmentCoverageRows]=await Promise.all([
   q("SELECT count(*) c FROM grc_enterprise_risks WHERE organization_id=$1 AND status<>'CLOSED' AND inherent_rating='CRITICAL'"),
   q("SELECT count(*) c FROM grc_issues WHERE organization_id=$1 AND status<>'CLOSED' AND priority='P0'"),
   q("SELECT count(*) c FROM grc_capa WHERE organization_id=$1 AND status<>'CLOSED' AND due_at<now()"),
@@ -14,6 +14,8 @@ export async function enterpriseAcceptance(user:string,org:string,scopeId:string
   q("SELECT count(*) c FROM assessments WHERE organization_id=$1"),
   q("SELECT count(*) c FROM grc_security_report_handoffs WHERE organization_id=$1 AND status='REVIEW_REQUIRED'"),
   q("SELECT count(*) c FROM grc_security_finding_proposals WHERE organization_id=$1 AND status='PROPOSED'"),
+  q("SELECT count(*) c FROM (SELECT ir.issue_id FROM grc_issue_risks ir JOIN grc_issues i ON i.id=ir.issue_id WHERE i.organization_id=$1 GROUP BY ir.issue_id HAVING count(*)>1) d"),
+  q("SELECT count(*) c FROM (SELECT issue_id FROM grc_capa WHERE organization_id=$1 GROUP BY issue_id HAVING count(*)>1) d"),
   pool.query("SELECT lr.status,count(*)::int c FROM assessment_layer_runs lr JOIN assessments a ON a.id=lr.assessment_id WHERE a.organization_id=$1 GROUP BY lr.status",[org])
  ]);
  const checks=[
@@ -25,6 +27,7 @@ export async function enterpriseAcceptance(user:string,org:string,scopeId:string
   {id:'CONTROL_TESTS',pass:failedTests===0,detail:{failedTests}},
   {id:'SECURITY_EVIDENCE_GOVERNANCE',pass:pendingSecurityEvidence===0,detail:{pendingSecurityEvidence}},
   {id:'SECURITY_INTELLIGENCE_GOVERNANCE',pass:pendingSecurityIntelligence===0,detail:{pendingSecurityIntelligence}},
+  {id:'REMEDIATION_DATA_INTEGRITY',pass:duplicateIssueRiskLinks===0&&duplicateIssueCapas===0,detail:{duplicateIssueRiskLinks,duplicateIssueCapas,action:duplicateIssueRiskLinks||duplicateIssueCapas?'Review historical duplicate remediation records; Aegis does not delete governance history automatically.':'NONE'}},
   {id:'THIRD_PARTY_RISK',pass:(vendors.summary.criticalIncidents||0)===0&&(vendors.summary.dueReview||0)===0,detail:vendors.summary},
   {id:'ARCHITECTURE_FIREWALL',pass:(architecture.summary.gaps||0)===0,detail:architecture.summary},
   {id:'CONTINUOUS_COMPLIANCE',pass:(continuous.summary.overdueObligations||0)===0&&(continuous.summary.expiredExceptions||0)===0,detail:continuous.summary},

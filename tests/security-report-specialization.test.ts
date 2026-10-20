@@ -116,3 +116,18 @@ test('governed security findings may be explicitly linked to a tenant scoped con
  assert.match(ui,/Optional authoritative control-gap linkage/);
  assert.match(ui,/__aegisScopedControls/);
 });
+
+
+test('authorized URL evidence can generate first-party Offensive and Defensive reports and hand them to GRC',()=>{
+ const server=readFileSync('src/server.ts','utf8'),ui=readFileSync('public/dashboard.js','utf8'),html=readFileSync('public/index.html','utf8');
+ assert.match(server,/generated-security-report\/:source/);
+ assert.match(server,/Run or import security evidence before generating a governed security report/);
+ assert.match(server,/renderDefensiveSecurityPdf/);
+ assert.match(server,/createSecurityReportHandoff\(u\.userId,access\.organization_id/);
+ assert.match(server,/GENERATED_SECURITY_REPORT_RECORDED/);
+ assert.match(ui,/generateSecurityReportToGrc/);
+ assert.match(ui,/generated-security-report/);
+ assert.match(html,/Generate Offensive Report → GRC/);
+ assert.match(html,/Generate Defensive Report → GRC/);
+ assert.match(html,/Authorize \+ Analyze Defensive URL/);
+});

@@ -85,6 +85,7 @@ export function buildEnterpriseGrcReport(input:{
   frameworks:[...frameworkSet].sort(),
   documentDeclaredFrameworks:rows(input.documentIntake?.declaredFrameworks),
   documentIntakeProvenance:input.documentIntake||{intakes:[],declaredFrameworks:[],governedRecords:[]},
+  stagedSecurityAuditIntake:{intakes:rows(input.documentIntake?.pendingIntakes),proposals:rows(input.documentIntake?.stagedProposals),notice:s(input.documentIntake?.governanceNotice)},
   reportContext:{selectedFramework:selectedFramework||null,scopeMode:selectedFramework?'FRAMEWORK_FILTERED':'MULTI_FRAMEWORK',frameworkFilterFallback,frameworkMappingWarning:frameworkFilterFallback?'No controls in this populated scope are mapped to the selected framework. Persisted scope controls and SoA decisions are retained in this report so entered governance data is not silently hidden. Add governed framework mappings to obtain framework-specific filtering.':null},
   managementOpinion:{
    conclusion:opinion,

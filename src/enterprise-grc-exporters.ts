@@ -26,6 +26,12 @@ export async function enterpriseGrcDocx(m:any){
   new Paragraph('Governed framework mappings: '+((m.frameworks||[]).join(', ')||'None recorded')),
   new Paragraph('Frameworks declared by imported documents (mapping pending unless shown above): '+((m.documentDeclaredFrameworks||[]).join(', ')||'None recorded')),
   ...(m.methodology||[]).map((x:string)=>new Paragraph('• '+x)),
+  new Paragraph({text:'Security Audit Intake & Governance State',heading:HeadingLevel.HEADING_1}),
+  new Paragraph(s(m.stagedSecurityAuditIntake?.notice||'Pending document facts are provenance only until governed import completes.')),
+  docTable(['Document','State','Created / approved'],(m.stagedSecurityAuditIntake?.intakes||[]).map((x:any)=>[x.filename,x.status,x.approved_at||x.created_at])),
+  docTable(['Area','Field','Staged value','Review state'],(m.stagedSecurityAuditIntake?.proposals||[]).slice(0,120).map((x:any)=>[x.kind,x.field,x.value,x.status])),
+  new Paragraph({text:'ISO 42001 AI Impact Governance',heading:HeadingLevel.HEADING_1}),
+  docTable(['Review','AI system','Review period','Risk','Status','Approval'],(m.iso42001AiImpactAssessments||[]).map((x:any)=>[x.review_key,x.inputs?.impact?.aiSystem,x.inputs?.impact?.reviewPeriod,x.inputs?.impact?.riskRating,x.status,x.approved_at||'PENDING'])),
   new Paragraph({text:'Control Assurance & Gap Register',heading:HeadingLevel.HEADING_1}),
   docTable(['Control','Title','Applicability','Implementation','Readiness','Auditor Action / Gap'],controls),
   new Paragraph({text:'Risk Register',heading:HeadingLevel.HEADING_1}),
@@ -83,6 +89,8 @@ export function enterpriseGrcXlsx(m:any){
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.dataProtectionOperations?.legalRegister||[]),'Legal Register');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.policyGovernance?.policies||[]),'Policies');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.auditManagement?.audits||[]),'Audits');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.stagedSecurityAuditIntake?.intakes||[]),'Staged Audit Intakes');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((m.stagedSecurityAuditIntake?.proposals||[]).map((x:any)=>({intakeId:x.intake_id,kind:x.kind,field:x.field,value:x.value,status:x.status,sourceLine:x.source_line,sourceExcerpt:x.source_excerpt}))),'Staged Audit Facts');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.iso42001AuditEvidenceReadiness?.requests||[]),'ISO42001 Audit Evidence');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((m.iso42001AiImpactAssessments||[]).map((x:any)=>({reviewKey:x.review_key,aiSystem:x.inputs?.impact?.aiSystem,riskRating:x.inputs?.impact?.riskRating,status:x.status,approvedAt:x.approved_at||''}))),'ISO42001 AI Impact');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(m.priorityActions||[]),'Priority Actions');

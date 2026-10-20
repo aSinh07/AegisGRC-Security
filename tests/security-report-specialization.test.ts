@@ -183,3 +183,12 @@ test('security report findings retain parser provenance and validate CVE/CWE ide
  assert.match(mod,/sourceLine:i\+1/);
  assert.match(mod,/sourceSha256:sha256/);
 });
+
+
+test('security report materialization correlates the assessment in one batch',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/correlated=correlateFindings\(related\)/);
+ assert.match(mod,/correlationByFinding=new Map/);
+ assert.match(mod,/for\(const group of correlated\)for\(const findingId of group\.findingIds\)/);
+ assert.match(mod,/correlationByFinding\.get\(f\.id\)/);
+});

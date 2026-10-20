@@ -319,3 +319,14 @@ test('security audit intake preserves finding details as untested governed workp
  assert.match(engine,/NOT_TESTED/);
  assert.match(engine,/automaticComplianceDecision:false/);
 });
+
+test('parses complete audit scheduling metadata from document text',()=>{
+ const p=parseGrcDocumentDeterministically('Audit Title: ISO 42001 Internal Audit\nAudit ID: AUD-42001-01\nAudit Type: Internal\nAudit Objective: Verify AI management system governance.\nAudit Criteria: ISO 42001 approved internal criteria\nAudit Date: 2026-10-20\nAudit End Date: 2026-10-22\nNext Audit Date: 2027-10-20\nLead Auditor: Independent Assurance Team\nAudit Status: Planned\nFinding: Human oversight evidence requires review.\nFinding Severity: Medium\nRecommendation: Validate current evidence before closure.');
+ for(const field of ['auditTitle','auditKey','auditType','auditObjective','auditCriteria','auditStartAt','auditEndAt','nextAuditAt','auditorName','auditStatus','auditFinding','auditSeverity','auditRecommendation'])assert.ok(p.some(x=>x.kind==='AUDIT'&&x.field===field),field+' missing');
+});
+test('audit intake persists schedule metadata without treating source status as assurance',()=>{
+ const s=readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(s,/next_audit_at/);assert.match(s,/source_auditor_name/);
+ assert.match(s,/status,start_at,end_at,next_audit_at,source_auditor_name/);
+ assert.match(s,/'PLANNED'/);
+});

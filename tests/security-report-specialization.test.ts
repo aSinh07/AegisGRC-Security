@@ -153,3 +153,12 @@ test('security proposal final state and governance audit event commit atomically
  assert.match(mod,/catch\(e\)\{await client\.query\('ROLLBACK'\);throw e\}/);
  assert.match(mod,/status='REJECTED'.*client\.query\("INSERT INTO grc_security_proposal_events/s);
 });
+
+
+test('finding governance enforces one recoverable risk and CAPA per issue',()=>{
+ const mod=readFileSync('src/grc-remediation.ts','utf8');
+ assert.match(mod,/grc_issue_risks_one_risk_per_issue_idx/);
+ assert.match(mod,/grc_capa_one_per_issue_idx/);
+ assert.match(mod,/SELECT r\.\* FROM grc_enterprise_risks r JOIN grc_issue_risks ir/);
+ assert.match(mod,/SELECT \* FROM grc_capa WHERE organization_id=\$1 AND issue_id=\$2/);
+});

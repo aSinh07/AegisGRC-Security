@@ -201,3 +201,12 @@ test('accepted security handoff materialization locks the governed handoff befor
  assert.match(mod,/await client\.query\('COMMIT'\)/);
  assert.match(mod,/await client\.query\('ROLLBACK'\)/);
 });
+
+
+test('security finding governance serializes proposal entry before recoverable orchestration',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/governSecurityFindingProposal[\s\S]*SELECT \* FROM grc_security_finding_proposals WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
+ assert.match(mod,/lockClient\.query\('BEGIN'\)/);
+ assert.match(mod,/lockClient\.query\('ROLLBACK'\)/);
+ assert.match(mod,/status='GOVERNED'/);
+});

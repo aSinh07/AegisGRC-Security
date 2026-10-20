@@ -169,7 +169,7 @@ test('accepted security reports expose conservative cross-report correlation as 
 
 test('security report findings retain parser provenance and validate CVE/CWE identifiers',()=>{
  const mod=readFileSync('src/security-report-findings.ts','utf8');
- assert.match(mod,/SECURITY_REPORT_PARSER_VERSION='SECURITY_REPORT_RULES_V2'/);
+ assert.match(mod,/SECURITY_REPORT_PARSER_VERSION='SECURITY_REPORT_RULES_V3'/);
  assert.match(mod,/CVE-\\d\{4\}-\\d\{4,\}/);
  assert.match(mod,/CWE-\\d\{1,5\}/);
  assert.match(mod,/parserVersion:SECURITY_REPORT_PARSER_VERSION/);
@@ -220,4 +220,22 @@ test('security advisory lock guards release pooled connections even when lock op
  assert.match(mod,/let proposalLocked=false;try\{/);
  assert.match(mod,/if\(proposalLocked\)await governanceGuard\.query/);
  assert.match(mod,/finally\{governanceGuard\.release\(\)\}/);
+});
+
+
+test('complex security reports support heuristic section extraction without weakening provenance',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/HEURISTIC_SECTION/);
+ assert.match(mod,/Affected Host/);
+ assert.match(mod,/Technical Details/);
+ assert.match(mod,/Moderate/);
+ assert.match(mod,/SECURITY_REPORT_RULES_V3/);
+});
+
+test('new evidence refreshes only still proposed cross-report correlation',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/refreshProposedFindingCorrelations/);
+ assert.match(mod,/status='PROPOSED'/);
+ assert.match(mod,/await refreshProposedFindingCorrelations\(org,String\(h\.assessment_id\)\)/);
+ assert.match(mod,/automaticComplianceDecision:false/);
 });

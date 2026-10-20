@@ -46,3 +46,10 @@ test('enterprise report carries governed GRC evidence provenance into control as
 
 
 test('combined assurance model separates offensive and defensive governed handoffs',()=>{const m=buildEnterpriseGrcReport({organization:{id:'o',name:'Acme'},scope:{id:'s',name:'Production'},readiness:{controls:[complete]},soa:{controls:[complete]},risks:[],issues:[],capa:[],assessmentTraces:[],securityHandoffs:[{report_id:'o1',source:'OFFENSIVE',status:'EVIDENCE_ACCEPTED',sha256:'a'},{report_id:'d1',source:'DEFENSIVE',status:'REVIEW_REQUIRED',sha256:'b'}]});assert.equal(m.combinedAssurance.grcIncluded,true);assert.equal(m.combinedAssurance.offensive.total,1);assert.equal(m.combinedAssurance.offensive.accepted,1);assert.equal(m.combinedAssurance.defensive.total,1);assert.equal(m.combinedAssurance.defensive.accepted,0);assert.equal(m.securityReportEvidence.total,2);});
+
+test('ISO 42001 AI impact records are retained in report model',()=>{
+ const ai={review_key:'AI-IMPACT-001',status:'APPROVED',approved_at:'2026-10-20T00:00:00Z',inputs:{impact:{aiSystem:'Fraud model',riskRating:'HIGH'}}};
+ const r=buildEnterpriseGrcReport({organization:{id:'o',name:'Acme'},scope:{id:'s',name:'AI'},readiness:{controls:[]},soa:{controls:[]},risks:[],issues:[],capa:[],aiImpactAssessments:[ai],generatedAt:'2026-10-20T00:00:00Z'});
+ assert.equal(r.iso42001AiImpactAssessments.length,1);
+ assert.equal(r.iso42001AiImpactAssessments[0].review_key,'AI-IMPACT-001');
+});

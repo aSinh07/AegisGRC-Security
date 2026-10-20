@@ -340,3 +340,11 @@ test('next audit date is not duplicated as audit start date',()=>{
  assert.deepEqual(next,['2027-04-20']);
  assert.ok(!starts.includes('2027-04-20'));
 });
+
+
+test('intake UI explains independent approval blockers',()=>{
+ const js=fs.readFileSync('public/dashboard.js','utf8');
+ assert.match(js,/Independent approval:/);
+ assert.match(js,/Reviewer, GRC Manager, GRC Consultant, or Auditor/);
+ assert.match(js,/data\?\.approval\?\.blocker/);
+});

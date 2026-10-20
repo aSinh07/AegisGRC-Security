@@ -40,7 +40,7 @@ export async function governSecurityFindingProposal(user:string,org:string,propo
   await client.query('COMMIT');
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
  return {proposal:governed,issue,risk,capa,reused:false};
- }finally{try{if(proposalLocked)await governanceGuard.query("SELECT pg_advisory_unlock(hashtext('AEGIS_SECURITY_PROPOSAL'),hashtext($1))",[proposalId])}finally{governanceGuard.release()}
+ }finally{try{if(proposalLocked)await governanceGuard.query("SELECT pg_advisory_unlock(hashtext('AEGIS_SECURITY_PROPOSAL'),hashtext($1))",[proposalId])}finally{governanceGuard.release()}}
 }
 export async function rejectSecurityFindingProposal(user:string,org:string,proposalId:string,reason:string){
  await requireOrgPermission(user,org,'manageRisk');const why=String(reason||'').trim();if(why.length<10)throw new Error('Rejection requires a meaningful rationale');

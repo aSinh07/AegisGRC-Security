@@ -172,3 +172,14 @@ test('accepted security reports expose conservative cross-report correlation as 
  assert.match(mod,/automaticComplianceDecision:false/);
  assert.match(mod,/severityConflict:correlation\.severityConflict/);
 });
+
+
+test('security report findings retain parser provenance and validate CVE/CWE identifiers',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/SECURITY_REPORT_PARSER_VERSION='SECURITY_REPORT_RULES_V2'/);
+ assert.match(mod,/CVE-\\d\{4\}-\\d\{4,\}/);
+ assert.match(mod,/CWE-\\d\{1,5\}/);
+ assert.match(mod,/parserVersion:SECURITY_REPORT_PARSER_VERSION/);
+ assert.match(mod,/sourceLine:i\+1/);
+ assert.match(mod,/sourceSha256:sha256/);
+});

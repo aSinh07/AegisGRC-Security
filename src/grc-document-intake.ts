@@ -7,12 +7,12 @@ export type IntakeKind='CONTROL'|'RISK'|'VENDOR'|'POLICY'|'AUDIT'|'INCIDENT'|'SC
 export type IntakeProposal={id:string;kind:IntakeKind;field:string;value:string;confidence:number;source:{line:number;excerpt:string};rule:string;status:'PROPOSED'|'ACCEPTED'|'REJECTED';targetKey?:string};
 
 const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
- {kind:'CONTROL',field:'controlKey',patterns:[/\b(?:control(?:\s+id|\s+key)?|control reference)\s*[:#-]\s*([A-Z][A-Z0-9_.-]{1,40})/i]},
+ {kind:'CONTROL',field:'controlKey',patterns:[/\b(?:control(?:\s+id|\s+key)?|control reference|soa\s+control(?:\s+id|\s+key)?)\s*[:#-]\s*([A-Z][A-Z0-9_.-]{1,40})/i]},
  {kind:'CONTROL',field:'controlTitle',patterns:[/\b(?:control\s+title|control\s+name)\s*[:#-]\s*([^|;]{3,220})/i]},
  {kind:'CONTROL',field:'controlDomain',patterns:[/\b(?:control\s+domain|domain)\s*[:#-]\s*([^|;,]{2,100})/i]},
- {kind:'CONTROL',field:'implementation',patterns:[/\b(?:implementation(?:\s+status|\s+state)?|control status)\s*[:#-]\s*(implemented|partial|planned|not implemented)\b/i]},
- {kind:'CONTROL',field:'applicability',patterns:[/\bapplicability\s*[:#-]\s*(applicable|not[_ -]?applicable|pending)\b/i]},
- {kind:'CONTROL',field:'justification',patterns:[/\b(?:applicability\s+justification|justification)\s*[:#-]\s*([^|;]{4,500})/i]},
+ {kind:'CONTROL',field:'implementation',patterns:[/\b(?:soa\s+implementation(?:\s+status|\s+state)?|implementation(?:\s+status|\s+state)?|control status)\s*[:#-]\s*(implemented|partial|planned|not implemented)\b/i]},
+ {kind:'CONTROL',field:'applicability',patterns:[/\b(?:soa\s+)?applicability\s*[:#-]\s*(applicable|not[_ -]?applicable|pending)\b/i]},
+ {kind:'CONTROL',field:'justification',patterns:[/\b(?:soa\s+applicability\s+justification|applicability\s+justification|justification)\s*[:#-]\s*([^|;]{4,500})/i]},
  {kind:'CONTROL',field:'owner',patterns:[/\b(?:control\s+owner|owner)\s*[:#-]\s*([^|;,]{2,100})/i]},
  {kind:'CONTROL',field:'framework',patterns:[/\b(?:framework|standard)\s*[:#-]\s*([^|;,]{2,100})/i]},
  {kind:'CONTROL',field:'frameworkControl',patterns:[/\b(?:framework\s+control|requirement|clause)\s*[:#-]\s*([A-Z0-9][A-Z0-9_.-]{1,60})/i]},
@@ -83,7 +83,7 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'COMPLIANCE',field:'obligationSource',patterns:[/\b(?:obligation\s+source|compliance\s+source)\s*[:#-]\s*([^|;]{3,500})/i]},
  {kind:'COMPLIANCE',field:'frequencyDays',patterns:[/\b(?:frequency\s+days|recurrence\s+days)\s*[:#-]\s*(\d{1,6})\b/i]},
  {kind:'COMPLIANCE',field:'nextDueAt',patterns:[/\b(?:next\s+due(?:\s+date)?|due\s+date)\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]},
- {kind:'AI_IMPACT',field:'impactKey',patterns:[/\b(?:ai\s+impact\s+(?:assessment\s+)?(?:id|key)|assessment\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
+ {kind:'AI_IMPACT',field:'impactKey',patterns:[/\b(?:iso\s*42001\s+ai\s+impact\s+(?:assessment\s+)?(?:id|key)|ai\s+impact\s+(?:assessment\s+)?(?:id|key)|assessment\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,80})/i]},
  {kind:'AI_IMPACT',field:'reviewPeriod',patterns:[/\b(?:ai\s+impact\s+)?review\s+period\s*[:#-]\s*([^|;]{2,120})/i]},
  {kind:'AI_IMPACT',field:'aiSystem',patterns:[/\b(?:ai\s+system|ai\s+use\s+case)\s*[:#-]\s*([^|;]{3,300})/i]},
  {kind:'AI_IMPACT',field:'intendedUse',patterns:[/\bintended\s+use\s*[:#-]\s*([^|;]{10,500})/i]},

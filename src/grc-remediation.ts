@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS grc_enterprise_risks(
  created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS grc_issue_risks(issue_id uuid NOT NULL REFERENCES grc_issues(id) ON DELETE CASCADE,risk_id uuid NOT NULL REFERENCES grc_enterprise_risks(id) ON DELETE CASCADE,PRIMARY KEY(issue_id,risk_id));
-CREATE UNIQUE INDEX IF NOT EXISTS grc_issue_risks_one_risk_per_issue_idx ON grc_issue_risks(issue_id);
+CREATE INDEX IF NOT EXISTS grc_issue_risks_issue_idx ON grc_issue_risks(issue_id);
 CREATE TABLE IF NOT EXISTS grc_capa(
  id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,capa_key text UNIQUE NOT NULL,
  issue_id uuid NOT NULL REFERENCES grc_issues(id) ON DELETE CASCADE,root_cause text NOT NULL,corrective_action text NOT NULL,preventive_action text NOT NULL DEFAULT '',
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS grc_capa(
  approved_by uuid REFERENCES app_users(id) ON DELETE SET NULL,closed_at timestamptz,created_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
  created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS grc_capa_one_per_issue_idx ON grc_capa(issue_id);
+CREATE INDEX IF NOT EXISTS grc_capa_issue_idx ON grc_capa(issue_id);
 CREATE TABLE IF NOT EXISTS grc_capa_evidence(capa_id uuid NOT NULL REFERENCES grc_capa(id) ON DELETE CASCADE,evidence_version_id uuid NOT NULL REFERENCES grc_evidence_versions(id) ON DELETE RESTRICT,linked_by uuid REFERENCES app_users(id) ON DELETE SET NULL,linked_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(capa_id,evidence_version_id));
 CREATE TABLE IF NOT EXISTS grc_record_events(id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,record_type text NOT NULL,record_id uuid NOT NULL,event text NOT NULL,actor_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,reason text,snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE grc_capa ADD COLUMN IF NOT EXISTS finding_retest_id uuid;

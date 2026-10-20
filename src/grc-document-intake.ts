@@ -36,9 +36,9 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'AUDIT',field:'auditTitle',patterns:[/\b(?:audit|assessment|security\s+audit)\s+(?:name|title)\s*[:#-]\s*([^|;]{3,220})/i,/\baudit\s*[:#-]\s*([^|;]{3,220})/i]},
  {kind:'AUDIT',field:'auditType',patterns:[/\b(?:audit|assessment)\s+type\s*[:#-]\s*(internal|external|supplier|regulatory|certification|follow[_ -]?up)\b/i]},
 
- {kind:'AUDIT',field:'auditStartAt',patterns:[/^(?:audit\s+(?:date|start\s+date|start)|assessment\s+(?:date|start\s+date))\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]},
+ {kind:'AUDIT',field:'nextAuditAt',patterns:[/^\s*(?:next\s+audit(?:\s+date)?|next\s+assessment(?:\s+date)?|next\s+review\s+date)\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]},
+ {kind:'AUDIT',field:'auditStartAt',patterns:[/^\s*(?:audit\s+(?:date|start\s+date|start)|assessment\s+(?:date|start\s+date))\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]},
  {kind:'AUDIT',field:'auditEndAt',patterns:[/\b(?:audit\s+end\s+date|audit\s+completion\s+date|assessment\s+end\s+date)\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]},
- {kind:'AUDIT',field:'nextAuditAt',patterns:[/\b(?:next\s+audit(?:\s+date)?|next\s+assessment(?:\s+date)?|next\s+review\s+date)\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]},
  {kind:'AUDIT',field:'auditorName',patterns:[/\b(?:lead\s+auditor|auditor(?:\s+name)?)\s*[:#-]\s*([^|;,]{2,160})/i]},
  {kind:'AUDIT',field:'auditStatus',patterns:[/\b(?:audit|assessment)\s+status\s*[:#-]\s*(planned|fieldwork|review|complete|cancelled)\b/i]},
  {kind:'AUDIT',field:'auditObjective',patterns:[/\b(?:audit|assessment)\s+objective\s*[:#-]\s*([^|;]{5,500})/i,/\bobjective\s*[:#-]\s*([^|;]{5,500})/i]},

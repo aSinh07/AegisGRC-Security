@@ -11,7 +11,7 @@ test('deterministic GRC intake extracts labelled governance facts without AI',()
 });
 test('intake engine does not invent facts from unlabelled prose',()=>{assert.deepEqual(parseGrcDocumentDeterministically('This document discusses governance generally without structured labelled records.'),[])});
 test('Document-to-GRC UI requires staged human review and discloses no AI',()=>{
- const ui=fs.readFileSync('public/index.html','utf8'),js=fs.readFileSync('public/dashboard.js','utf8'),engine=fs.fs.readFileSync('src/grc-document-intake.ts','utf8');
+ const ui=fs.readFileSync('public/index.html','utf8'),js=fs.readFileSync('public/dashboard.js','utf8'),engine=fs.readFileSync('src/grc-document-intake.ts','utf8');
  assert.match(ui,/Security Audit → GRC Intake/);assert.match(ui,/No parsing result declares compliance/);assert.match(ui,/Independent Approval/);
  for(const fn of ['parseGrcIntake','saveGrcIntakeReview','approveGrcIntake','importGrcIntake'])assert.match(js,new RegExp('function '+fn+'\\('));
  assert.match(engine,/automaticComplianceDecision:false/);assert.match(engine,/Independent reviewer required/);assert.doesNotMatch(engine,/gemini|openai|anthropic|llm/i);
@@ -325,7 +325,7 @@ test('parses complete audit scheduling metadata from document text',()=>{
  for(const field of ['auditTitle','auditKey','auditType','auditObjective','auditCriteria','auditStartAt','auditEndAt','nextAuditAt','auditorName','auditStatus','auditFinding','auditSeverity','auditRecommendation'])assert.ok(p.some(x=>x.kind==='AUDIT'&&x.field===field),field+' missing');
 });
 test('audit intake persists schedule metadata without treating source status as assurance',()=>{
- const s=readFileSync('src/grc-document-intake.ts','utf8');
+ const s=fs.readFileSync('src/grc-document-intake.ts','utf8');
  assert.match(s,/next_audit_at/);assert.match(s,/source_auditor_name/);
  assert.match(s,/status,start_at,end_at,next_audit_at,source_auditor_name/);
  assert.match(s,/'PLANNED'/);

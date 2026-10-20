@@ -79,9 +79,9 @@ test('confirmed security proposals can enter governed risk and CAPA workflow',()
 
 
 test('enterprise security intelligence requires confirmed findings and accountable CAPA root cause',()=>{
- const src=fs.readFileSync('src/security-report-findings.ts','utf8');
- const ui=fs.readFileSync('public/dashboard.js','utf8');
- const html=fs.readFileSync('public/index.html','utf8');
+ const src=readFileSync('src/security-report-findings.ts','utf8');
+ const ui=readFileSync('public/dashboard.js','utf8');
+ const html=readFileSync('public/index.html','utf8');
  assert.match(src,/Analyst CONFIRMED review is required/);
  assert.match(src,/Governance requires a validated root-cause statement/);
  assert.match(ui,/confirmSecurityFindingProposal/);
@@ -90,7 +90,7 @@ test('enterprise security intelligence requires confirmed findings and accountab
 });
 
 test('accepted security handoff can recover deterministic finding materialization after review commit',()=>{
- const src=fs.readFileSync('src/security-report-handoff.ts','utf8');
+ const src=readFileSync('src/security-report-handoff.ts','utf8');
  assert.match(src,/row\.status==='EVIDENCE_ACCEPTED'/);
  assert.match(src,/materializeAcceptedSecurityFindings\(org,id\)/);
  assert.match(src,/recovered:true/);

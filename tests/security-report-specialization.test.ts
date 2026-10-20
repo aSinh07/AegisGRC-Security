@@ -63,3 +63,16 @@ test('accepted security reports materialize proposed GRC intelligence without au
  assert.match(server,/security-finding-proposals/);
  assert.match(server,/assurance:'PROPOSED_ONLY'/);
 });
+
+test('confirmed security proposals can enter governed risk and CAPA workflow',()=>{
+ const engine=readFileSync('src/security-report-findings.ts','utf8');
+ const server=readFileSync('src/server.ts','utf8');
+ assert.match(engine,/Analyst CONFIRMED review is required before governing proposed risk\/CAPA/);
+ assert.match(engine,/promoteFindingToIssue\(/);
+ assert.match(engine,/createRiskFromIssue\(/);
+ assert.match(engine,/createCapa\(/);
+ assert.match(engine,/remediationDueAt\(/);
+ assert.match(engine,/status='GOVERNED'/);
+ assert.match(server,/security-finding-proposals\/:proposalId\/govern/);
+ assert.match(server,/security-finding-proposals\/:proposalId\/reject/);
+});

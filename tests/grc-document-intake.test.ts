@@ -372,3 +372,14 @@ test('security audit labels do not pollute control owner or audit severity/evide
  assert.equal(p.some(x=>x.kind==='AUDIT'&&x.field==='auditEvidence'),false);
  assert.ok(p.some(x=>x.kind==='AI_IMPACT'&&x.field==='riskRating'&&x.value==='High'));
 });
+
+
+test('intake parser versions stale SHA reuse without overwriting governed review history',()=>{
+ const src=fs.readFileSync('src/grc-document-intake.ts','utf8');
+ assert.match(src,/DETERMINISTIC_RULE_ENGINE_V2/);
+ assert.match(src,/ADD COLUMN IF NOT EXISTS engine_version/);
+ assert.match(src,/engine_version===GRC_INTAKE_ENGINE/);
+ assert.match(src,/status!=='REVIEW_REQUIRED'\|\|reviewed>0/);
+ assert.match(src,/Upload a byte-distinct revision to preserve the existing audit trail/);
+ assert.match(src,/reparsed:true/);
+});

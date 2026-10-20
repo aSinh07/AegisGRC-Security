@@ -76,3 +76,22 @@ test('confirmed security proposals can enter governed risk and CAPA workflow',()
  assert.match(server,/security-finding-proposals\/:proposalId\/govern/);
  assert.match(server,/security-finding-proposals\/:proposalId\/reject/);
 });
+
+
+test('enterprise security intelligence requires confirmed findings and accountable CAPA root cause',()=>{
+ const src=fs.readFileSync('src/security-report-findings.ts','utf8');
+ const ui=fs.readFileSync('public/dashboard.js','utf8');
+ const html=fs.readFileSync('public/index.html','utf8');
+ assert.match(src,/Analyst CONFIRMED review is required/);
+ assert.match(src,/Governance requires a validated root-cause statement/);
+ assert.match(ui,/confirmSecurityFindingProposal/);
+ assert.match(ui,/governSecurityFindingProposal/);
+ assert.match(html,/Proposed GRC Intelligence/);
+});
+
+test('accepted security handoff can recover deterministic finding materialization after review commit',()=>{
+ const src=fs.readFileSync('src/security-report-handoff.ts','utf8');
+ assert.match(src,/row\.status==='EVIDENCE_ACCEPTED'/);
+ assert.match(src,/materializeAcceptedSecurityFindings\(org,id\)/);
+ assert.match(src,/recovered:true/);
+});

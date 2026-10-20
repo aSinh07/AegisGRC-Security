@@ -88,7 +88,7 @@ import {initBreachAssessment,deriveBreachAssessment,listBreachAssessments} from 
 import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,recoverStaleScannerJobs,executeClaimedScannerJob,scannerRegistry} from './scanner-jobs.js';
 import { analyzeIntel } from './intel-ai.js';
 import {offensiveCapabilityCatalog,defensiveAssessment,securityWorkspaceSummary} from './security-operations.js';
-import {operationalSnapshot} from './operational-health.js';
+import {operationalSnapshot,recordHttpObservation} from './operational-health.js';
 import {capabilitiesFor,capabilitySummary} from './security-capabilities.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 
@@ -126,6 +126,8 @@ await initScannerJobs();
 await recoverStaleScannerJobs();
 
 app.disable('x-powered-by');
+app.use((req,res,next)=>{const started=process.hrtime.bigint();res.on('finish',()=>{const latencyMs=Number(process.hrtime.bigint()-started)/1e6;recordHttpObservation(res.statusCode,latencyMs)});next()});
+
 app.use((req,res,next)=>{
  res.setHeader('X-Content-Type-Options','nosniff');
  res.setHeader('X-Frame-Options','DENY');

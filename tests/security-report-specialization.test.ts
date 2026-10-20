@@ -210,3 +210,14 @@ test('security workflows hold session advisory locks across materialization and 
  assert.match(mod,/pg_advisory_unlock\(hashtext\('AEGIS_SECURITY_PROPOSAL'\),hashtext\(\$1\)\)/);
  assert.doesNotMatch(mod,/status='EVIDENCE_ACCEPTED' FOR UPDATE OF h/);
 });
+
+
+test('security advisory lock guards release pooled connections even when lock operations fail',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/let handoffLocked=false;try\{/);
+ assert.match(mod,/if\(handoffLocked\)await guard\.query/);
+ assert.match(mod,/finally\{guard\.release\(\)\}/);
+ assert.match(mod,/let proposalLocked=false;try\{/);
+ assert.match(mod,/if\(proposalLocked\)await governanceGuard\.query/);
+ assert.match(mod,/finally\{governanceGuard\.release\(\)\}/);
+});

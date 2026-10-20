@@ -35,7 +35,7 @@ export async function governSecurityFindingProposal(user:string,org:string,propo
 }
 export async function rejectSecurityFindingProposal(user:string,org:string,proposalId:string,reason:string){
  await requireOrgPermission(user,org,'manageRisk');const why=String(reason||'').trim();if(why.length<10)throw new Error('Rejection requires a meaningful rationale');
- const row=(await pool.query("UPDATE grc_security_finding_proposals SET status='REJECTED',proposal=proposal||$4::jsonb WHERE id=$1 AND organization_id=$2 AND status='PROPOSED' RETURNING *",[proposalId,org,'REJECTED',JSON.stringify({rejectedBy:user,rejectedAt:new Date().toISOString(),rejectionReason:why})])).rows[0];
+ const row=(await pool.query("UPDATE grc_security_finding_proposals SET status='REJECTED',proposal=proposal||$3::jsonb WHERE id=$1 AND organization_id=$2 AND status='PROPOSED' RETURNING *",[proposalId,org,JSON.stringify({rejectedBy:user,rejectedAt:new Date().toISOString(),rejectionReason:why})])).rows[0];
  if(!row)throw Object.assign(new Error('Proposal is not awaiting governance'),{statusCode:409});return row;
 }
 export async function listSecurityFindingProposals(org:string){return (await pool.query(`SELECT p.*,f.payload AS finding FROM grc_security_finding_proposals p JOIN findings f ON f.id=p.finding_id WHERE p.organization_id=$1 ORDER BY p.created_at DESC LIMIT 1000`,[org])).rows}

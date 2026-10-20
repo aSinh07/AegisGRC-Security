@@ -44,6 +44,16 @@ ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_residual_li
 ALTER TABLE grc_enterprise_risks DROP CONSTRAINT IF EXISTS grc_enterprise_risks_residual_impact_check;
 ALTER TABLE grc_enterprise_risks ADD CONSTRAINT grc_enterprise_risks_residual_impact_check CHECK(residual_impact IS NULL OR residual_impact BETWEEN 1 AND 10) NOT VALID;
 CREATE INDEX IF NOT EXISTS grc_capa_org_status_idx ON grc_capa(organization_id,status,due_at);CREATE INDEX IF NOT EXISTS grc_erisk_org_idx ON grc_enterprise_risks(organization_id,status,inherent_score DESC);
+CREATE TABLE IF NOT EXISTS grc_remediation_reconciliations(
+ id uuid PRIMARY KEY,organization_id uuid NOT NULL REFERENCES grc_organizations(id) ON DELETE CASCADE,
+ issue_id uuid NOT NULL REFERENCES grc_issues(id) ON DELETE CASCADE,
+ canonical_risk_id uuid REFERENCES grc_enterprise_risks(id) ON DELETE SET NULL,
+ canonical_capa_id uuid REFERENCES grc_capa(id) ON DELETE SET NULL,
+ duplicate_risk_ids jsonb NOT NULL DEFAULT '[]'::jsonb,duplicate_capa_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+ rationale text NOT NULL,reconciled_by uuid REFERENCES app_users(id) ON DELETE SET NULL,reconciled_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(organization_id,issue_id)
+);
+CREATE INDEX IF NOT EXISTS grc_remediation_reconciliation_org_idx ON grc_remediation_reconciliations(organization_id,reconciled_at DESC);
 `)}
 type Queryable={query:(text:string,values?:any[])=>Promise<any>};
 async function event(org:string,type:string,id:string,eventName:string,actor:string,reason?:string,snapshot:any={},db:Queryable=pool){await db.query('INSERT INTO grc_record_events(id,organization_id,record_type,record_id,event,actor_user_id,reason,snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[crypto.randomUUID(),org,type,id,eventName,actor,reason||null,snapshot])}
@@ -159,3 +169,38 @@ export async function closeCapa(user:string,org:string,capaId:string,input:any){
 }
 export async function listCapa(user:string,org:string){await requireOrgPermission(user,org,'read');return (await pool.query(`SELECT c.*,CASE WHEN c.status<>'CLOSED' AND c.due_at<now() THEN true ELSE false END AS overdue FROM grc_capa c WHERE organization_id=$1 ORDER BY due_at ASC`,[org])).rows}
 export async function listEnterpriseRisks(user:string,org:string){await requireOrgPermission(user,org,'read');return (await pool.query('SELECT * FROM grc_enterprise_risks WHERE organization_id=$1 ORDER BY inherent_score DESC,created_at DESC',[org])).rows}
+
+export async function remediationIntegrity(user:string,org:string){
+ await requireOrgPermission(user,org,'read');
+ const rows=(await pool.query(`SELECT i.id issue_id,i.issue_key,i.title,
+ array_agg(DISTINCT ir.risk_id) FILTER(WHERE ir.risk_id IS NOT NULL) risk_ids,
+ array_agg(DISTINCT c.id) FILTER(WHERE c.id IS NOT NULL) capa_ids,
+ rr.id reconciliation_id,rr.canonical_risk_id,rr.canonical_capa_id,rr.reconciled_at
+ FROM grc_issues i
+ LEFT JOIN grc_issue_risks ir ON ir.issue_id=i.id
+ LEFT JOIN grc_capa c ON c.issue_id=i.id AND c.organization_id=i.organization_id
+ LEFT JOIN grc_remediation_reconciliations rr ON rr.issue_id=i.id AND rr.organization_id=i.organization_id
+ WHERE i.organization_id=$1 GROUP BY i.id,rr.id
+ HAVING count(DISTINCT ir.risk_id)>1 OR count(DISTINCT c.id)>1
+ ORDER BY i.created_at ASC`,[org])).rows;
+ return {issues:rows,unresolved:rows.filter((x:any)=>!x.reconciliation_id).length,boundary:'Reconciliation preserves all historical Risk/CAPA records. It designates canonical records for duplicate legacy issue links and never deletes governance history.'};
+}
+export async function reconcileRemediationDuplicates(user:string,org:string,issueId:string,input:any){
+ await requireOrgPermission(user,org,'review');
+ const rationale=String(input?.rationale||'').trim();if(rationale.length<10)throw Object.assign(new Error('Meaningful reconciliation rationale required'),{statusCode:400});
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  const issue=(await client.query('SELECT id FROM grc_issues WHERE id=$1 AND organization_id=$2 FOR UPDATE',[issueId,org])).rows[0];if(!issue)throw Object.assign(new Error('Issue not found'),{statusCode:404});
+  const risks=(await client.query('SELECT r.id FROM grc_enterprise_risks r JOIN grc_issue_risks ir ON ir.risk_id=r.id WHERE ir.issue_id=$1 AND r.organization_id=$2 ORDER BY r.created_at ASC,r.id ASC',[issueId,org])).rows.map((x:any)=>x.id);
+  const capas=(await client.query('SELECT id FROM grc_capa WHERE issue_id=$1 AND organization_id=$2 ORDER BY created_at ASC,id ASC',[issueId,org])).rows.map((x:any)=>x.id);
+  if(risks.length<=1&&capas.length<=1)throw Object.assign(new Error('No duplicate Risk/CAPA records require reconciliation'),{statusCode:409});
+  const canonicalRiskId=risks[0]||null,canonicalCapaId=capas[0]||null;
+  const row=(await client.query(`INSERT INTO grc_remediation_reconciliations(id,organization_id,issue_id,canonical_risk_id,canonical_capa_id,duplicate_risk_ids,duplicate_capa_ids,rationale,reconciled_by)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+   ON CONFLICT(organization_id,issue_id) DO UPDATE SET canonical_risk_id=EXCLUDED.canonical_risk_id,canonical_capa_id=EXCLUDED.canonical_capa_id,duplicate_risk_ids=EXCLUDED.duplicate_risk_ids,duplicate_capa_ids=EXCLUDED.duplicate_capa_ids,rationale=EXCLUDED.rationale,reconciled_by=EXCLUDED.reconciled_by,reconciled_at=now() RETURNING *`,
+   [crypto.randomUUID(),org,issueId,canonicalRiskId,canonicalCapaId,JSON.stringify(risks.slice(1)),JSON.stringify(capas.slice(1)),rationale,user])).rows[0];
+  await event(org,'ISSUE',issueId,'REMEDIATION_DUPLICATES_RECONCILED',user,rationale,{canonicalRiskId,canonicalCapaId,duplicateRiskIds:risks.slice(1),duplicateCapaIds:capas.slice(1),historyPreserved:true},client);
+  await client.query('COMMIT');return row;
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}

@@ -34,7 +34,7 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'POLICY',field:'policyVersion',patterns:[/\bpolicy\s+version\s*[:#-]\s*([^|;,]{1,40})/i]},
  {kind:'AUDIT',field:'auditKey',patterns:[/\b(?:audit|assessment|security\s+audit)\s+(?:id|key|reference)\s*[:#-]\s*([A-Z0-9._-]{2,60})/i]},
  {kind:'AUDIT',field:'auditTitle',patterns:[/\b(?:audit|assessment|security\s+audit)\s+(?:name|title)\s*[:#-]\s*([^|;]{3,220})/i,/\baudit\s*[:#-]\s*([^|;]{3,220})/i]},
- {kind:'AUDIT',field:'auditType',patterns:[/\b(?:audit|assessment)\s+type\s*[:#-]\s*(internal|external|supplier|regulatory|certification|follow[_ -]?up)\b/i]},
+ {kind:'AUDIT',field:'auditType',patterns:[/^\s*(?:audit|assessment)\s+type\s*[:#-]\s*(internal|external|supplier|regulatory|certification|follow[_ -]?up)\b/i]},
 
  {kind:'AUDIT',field:'nextAuditAt',patterns:[/^\s*next\s+audit\s+date\s*:\s*(\d{4}-\d{2}-\d{2})\s*$/i,/^\s*next\s+assessment\s+date\s*:\s*(\d{4}-\d{2}-\d{2})\s*$/i,/^\s*next\s+review\s+date\s*:\s*(\d{4}-\d{2}-\d{2})\s*$/i]},
  {kind:'AUDIT',field:'auditStartAt',patterns:[/^\s*(?:audit\s+(?:date|start\s+date|start)|assessment\s+(?:date|start\s+date))\s*[:#-]\s*(\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?)/i]},

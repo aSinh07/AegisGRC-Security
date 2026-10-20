@@ -142,3 +142,14 @@ test('generated security reports preserve authorized URL provenance through the 
  assert.match(server,/organizationId:access\.organization_id/);
  assert.match(server,/sourceContext:handoff\.source_context/);
 });
+
+
+test('security proposal final state and governance audit event commit atomically',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/const client=await pool\.connect\(\);let governed:any;try\{await client\.query\('BEGIN'\)/);
+ assert.match(mod,/client\.query\("UPDATE grc_security_finding_proposals SET status='GOVERNED'/);
+ assert.match(mod,/client\.query\("INSERT INTO grc_security_proposal_events/);
+ assert.match(mod,/await client\.query\('COMMIT'\)/);
+ assert.match(mod,/catch\(e\)\{await client\.query\('ROLLBACK'\);throw e\}/);
+ assert.match(mod,/status='REJECTED'.*client\.query\("INSERT INTO grc_security_proposal_events/s);
+});

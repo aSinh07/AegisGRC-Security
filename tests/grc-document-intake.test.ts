@@ -333,7 +333,7 @@ test('audit intake persists schedule metadata without treating source status as 
 
 
 test('next audit date is not duplicated as audit start date',()=>{
- const p=parseGrcDocumentDeterministically('Audit Date: 2026-10-20\\nAudit End Date: 2026-10-22\\nNext Audit Date: 2027-04-20');
+ const p=parseGrcDocumentDeterministically('Audit Date: 2026-10-20\nAudit End Date: 2026-10-22\nNext Audit Date: 2027-04-20');
  const starts=p.filter(x=>x.kind==='AUDIT'&&x.field==='auditStartAt').map(x=>x.value);
  const next=p.filter(x=>x.kind==='AUDIT'&&x.field==='nextAuditAt').map(x=>x.value);
  assert.deepEqual(starts,['2026-10-20']);

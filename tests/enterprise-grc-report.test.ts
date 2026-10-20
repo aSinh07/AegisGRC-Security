@@ -81,3 +81,13 @@ test('enterprise acceptance blocks unresolved security evidence and intelligence
  assert.match(src,/status='REVIEW_REQUIRED'/);
  assert.match(src,/status='PROPOSED'/);
 });
+
+
+test('enterprise acceptance surfaces legacy remediation duplicates without deleting history',()=>{
+ const mod=readFileSync('src/enterprise-acceptance.ts','utf8');
+ assert.match(mod,/duplicateIssueRiskLinks/);
+ assert.match(mod,/duplicateIssueCapas/);
+ assert.match(mod,/HAVING count\(\*\)>1/);
+ assert.match(mod,/REMEDIATION_DATA_INTEGRITY/);
+ assert.match(mod,/Aegis does not delete governance history automatically/);
+});

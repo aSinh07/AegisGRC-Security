@@ -187,22 +187,8 @@ test('security report materialization correlates the assessment in one batch',()
 });
 
 
-test('accepted security handoff materialization locks the governed handoff before extraction',()=>{
- const mod=readFileSync('src/security-report-findings.ts','utf8');
- assert.match(mod,/materializeAcceptedSecurityFindings[\s\S]*pool\.connect\(\)/);
- assert.match(mod,/status='EVIDENCE_ACCEPTED' FOR UPDATE OF h/);
- assert.match(mod,/await client\.query\('COMMIT'\)/);
- assert.match(mod,/await client\.query\('ROLLBACK'\)/);
-});
 
 
-test('security finding governance serializes proposal entry before recoverable orchestration',()=>{
- const mod=readFileSync('src/security-report-findings.ts','utf8');
- assert.match(mod,/governSecurityFindingProposal[\s\S]*SELECT \* FROM grc_security_finding_proposals WHERE id=\$1 AND organization_id=\$2 FOR UPDATE/);
- assert.match(mod,/lockClient\.query\('BEGIN'\)/);
- assert.match(mod,/lockClient\.query\('ROLLBACK'\)/);
- assert.match(mod,/status='GOVERNED'/);
-});
 
 
 test('remediation startup indexes do not fail on legacy duplicate issue links',()=>{
@@ -213,4 +199,14 @@ test('remediation startup indexes do not fail on legacy duplicate issue links',(
  assert.doesNotMatch(mod,/CREATE UNIQUE INDEX IF NOT EXISTS grc_capa_one_per_issue_idx/);
  assert.match(mod,/SELECT r\.\* FROM grc_enterprise_risks r JOIN grc_issue_risks ir ON ir\.risk_id=r\.id WHERE ir\.issue_id=\$1/);
  assert.match(mod,/SELECT \* FROM grc_capa WHERE organization_id=\$1 AND issue_id=\$2/);
+});
+
+
+test('security workflows hold session advisory locks across materialization and governance orchestration',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/pg_advisory_lock\(hashtext\('AEGIS_SECURITY_HANDOFF'\),hashtext\(\$1\)\)/);
+ assert.match(mod,/pg_advisory_unlock\(hashtext\('AEGIS_SECURITY_HANDOFF'\),hashtext\(\$1\)\)/);
+ assert.match(mod,/pg_advisory_lock\(hashtext\('AEGIS_SECURITY_PROPOSAL'\),hashtext\(\$1\)\)/);
+ assert.match(mod,/pg_advisory_unlock\(hashtext\('AEGIS_SECURITY_PROPOSAL'\),hashtext\(\$1\)\)/);
+ assert.doesNotMatch(mod,/status='EVIDENCE_ACCEPTED' FOR UPDATE OF h/);
 });

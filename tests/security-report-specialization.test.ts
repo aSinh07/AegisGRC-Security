@@ -155,13 +155,6 @@ test('security proposal final state and governance audit event commit atomically
 });
 
 
-test('finding governance enforces one recoverable risk and CAPA per issue',()=>{
- const mod=readFileSync('src/grc-remediation.ts','utf8');
- assert.match(mod,/grc_issue_risks_one_risk_per_issue_idx/);
- assert.match(mod,/grc_capa_one_per_issue_idx/);
- assert.match(mod,/SELECT r\.\* FROM grc_enterprise_risks r JOIN grc_issue_risks ir/);
- assert.match(mod,/SELECT \* FROM grc_capa WHERE organization_id=\$1 AND issue_id=\$2/);
-});
 
 
 test('accepted security reports expose conservative cross-report correlation as advisory intelligence',()=>{
@@ -209,4 +202,15 @@ test('security finding governance serializes proposal entry before recoverable o
  assert.match(mod,/lockClient\.query\('BEGIN'\)/);
  assert.match(mod,/lockClient\.query\('ROLLBACK'\)/);
  assert.match(mod,/status='GOVERNED'/);
+});
+
+
+test('remediation startup indexes do not fail on legacy duplicate issue links',()=>{
+ const mod=readFileSync('src/grc-remediation.ts','utf8');
+ assert.match(mod,/CREATE INDEX IF NOT EXISTS grc_issue_risks_issue_idx ON grc_issue_risks\(issue_id\)/);
+ assert.match(mod,/CREATE INDEX IF NOT EXISTS grc_capa_issue_idx ON grc_capa\(issue_id\)/);
+ assert.doesNotMatch(mod,/CREATE UNIQUE INDEX IF NOT EXISTS grc_issue_risks_one_risk_per_issue_idx/);
+ assert.doesNotMatch(mod,/CREATE UNIQUE INDEX IF NOT EXISTS grc_capa_one_per_issue_idx/);
+ assert.match(mod,/SELECT r\.\* FROM grc_enterprise_risks r JOIN grc_issue_risks ir ON ir\.risk_id=r\.id WHERE ir\.issue_id=\$1/);
+ assert.match(mod,/SELECT \* FROM grc_capa WHERE organization_id=\$1 AND issue_id=\$2/);
 });

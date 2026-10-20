@@ -348,3 +348,12 @@ test('intake UI explains independent approval blockers',()=>{
  assert.match(js,/Reviewer, GRC Manager, GRC Consultant, or Auditor/);
  assert.match(js,/data\?\.approval\?\.blocker/);
 });
+
+
+test('one source line may produce distinct governed fields without duplicate same-field proposals',()=>{
+ const p=parseGrcDocumentDeterministically('Risk Rating: High');
+ assert.ok(p.some(x=>x.kind==='AUDIT'&&x.field==='auditSeverity'&&x.value==='High'));
+ assert.ok(p.some(x=>x.kind==='AI_IMPACT'&&x.field==='riskRating'&&x.value==='High'));
+ const keys=p.map(x=>x.kind+'|'+x.field);
+ assert.equal(new Set(keys).size,keys.length);
+});

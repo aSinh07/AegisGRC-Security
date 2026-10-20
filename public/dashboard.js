@@ -87,9 +87,9 @@ async function reconcileAllRemediationIssues(){
 async function createEnterpriseAiImpact(){
  if(!activeGrcOrg)return phase3Msg.textContent='Select an organization first.';
  const fields={reviewKey:aiImpactKey.value,reviewPeriod:aiImpactPeriod.value,aiSystem:aiImpactSystem.value,intendedUse:aiImpactUse.value,foreseeableMisuse:aiImpactMisuse.value,affectedParties:aiImpactParties.value,dataExposureImpact:aiImpactData.value,erroneousOutputImpact:aiImpactError.value,downstreamImpact:aiImpactDownstream.value,humanOversight:aiImpactOversight.value,reviewTriggers:aiImpactTriggers.value};
- const missing=Object.entries(fields).filter(([,v])=>String(v||'').trim().length<3).map(([k])=>k);
+ const missing=Object.entries(fields).filter(([k,v])=>String(v||'').trim().length<(k==='reviewKey'||k==='reviewPeriod'?3:10)).map(([k])=>k);
  const evidenceRefs=Array.from(aiImpactEvidence.selectedOptions||[]).map(x=>x.value).filter(Boolean);
- if(missing.length)return phase3Msg.textContent='ISO 42001 assessment needs: '+missing.join(', ')+'.';
+ if(missing.length)return phase3Msg.textContent='ISO 42001 assessment incomplete: '+missing.join(', ')+'. Impact fields require meaningful detail (10+ characters).';
  if(!evidenceRefs.length)return phase3Msg.textContent='Select at least one current validated Evidence Vault version. Create, validate and independently approve evidence in Evidence Vault first.';
  phase3Msg.textContent='Submitting governed ISO 42001 AI impact assessment…';
  try{

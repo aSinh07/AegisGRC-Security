@@ -72,3 +72,12 @@ test('enterprise report UI blocks export when open intake scope differs from sel
  assert.match(ui,/activeGrcIntakeScope!==activeGrcScope/);
  assert.match(ui,/Report blocked: the open document intake belongs to a different GRC scope/);
 });
+
+
+test('enterprise acceptance blocks unresolved security evidence and intelligence',()=>{
+ const src=readFileSync('src/enterprise-acceptance.ts','utf8');
+ assert.match(src,/SECURITY_EVIDENCE_GOVERNANCE/);
+ assert.match(src,/SECURITY_INTELLIGENCE_GOVERNANCE/);
+ assert.match(src,/status='REVIEW_REQUIRED'/);
+ assert.match(src,/status='PROPOSED'/);
+});

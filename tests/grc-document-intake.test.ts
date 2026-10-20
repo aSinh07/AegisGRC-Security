@@ -357,3 +357,9 @@ test('one source line may produce distinct governed fields without duplicate sam
  const keys=p.map(x=>x.kind+'|'+x.field);
  assert.equal(new Set(keys).size,keys.length);
 });
+
+
+test('next audit date line is not consumed by earlier generic audit labels',()=>{
+ const p=parseGrcDocumentDeterministically('Next Audit Date: 2027-04-20');
+ assert.deepEqual(p.filter(x=>x.kind==='AUDIT').map(x=>[x.field,x.value]),[['nextAuditAt','2027-04-20']]);
+});

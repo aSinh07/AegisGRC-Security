@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {buildEnterpriseGrcReport} from '../src/enterprise-grc-report.js';
 
 const complete={control_key:'AC-1',title:'Access control',domain:'ACCESS',applicability:'APPLICABLE',implementation:'IMPLEMENTED',approved_at:'2026-10-10',valid_evidence:1,passed_tests:1,open_issues:0,readiness:'EVIDENCE_READY',gaps:[],mappings:[{framework:'ISO27001',version:'2022',clause:'A.5.15'}]};
@@ -59,7 +60,7 @@ test('enterprise report separates staged security audit facts from governed reco
 
 
 test('enterprise export formats disclose staged audit provenance without treating it as governed',()=>{
- const src=fs.readFileSync('src/enterprise-grc-exporters.ts','utf8');
+ const src=readFileSync('src/enterprise-grc-exporters.ts','utf8');
  assert.match(src,/Security Audit Intake & Governance State/);
  assert.match(src,/Staged Audit Intakes/);
  assert.match(src,/Staged Audit Facts/);
@@ -67,7 +68,7 @@ test('enterprise export formats disclose staged audit provenance without treatin
 });
 
 test('enterprise report UI blocks export when open intake scope differs from selected report scope',()=>{
- const ui=fs.readFileSync('public/dashboard.js','utf8');
+ const ui=readFileSync('public/dashboard.js','utf8');
  assert.match(ui,/activeGrcIntakeScope!==activeGrcScope/);
  assert.match(ui,/Report blocked: the open document intake belongs to a different GRC scope/);
 });

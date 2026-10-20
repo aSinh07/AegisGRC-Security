@@ -56,3 +56,18 @@ test('ISO 42001 AI impact records are retained in report model',()=>{
 
 
 test('enterprise report separates staged security audit facts from governed records',()=>{const m=buildEnterpriseGrcReport({organization:{id:'o',name:'Northbridge'},scope:{id:'s',name:'AIMS'},readiness:{controls:[]},soa:{controls:[]},risks:[],issues:[],capa:[],documentIntake:{intakes:[],pendingIntakes:[{id:'i',filename:'audit.pdf',status:'APPROVED'}],stagedProposals:[{kind:'AUDIT',field:'auditStartAt',value:'2026-10-20',status:'ACCEPTED'},{kind:'AUDIT',field:'nextAuditAt',value:'2027-04-20',status:'ACCEPTED'}],governanceNotice:'provenance only'}});assert.equal(m.auditManagement?.audits?.length||0,0);assert.equal(m.stagedSecurityAuditIntake.intakes.length,1);assert.equal(m.stagedSecurityAuditIntake.proposals[1].value,'2027-04-20');});
+
+
+test('enterprise export formats disclose staged audit provenance without treating it as governed',()=>{
+ const src=fs.readFileSync('src/enterprise-grc-exporters.ts','utf8');
+ assert.match(src,/Security Audit Intake & Governance State/);
+ assert.match(src,/Staged Audit Intakes/);
+ assert.match(src,/Staged Audit Facts/);
+ assert.match(src,/ISO 42001 AI Impact Governance/);
+});
+
+test('enterprise report UI blocks export when open intake scope differs from selected report scope',()=>{
+ const ui=fs.readFileSync('public/dashboard.js','utf8');
+ assert.match(ui,/activeGrcIntakeScope!==activeGrcScope/);
+ assert.match(ui,/Report blocked: the open document intake belongs to a different GRC scope/);
+});

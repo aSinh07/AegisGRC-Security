@@ -104,3 +104,15 @@ test('security intelligence governance emits durable proposal audit events',()=>
  assert.match(src,/'GOVERNED'/);
  assert.match(src,/'REJECTED'/);
 });
+
+
+test('governed security findings may be explicitly linked to a tenant scoped control',()=>{
+ const findings=readFileSync('src/security-report-findings.ts','utf8');
+ const risk=readFileSync('src/finding-risk.ts','utf8');
+ const ui=readFileSync('public/dashboard.js','utf8');
+ assert.match(findings,/scopeControlId:input\.scopeControlId/);
+ assert.match(risk,/Control-gap linkage requires an active scoped control in the same organization/);
+ assert.match(risk,/scope_control_id\) VALUES/);
+ assert.match(ui,/Optional authoritative control-gap linkage/);
+ assert.match(ui,/__aegisScopedControls/);
+});

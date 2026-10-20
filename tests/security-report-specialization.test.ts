@@ -192,3 +192,12 @@ test('security report materialization correlates the assessment in one batch',()
  assert.match(mod,/for\(const group of correlated\)for\(const findingId of group\.findingIds\)/);
  assert.match(mod,/correlationByFinding\.get\(f\.id\)/);
 });
+
+
+test('accepted security handoff materialization locks the governed handoff before extraction',()=>{
+ const mod=readFileSync('src/security-report-findings.ts','utf8');
+ assert.match(mod,/materializeAcceptedSecurityFindings[\s\S]*pool\.connect\(\)/);
+ assert.match(mod,/status='EVIDENCE_ACCEPTED' FOR UPDATE OF h/);
+ assert.match(mod,/await client\.query\('COMMIT'\)/);
+ assert.match(mod,/await client\.query\('ROLLBACK'\)/);
+});

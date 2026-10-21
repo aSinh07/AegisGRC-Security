@@ -3,7 +3,7 @@ import {pool} from './db-pool.js';
 import {requireOrgPermission,membership,roleAllows} from './grc-organizations.js';
 import {extractDocument} from './document-extract.js';
 
-const GRC_INTAKE_ENGINE='DETERMINISTIC_RULE_ENGINE_V2';
+const GRC_INTAKE_ENGINE='DETERMINISTIC_RULE_ENGINE_V3';
 export type IntakeKind='CONTROL'|'RISK'|'VENDOR'|'POLICY'|'AUDIT'|'INCIDENT'|'SCOPE'|'PRIVACY'|'LEGAL'|'ARCHITECTURE'|'RESILIENCE'|'GOVERNANCE'|'COMPLIANCE'|'AI_IMPACT'|'UNKNOWN';
 export type IntakeProposal={id:string;kind:IntakeKind;field:string;value:string;confidence:number;source:{line:number;excerpt:string};rule:string;status:'PROPOSED'|'ACCEPTED'|'REJECTED';targetKey?:string};
 
@@ -15,7 +15,7 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'CONTROL',field:'applicability',patterns:[/\b(?:soa\s+)?applicability\s*[:#-]\s*(applicable|not[_ -]?applicable|pending)\b/i]},
  {kind:'CONTROL',field:'justification',patterns:[/\b(?:soa\s+applicability\s+justification|applicability\s+justification|justification)\s*[:#-]\s*([^|;]{4,500})/i]},
  {kind:'CONTROL',field:'owner',patterns:[/^\s*(?:control\s+owner|soa\s+control\s+owner)\s*[:#-]\s*([^|;,]{2,100})/i]},
- {kind:'CONTROL',field:'framework',patterns:[/\b(?:framework|standard)\s*[:#-]\s*([^|;,]{2,100})/i]},
+ {kind:'CONTROL',field:'framework',patterns:[/\b(?:framework|standard|applicable frameworks?|applicable standards?)\s*[:#-]\s*([^|;]{2,220})/i]},
  {kind:'CONTROL',field:'frameworkControl',patterns:[/\b(?:framework\s+control|requirement|clause)\s*[:#-]\s*([A-Z0-9][A-Z0-9_.-]{1,60})/i]},
  {kind:'RISK',field:'riskKey',patterns:[/\b(?:risk(?:\s+id|\s+key)?)\s*[:#-]\s*([A-Z][A-Z0-9_.-]{1,40})/i]},
  {kind:'RISK',field:'riskTitle',patterns:[/\b(?:risk\s+title|risk\s+scenario|risk)\s*[:#-]\s*([^|;]{4,220})/i]},
@@ -43,7 +43,7 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'AUDIT',field:'auditorName',patterns:[/\b(?:lead\s+auditor|auditor(?:\s+name)?)\s*[:#-]\s*([^|;,]{2,160})/i]},
  {kind:'AUDIT',field:'auditStatus',patterns:[/\b(?:audit|assessment)\s+status\s*[:#-]\s*(planned|fieldwork|review|complete|cancelled)\b/i]},
  {kind:'AUDIT',field:'auditObjective',patterns:[/\b(?:audit|assessment)\s+objective\s*[:#-]\s*([^|;]{5,500})/i,/\bobjective\s*[:#-]\s*([^|;]{5,500})/i]},
- {kind:'AUDIT',field:'auditCriteria',patterns:[/\b(?:audit|assessment)\s+criteria\s*[:#-]\s*([^|;]{3,500})/i,/\bcriteria\s*[:#-]\s*([^|;]{3,500})/i]},
+ {kind:'AUDIT',field:'auditCriteria',patterns:[/\b(?:audit|assessment)\s+criteria\s*[:#-]\s*([^|;]{3,500})/i,/\bcriteria\s*[:#-]\s*([^|;]{3,500})/i,/\bapplicable\s+(?:frameworks?|standards?)\s*[:#-]\s*([^|;]{3,500})/i]},
  {kind:'AUDIT',field:'auditFinding',patterns:[/\b(?:audit\s+finding|security\s+finding|finding(?:\s+title)?|observation|nonconformity)\s*[:#-]\s*([^|;]{4,500})/i]},
  {kind:'AUDIT',field:'auditSeverity',patterns:[/^\s*(?:audit\s+severity|finding\s+severity|severity)\s*[:#-]\s*(critical|high|medium|low|informational|info)\b/i]},
  {kind:'AUDIT',field:'auditRecommendation',patterns:[/\b(?:recommendation|recommended\s+action|remediation)\s*[:#-]\s*([^|;]{4,500})/i]},
@@ -51,7 +51,7 @@ const labels:{kind:IntakeKind;field:string;patterns:RegExp[]}[]=[
  {kind:'AUDIT',field:'auditAffectedAsset',patterns:[/\b(?:affected\s+(?:asset|system|component)|asset)\s*[:#-]\s*([^|;]{2,220})/i]},
  {kind:'AUDIT',field:'auditControlReference',patterns:[/\b(?:affected\s+control|control\s+reference|control\s+mapping)\s*[:#-]\s*([^|;]{2,220})/i]},
  {kind:'INCIDENT',field:'incidentTitle',patterns:[/\b(?:incident(?:\s+title)?)\s*[:#-]\s*([^|;]{4,220})/i]},
- {kind:'SCOPE',field:'scopeName',patterns:[/\b(?:scope|system\s+name|assessment\s+scope|in[- ]scope)\s*[:#-]\s*([^|;]{3,220})/i]},
+ {kind:'SCOPE',field:'scopeName',patterns:[/\b(?:scope|system\s+name|assessment\s+scope|primary\s+grc\s+scope|grc\s+scope|in[- ]scope)\s*[:#-]\s*([^|;]{3,220})/i]},
  {kind:'SCOPE',field:'scopeDescription',patterns:[/\b(?:scope\s+description|scope\s+statement|scope\s+includes?|scope\s+covers?)\s*[:#-]\s*([^|;]{4,500})/i]},
  {kind:'PRIVACY',field:'activityKey',patterns:[/\b(?:processing\s+activity\s+(?:id|key)|activity\s+key)\s*[:#-]\s*([A-Z0-9._-]{2,60})/i]},
  {kind:'PRIVACY',field:'activityName',patterns:[/\b(?:processing\s+activity\s+(?:name|title)|activity\s+name)\s*[:#-]\s*([^|;]{3,220})/i]},

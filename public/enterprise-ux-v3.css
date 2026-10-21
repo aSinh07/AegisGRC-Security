@@ -10,3 +10,6 @@ body{letter-spacing:.002em}.side{transition:width .2s ease}.card,.module-hero,.e
 html[data-theme="light"] .ux-command{background:rgba(225,232,240,.72)}
 @media(max-width:1000px){.ux-workbench{grid-template-columns:repeat(2,1fr)}.ux-grc-bar{grid-template-columns:1fr}.ux-grc-actions{justify-content:flex-start}}@media(max-width:600px){.ux-workbench{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+/* V3.1 accessibility + visual polish */
+:where(button,a,input,select,textarea):focus-visible{outline:2px solid var(--v2a,#67e8f9)!important;outline-offset:2px!important}.ux-command-item b{display:block}.ux-command-item small{display:block;margin-top:3px}.ux-grc-bar input::placeholder{color:var(--v2m,#94a9bd)}.ux-kpi{min-height:74px}.ux-kpi:hover{transform:translateY(-1px)}@media(max-width:760px){.ux-grc-actions{width:100%}.ux-grc-actions .btn{flex:1}.ux-command{padding-top:4vh}.ux-command-box{width:95vw}.ux-command-list{max-height:68vh}}

@@ -1,4 +1,26 @@
 let assessmentId=null,targetOrigin=null,sessionToken=null,selectedFramework=null;
+function runAegisUiAction(code,event,element){
+ const actions=String(code||'').split(';').map(x=>x.trim()).filter(Boolean);
+ for(const action of actions){
+  const m=action.match(/^([A-Za-z_$][\w$]*)\((.*)\)$/);
+  if(!m)continue;
+  const fn=globalThis[m[1]];
+  if(typeof fn!=='function')continue;
+  const raw=m[2].trim();
+  let args=[];
+  if(raw==='this')args=[element];
+  else if(raw){
+   args=raw.split(',').map(x=>x.trim()).map(x=>{
+    if(x==='this')return element;
+    if(x==='event')return event;
+    if((x.startsWith("'")&&x.endsWith("'"))||(x.startsWith('"')&&x.endsWith('"')))return x.slice(1,-1);
+    return x;
+   });
+  }
+  fn(...args);
+ }
+}
+
 // Register delegated UI listeners before optional graphics or async startup can fail.
 document.addEventListener('click',event=>{if(!(event.target instanceof Element))return;if(event.target.closest('#login'))return;const actionElement=event.target.closest('[data-action]');if(actionElement){const action=actionElement.dataset.action,fn=globalThis[action];if(typeof fn==='function'){if(action==='advancePrivacyBreach'||action==='decideReview')fn(actionElement.dataset.id,actionElement.dataset.status);else if(action==='selectFramework')fn(actionElement.dataset.id,actionElement.dataset.name);else if(action==='reviewSecurityHandoff')fn(actionElement.dataset.id,actionElement.dataset.decision);else if(action==='downloadSecurityHandoff')downloadSecurityHandoffEvidence(actionElement.dataset.assessment,actionElement.dataset.report);else fn(actionElement.dataset.id);return;}}const element=event.target.closest('[data-aegis-click]');if(element)runAegisUiAction(element.dataset.aegisClick,event,element);});
 document.addEventListener('change',event=>{if(!(event.target instanceof Element))return;const element=event.target.closest('[data-aegis-change]');if(element)runAegisUiAction(element.dataset.aegisChange,event,element);});
@@ -382,27 +404,7 @@ function ambient(){const c=document.getElementById('ambientbg');if(!c)return;con
 // CSP migration bridge: static markup actions are delegated from data attributes.
 // Explicitly publish auth handlers required before login; do not rely on browser
 // top-level function declarations becoming properties of globalThis.
-function runAegisUiAction(code,event,element){
- const actions=String(code||'').split(';').map(x=>x.trim()).filter(Boolean);
- for(const action of actions){
-  const m=action.match(/^([A-Za-z_$][\w$]*)\((.*)\)$/);
-  if(!m)continue;
-  const fn=globalThis[m[1]];
-  if(typeof fn!=='function')continue;
-  const raw=m[2].trim();
-  let args=[];
-  if(raw==='this')args=[element];
-  else if(raw){
-   args=raw.split(',').map(x=>x.trim()).map(x=>{
-    if(x==='this')return element;
-    if(x==='event')return event;
-    if((x.startsWith("'")&&x.endsWith("'"))||(x.startsWith('"')&&x.endsWith('"')))return x.slice(1,-1);
-    return x;
-   });
-  }
-  fn(...args);
- }
-}
+
 
 
 async function loadIso42001AuditEvidence(){const msg=document.getElementById('aimsAuditMsg'),out=document.getElementById('aimsAuditEvidence');if(!activeGrcOrg)return msg.textContent='Select an Enterprise GRC organization first.';try{const path='/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/iso42001/audit-evidence-readiness'+(activeGrcScope?'?scopeId='+encodeURIComponent(activeGrcScope):'');const d=await jf(path);msg.textContent=d.summary.evidenced+'/'+d.summary.total+' request categories have matching records; this is not an audit pass.';out.innerHTML=grcTable(d.requests,[['Evidence request','title'],['Readiness','status'],['Matching records','supportingRecords']]);await loadAimsAudits()}catch(e){msg.textContent=e.message}}

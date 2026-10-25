@@ -49,7 +49,19 @@ async function restoreLatestAssessment(){
  }catch(e){console.warn('Assessment restore unavailable',e);return false}
 }
 async function showApp(){app?.classList.remove('hidden');copilot?.classList.remove('hidden');await loadUserProfile();loadIntegrations();loadFrameworks();await restoreLatestAssessment();updateAiContext();const p=document.getElementById('dashboardPulse');if(p)p.textContent=assessmentId?'Assessment evidence available · ask AI for a governed briefing':'No active assessment · enterprise workspaces remain available'}
-function resumeLearningGuide(){const target=sessionStorage.getItem('aegis.learning.target'),prompt=sessionStorage.getItem('aegis.learning.prompt');if(!target&&!prompt)return;sessionStorage.removeItem('aegis.learning.target');sessionStorage.removeItem('aegis.learning.prompt');const nav=[...document.querySelectorAll('.nav button')].find(b=>String(b.dataset.aegisClick||'').includes("tab('"+target+"'"));if(nav)nav.click();if(prompt)setTimeout(()=>openCopilot(prompt),180)}
+function resumeLearningGuide(){
+ const target=sessionStorage.getItem('aegis.learning.target'),prompt=sessionStorage.getItem('aegis.learning.prompt'),title=sessionStorage.getItem('aegis.learning.title')||'Guided platform step',body=sessionStorage.getItem('aegis.learning.body')||'Follow this step in the live workspace.';
+ if(!target&&!prompt)return;
+ sessionStorage.removeItem('aegis.learning.target');sessionStorage.removeItem('aegis.learning.prompt');sessionStorage.removeItem('aegis.learning.title');sessionStorage.removeItem('aegis.learning.body');
+ let tries=0;
+ const launch=()=>{tries++;const nav=[...document.querySelectorAll('.nav button[data-aegis-click]')].find(b=>String(b.dataset.aegisClick||'').includes("tab('"+target+"'"));
+  if(!nav&&tries<20)return setTimeout(launch,100);
+  if(nav)nav.click();
+  const section=document.getElementById(target)||document.querySelector('.section.active');if(section){section.classList.add('learning-highlight');setTimeout(()=>section.classList.remove('learning-highlight'),5000)}
+  document.getElementById('liveLearningCoach')?.remove();const coach=document.createElement('aside');coach.id='liveLearningCoach';coach.className='live-learning-coach';coach.innerHTML='<button type="button" class="coach-close" aria-label="Close">×</button><span>HS GRC · LIVE GUIDANCE</span><h3></h3><p></p><div class="row"><button type="button" class="btn" data-coach-ai>Explain this step with AI</button><button type="button" class="btn alt" data-coach-next>Back to Learning Hub</button></div>';coach.querySelector('h3').textContent=title;coach.querySelector('p').textContent=body;document.body.append(coach);coach.querySelector('.coach-close').onclick=()=>coach.remove();coach.querySelector('[data-coach-ai]').onclick=()=>openCopilot(prompt||('Explain '+title+' for a beginner.'));coach.querySelector('[data-coach-next]').onclick=()=>location.assign('/knowledge.html');
+ };
+ launch()
+}
 
 function profileInitials(name,email){const v=(name||email||'A').trim().split(/\s+/).filter(Boolean);return ((v[0]?.[0]||'A')+(v.length>1?v[v.length-1][0]:'')).toUpperCase()}
 async function loadUserProfile(){try{const d=await jf('/api/auth/profile'),p=d.profile||{},initials=profileInitials(p.fullName,p.email);profileAvatar.textContent=initials;profileAvatarLarge.textContent=initials;profileName.textContent=p.fullName||'AegisGRC User';profileTitle.textContent=p.designation||'Workspace user';profileCompany.textContent=p.companyName||'—';profileDepartment.textContent=p.department||'—';profileWork.textContent=p.workProfile||'—';profileRole.textContent=String(p.role||'analyst').replaceAll('_',' ');profileEmail.textContent=p.email||'—'}catch(e){console.warn('Profile unavailable')}}

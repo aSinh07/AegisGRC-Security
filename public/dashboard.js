@@ -155,7 +155,7 @@ async function rejectSecurityFindingProposal(id){const reason=(prompt('Governanc
 async function reviewSecurityHandoff(id,decision){const msg=document.getElementById('grcSecurityHandoffMsg');try{if(msg)msg.textContent='Recording independent security-evidence decision…';await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/security-report-handoffs/'+encodeURIComponent(id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision,note:decision==='ACCEPT_EVIDENCE'?'Accepted as governed technical evidence; control conformity remains separately reviewed.':'Rejected during independent GRC evidence review.'})});if(msg)msg.textContent=decision==='ACCEPT_EVIDENCE'?'Evidence accepted. Enterprise report will include this technical handoff.':'Evidence rejected.';await loadSecurityHandoffs()}catch(e){if(msg)msg.textContent='Security evidence review failed: '+e.message}}
 function downloadSecurityHandoffEvidence(assessmentId,reportId){if(!assessmentId||!reportId)return;location.href='/api/assessments/'+encodeURIComponent(assessmentId)+'/documents/'+encodeURIComponent(reportId)}
 const downloadSecurityHandoff=downloadSecurityHandoffEvidence;
-setInterval(()=>{const active=document.querySelector('.section.active');if(active?.id==='grcops'&&activeGrcOrg){void loadGrcIntakeQueue();void loadSecurityHandoffs()}},10000);
+
 async function openGrcIntake(id){
  if(!activeGrcOrg||!id)return;activeGrcIntake=id;const data=await jf('/api/grc/organizations/'+encodeURIComponent(activeGrcOrg)+'/document-intakes/'+encodeURIComponent(id));renderGrcIntake(data);
 }

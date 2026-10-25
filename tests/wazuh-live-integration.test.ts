@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+test('Wazuh telemetry receiver is bounded and documented',async()=>{const s=await readFile('src/server.ts','utf8'),g=await readFile('docs/WAZUH_LIVE_INTEGRATION.md','utf8');assert.ok(s.includes("consumeRateLimit(rateKey,1200,1)"));for(const x of ['custom-aegis','AEGIS_WAZUH_WEBHOOK','AEGIS_WAZUH_TOKEN','Authorization','Bearer','CONNECTED only after an authenticated Wazuh alert'])assert.ok(g.includes(x),x);});

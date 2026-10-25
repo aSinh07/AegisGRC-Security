@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+test('guided GRC UI parses and supports OS system theme',()=>{const j=fs.readFileSync('public/manager-safe-ui.js','utf8');assert.doesNotThrow(()=>new vm.Script(j));assert.match(j,/prefers-color-scheme: dark/);assert.match(j,/resolvedMode/);assert.match(j,/Vault ID/);assert.match(j,/Guided Tour/);assert.match(j,/openGrcGuidedTour/)});
+test('copilot receives deterministic beginner GRC field guide',()=>{const j=fs.readFileSync('public/dashboard.js','utf8');for(const x of ['grcGuide','Vault ID','Control ID','CAPA','Audit key'])assert.ok(j.includes(x),x)});

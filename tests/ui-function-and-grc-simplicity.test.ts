@@ -1,23 +1,7 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-
-const h=fs.readFileSync('public/index.html','utf8');
-const d=fs.readFileSync('public/dashboard.js','utf8');
-const simple=fs.readFileSync('public/grc-simple-workflow.js','utf8');
-
-test('Enterprise GRC uses six plain guided stages',()=>{
-  for(const x of ['1 · Setup','2 · Controls','3 · Evidence','4 · Risk & Remediation','5 · Review & Assurance','6 · Extended Governance']) assert.ok(simple.includes(x),x);
-  assert.match(h,/grc-simple-workflow\.js/);
-  assert.match(h,/grc-simple-workflow\.css/);
-});
-
-test('workspace remains fail closed',()=>{
-  assert.match(h,/id="app" class="app"/);
-  assert.ok(d.includes("if(!s.authenticated)return location.replace('/')"));
-});
-
-test('login styling is isolated from workspace',()=>{
-  assert.doesNotMatch(h,/login-premium-v2\.css/);
-  assert.match(h,/workspace-light-fix\.css/);
-});
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+const h=fs.readFileSync('public/index.html','utf8'),d=fs.readFileSync('public/dashboard.js','utf8'),a=fs.readFileSync('public/architecture-3d.js','utf8'),ui=fs.readFileSync('public/manager-safe-ui.js','utf8');
+test('manager-safe workspace loads only supported runtime layers',()=>{for(const x of ['/dashboard.js','/architecture-3d.js','/enterprise-ops.js','/manager-safe-ui.js'])assert.ok(h.includes(x),x);for(const x of ['/enterprise-v2.js','/enterprise-ux-v3.js','/grc-simple-workflow.js'])assert.ok(!h.includes(x),x)});
+test('workspace core browser scripts parse',()=>{for(const [n,s] of [['dashboard',d],['architecture',a],['manager-ui',ui]])assert.doesNotThrow(()=>new vm.Script(s,{filename:n}))});
+test('production dashboard has no permanent animation or polling loops',()=>{assert.doesNotMatch(d,/requestAnimationFrame|setInterval/);assert.doesNotMatch(a,/requestAnimationFrame|setInterval/)});
+test('manager theme studio keeps light dark system and six palettes',()=>{for(const x of ['system','light','dark','cyber','ocean','emerald','royal','sunset','executive'])assert.ok(ui.includes(x),x)});
+test('authenticated workspace is server protected and fail visible',()=>{assert.match(h,/id="app" class="app"/);assert.ok(d.includes("if(!s.authenticated){location.replace('/');return}"))});

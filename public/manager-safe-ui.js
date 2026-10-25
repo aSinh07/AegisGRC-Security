@@ -1,13 +1,5 @@
 (()=>{'use strict';
-function install(){
- const host=document.querySelector('.top-actions');if(!host||document.getElementById('safeTheme'))return;
- const wrap=document.createElement('div');wrap.id='safeTheme';wrap.className='row';
- const select=document.createElement('select');select.setAttribute('aria-label','Theme');select.innerHTML='<option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option>';
- const saved=localStorage.getItem('aegis.safe.theme')||'system';select.value=saved;
- function apply(v){document.documentElement.dataset.theme=v;localStorage.setItem('aegis.safe.theme',v)}
- select.addEventListener('change',()=>apply(select.value));apply(saved);
- const label=document.createElement('span');label.className='muted';label.textContent='Theme';
- wrap.append(label,select);host.prepend(wrap);
-}
+const palettes={cyber:['Cyber','#22d3ee','#8b5cf6'],ocean:['Ocean','#38bdf8','#14b8a6'],emerald:['Emerald','#34d399','#10b981'],royal:['Royal','#a78bfa','#6366f1'],sunset:['Sunset','#fb923c','#f43f5e'],executive:['Executive','#d4af37','#60a5fa']};
+function install(){const host=document.querySelector('.top-actions');if(!host||document.getElementById('managerThemeStudio'))return;const box=document.createElement('div');box.id='managerThemeStudio';box.className='manager-theme';const mode=localStorage.getItem('aegis.theme.mode')||'system',palette=localStorage.getItem('aegis.palette')||'cyber';box.innerHTML='<label>Theme <select id="managerThemeMode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><label>Palette <select id="managerPalette">'+Object.entries(palettes).map(([k,v])=>'<option value="'+k+'">'+v[0]+'</option>').join('')+'</select></label>';host.prepend(box);const m=box.querySelector('#managerThemeMode'),p=box.querySelector('#managerPalette');m.value=mode;p.value=palette;function apply(){document.documentElement.dataset.theme=m.value;document.documentElement.dataset.palette=p.value;const c=palettes[p.value]||palettes.cyber;document.documentElement.style.setProperty('--aegis-cyan',c[1]);document.documentElement.style.setProperty('--aegis-blue',c[2]);localStorage.setItem('aegis.theme.mode',m.value);localStorage.setItem('aegis.palette',p.value)}m.addEventListener('change',apply);p.addEventListener('change',apply);apply()}
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',install):install();
 })();

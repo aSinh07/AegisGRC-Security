@@ -49,6 +49,8 @@ async function restoreLatestAssessment(){
  }catch(e){console.warn('Assessment restore unavailable',e);return false}
 }
 async function showApp(){app?.classList.remove('hidden');copilot?.classList.remove('hidden');await loadUserProfile();loadIntegrations();loadFrameworks();await restoreLatestAssessment();updateAiContext();const p=document.getElementById('dashboardPulse');if(p)p.textContent=assessmentId?'Assessment evidence available · ask AI for a governed briefing':'No active assessment · enterprise workspaces remain available'}
+function resumeLearningGuide(){const target=sessionStorage.getItem('aegis.learning.target'),prompt=sessionStorage.getItem('aegis.learning.prompt');if(!target&&!prompt)return;sessionStorage.removeItem('aegis.learning.target');sessionStorage.removeItem('aegis.learning.prompt');const nav=[...document.querySelectorAll('.nav button')].find(b=>String(b.dataset.aegisClick||'').includes("tab('"+target+"'"));if(nav)nav.click();if(prompt)setTimeout(()=>openCopilot(prompt),180)}
+
 function profileInitials(name,email){const v=(name||email||'A').trim().split(/\s+/).filter(Boolean);return ((v[0]?.[0]||'A')+(v.length>1?v[v.length-1][0]:'')).toUpperCase()}
 async function loadUserProfile(){try{const d=await jf('/api/auth/profile'),p=d.profile||{},initials=profileInitials(p.fullName,p.email);profileAvatar.textContent=initials;profileAvatarLarge.textContent=initials;profileName.textContent=p.fullName||'AegisGRC User';profileTitle.textContent=p.designation||'Workspace user';profileCompany.textContent=p.companyName||'—';profileDepartment.textContent=p.department||'—';profileWork.textContent=p.workProfile||'—';profileRole.textContent=String(p.role||'analyst').replaceAll('_',' ');profileEmail.textContent=p.email||'—'}catch(e){console.warn('Profile unavailable')}}
 function toggleProfileMenu(){profileMenu.classList.toggle('hidden')}
@@ -407,7 +409,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&copilot?.classList.
 setTimeout(()=>{const n=document.getElementById('aiNudge');if(n&&!copilot.classList.contains('open'))n.classList.add('show')},2200);
 function sparkle(){/* Decorative animation disabled for production responsiveness. */}
 function ambient(){const c=document.getElementById('ambientbg');if(c)c.style.display='none'/* Decorative animation disabled for production responsiveness. */}
-(async()=>{let s;try{s=await jf('/api/auth/status')}catch(e){console.error('Authentication check failed',e);location.replace('/');return}if(!s.authenticated){location.replace('/');return}try{await showApp()}catch(e){console.error('Workspace initialization degraded',e);app?.classList.remove('hidden');copilot?.classList.remove('hidden')}try{await loadOffensiveCatalog()}catch(e){console.warn('Offensive catalog unavailable',e)}})();
+(async()=>{let s;try{s=await jf('/api/auth/status')}catch(e){console.error('Authentication check failed',e);location.replace('/');return}if(!s.authenticated){location.replace('/');return}try{await showApp()}catch(e){console.error('Workspace initialization degraded',e);app?.classList.remove('hidden');copilot?.classList.remove('hidden')}try{await loadOffensiveCatalog()}catch(e){console.warn('Offensive catalog unavailable',e)}resumeLearningGuide()})();
 
 
 // CSP migration bridge: static markup actions are delegated from data attributes.

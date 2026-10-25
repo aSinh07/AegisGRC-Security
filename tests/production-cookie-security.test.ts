@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('production user session cookies fail secure',()=>{const s=fs.readFileSync('src/server.ts','utf8');assert.match(s,/httpOnly:true,sameSite:'strict',secure:process\.env\.NODE_ENV==='production'\|\|process\.env\.COOKIE_SECURE==='true'/);assert.match(s,/aegis_user=; HttpOnly; Secure; SameSite=Strict/);});

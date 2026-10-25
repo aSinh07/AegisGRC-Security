@@ -1,0 +1,25 @@
+
+/* Final workspace theme contract. Loaded last. Palette changes are intentionally visible. */
+:root{--accent:var(--aegis-cyan,#22d3ee);--accent-2:var(--aegis-blue,#8b5cf6);--surface:#081321;--surface-2:#06101c;--surface-3:#030b15;--page:#030812;--text:#edf7ff;--text-2:#a9bdd0;--line:#29445f;--shadow:rgba(0,0,0,.34)}
+:root[data-theme="light"]{--surface:#ffffff;--surface-2:#f7fafc;--surface-3:#eef4f8;--page:#f3f7fb;--text:#17243a;--text-2:#5b6f86;--line:#cbd9e6;--shadow:rgba(31,65,99,.10)}
+:root[data-theme="dark"]{--surface:#081321;--surface-2:#06101c;--surface-3:#030b15;--page:#030812;--text:#edf7ff;--text-2:#a9bdd0;--line:#29445f;--shadow:rgba(0,0,0,.34)}
+html body,html .main{background:var(--page)!important;color:var(--text)!important}
+html .top,html .card,html .reviewitem,html .reviewstat,html .reportcard,html .framework-console,html .grc-context>div,html .serial-current{background:var(--surface)!important;color:var(--text)!important;border-color:var(--line)!important}
+html .card h1,html .card h2,html .card h3,html .card h4,html .top h1,html .module-hero h2,html .executive-hero h2,html td,html th,html label,html summary{color:var(--text)!important}
+html .muted,html .metric-foot,html .metric-label small,html .grc-empty,html .manager-theme label,html small{color:var(--text-2)!important;opacity:1}
+html input,html select,html textarea{background:var(--surface-3)!important;color:var(--text)!important;border-color:var(--line)!important}
+html input::placeholder,html textarea::placeholder{color:var(--text-2)!important;opacity:.8}
+html table{color:var(--text)!important;border-color:var(--line)!important}html table tr,html table td,html table th{border-color:var(--line)!important}html table tbody tr:hover{background:color-mix(in srgb,var(--accent) 8%,var(--surface))!important}
+html .btn{background:var(--accent)!important;border-color:var(--accent)!important;color:#06101c!important}html .btn.alt{background:var(--surface-2)!important;color:var(--text)!important;border-color:color-mix(in srgb,var(--accent) 55%,var(--line))!important}
+html .workspace-kicker,html .card-eyebrow,html .grc-domain-kicker,html .live-dot,html .grc-context b,html .reviewstat b,html .fw:after{color:var(--accent)!important}
+html .bar i{background:linear-gradient(90deg,var(--accent),var(--accent-2))!important}
+html .pill,html .grc-health span{background:color-mix(in srgb,var(--accent) 8%,var(--surface))!important;border-color:color-mix(in srgb,var(--accent) 38%,var(--line))!important}
+html .serial-assurance-shell{border-color:color-mix(in srgb,var(--accent) 65%,var(--line))!important;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 10%,var(--surface)),color-mix(in srgb,var(--accent-2) 6%,var(--surface)))!important}
+html .serial-assurance-rail button,html .offensive-journey-rail button,html .defensive-journey-rail button{background:var(--surface-2)!important;color:var(--text)!important;border-color:var(--line)!important}
+html .serial-assurance-rail button.active,html .offensive-journey-rail button.active,html .defensive-journey-rail button.active{border-color:var(--accent)!important;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent)!important}
+html .grc-table-btn,html .grc-field-help{color:var(--accent)!important;border-color:var(--accent)!important}
+html pre,html .cpmsgs{background:var(--surface-3)!important;color:var(--text)!important;border:1px solid var(--line)}
+html .card,html .top,html .reviewitem,html .reviewstat{box-shadow:0 10px 28px var(--shadow)!important}
+html[data-theme="light"] .side{background:#071525!important;color:#d7e4f2!important}
+html[data-theme="light"] .side .nav button{color:#b9c9da!important}html[data-theme="light"] .side .nav button.active,html[data-theme="light"] .side .nav button:hover{color:var(--accent)!important;background:#0a2235!important}
+.manager-theme select{background:var(--surface-2)!important;color:var(--text)!important;border:1px solid var(--line)!important}

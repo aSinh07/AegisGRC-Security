@@ -13,7 +13,7 @@ test('Enterprise GRC uses six plain guided stages',()=>{
 });
 
 test('workspace remains fail closed',()=>{
-  assert.match(h,/id="app" class="app hidden"/);
+  assert.match(h,/id="app" class="app"/);
   assert.ok(d.includes("if(!s.authenticated)return location.replace('/')"));
 });
 

@@ -89,6 +89,7 @@ import {initScannerJobs,enqueueScannerJob,listScannerJobs,claimScannerJob,recove
 import { analyzeIntel } from './intel-ai.js';
 import {offensiveCapabilityCatalog,defensiveAssessment,securityWorkspaceSummary} from './security-operations.js';
 import {operationalSnapshot,recordHttpObservation} from './operational-health.js';
+import {initOperationalSecurity,registerTelemetrySource,telemetryDashboard,ingestWazuhTelemetry,reviewDetection} from './operational-security.js';
 import {capabilitiesFor,capabilitySummary} from './security-capabilities.js';
 import { docxReport,pptxReport,xlsxReport,csvReport,txtReport,reportModel,frameworkReportModel,frameworkDocx,frameworkXlsx,frameworkCsv,frameworkTxt,type ReportKind } from './exporters.js';
 
@@ -120,6 +121,7 @@ await initFindingRisk();
 await initAssessmentInventory();
 await initBreachAssessment();
 await initIncidentResponse();
+await initOperationalSecurity();
 await initSecurityReportHandoffs();
 await initSecurityFindingProposals();
 await initScannerJobs();
@@ -192,6 +194,7 @@ app.post('/api/auth/reset-password',async(req,res)=>{try{const email=String(req.
 }catch(e:any){res.status(400).json({error:e.message})}});
 app.post('/api/auth/logout',async(req,res)=>{const token=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_auth='))?.slice(11)||'';logout(token);const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';await userLogout(ut);res.setHeader('Set-Cookie',['aegis_auth=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/','aegis_user=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/']);res.json({ok:true})});
 app.get('/api/auth/status',async(req,res)=>{const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';res.json({authenticated:Boolean(await userSession(ut)),configured:true,legacyAdminConfigured:authConfigured()})});
+app.post('/api/security/telemetry/wazuh/:orgId/:sourceKey',async(req,res)=>{try{const auth=String(req.headers.authorization||'');const token=auth.startsWith('Bearer ')?auth.slice(7).trim():'';const out=await ingestWazuhTelemetry(req.params.orgId,req.params.sourceKey,token,req.body);res.status(202).json(out)}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.use('/api',async(req,res,next)=>{if(['/ready','/auth/login','/auth/user-login','/auth/register','/auth/register/confirm','/auth/reset-password','/auth/status'].includes(req.path))return next();const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';if(!await userSession(ut))return res.status(401).json({error:'User login required'});next()});
 app.get('/api/auth/profile',async(req,res)=>{const ut=(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('aegis_user='))?.slice(11)||'';const profile=await userSession(ut);if(!profile)return res.status(401).json({error:'User session required'});res.json({profile})});
 
@@ -545,6 +548,10 @@ app.post('/api/grc/organizations/:orgId/security-finding-proposals/:proposalId/r
 
 app.post('/api/grc/organizations/:orgId/security-report-handoffs',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json({handoff:await createSecurityReportHandoff(u.userId,req.params.orgId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/grc/organizations/:orgId/security-report-handoffs/:handoffId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({handoff:await reviewSecurityReportHandoff(u.userId,req.params.orgId,req.params.handoffId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+
+app.post('/api/security/organizations/:orgId/telemetry-sources',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json(await registerTelemetrySource(u.userId,req.params.orgId,req.body||{}))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.get('/api/security/organizations/:orgId/telemetry',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await telemetryDashboard(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
+app.post('/api/security/organizations/:orgId/detections/:detectionId/review',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json({detection:await reviewDetection(u.userId,req.params.orgId,req.params.detectionId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 
 app.get('/api/security/organizations/:orgId/incidents',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.json(await incidentDashboard(u.userId,req.params.orgId))}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
 app.post('/api/security/organizations/:orgId/incidents',async(req,res)=>{try{const u=await currentUser(req);if(!u)return res.status(401).json({error:'User session required'});res.status(201).json({incident:await createIncident(u.userId,req.params.orgId,req.body||{})})}catch(e:any){res.status(e.statusCode||400).json({error:e.message})}});
